@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "concurrently -n web,api -c magenta,cyan \"npm:dev:web\" \"npm:dev:api\"",
     "dev:web": "vite",
-    "dev:api": "tsx watch server/src/server.ts",
+    "dev:api": "cross-env PORT=8787 tsx watch server/src/server.ts",
     "build": "tsc -b && vite build",
     "start": "cross-env NODE_ENV=production tsx server/src/server.ts",
     "preview": "vite preview"

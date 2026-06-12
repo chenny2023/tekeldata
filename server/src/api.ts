@@ -33,7 +33,11 @@ export async function registerApi(app: FastifyInstance) {
   })
 
   // ── global stats (all REAL sums) ─────────────────────────────────────────────
+  // COUNT(DISTINCT counterparty) is a full scan over millions of rows — cache
+  // the result so polling clients don't recompute it on every request.
+  let statsCache: { data: unknown; at: number } | null = null
   app.get('/api/stats', async () => {
+    if (statsCache && Date.now() - statsCache.at < config.aggregateMs) return statsCache.data
     const now = Date.now()
     const d7 = now - 7 * 86_400_000
     const totals = db
@@ -46,7 +50,7 @@ export async function registerApi(app: FastifyInstance) {
       .prepare('SELECT chain, SUM(usd) v FROM transfers WHERE ts>=? GROUP BY chain')
       .all(d7) as any[]
     const liveStreamers = (db.prepare('SELECT COUNT(*) n FROM streamers WHERE live=1').get() as any).n
-    return {
+    const data = {
       totalVolume: totals.vol ?? 0,
       volume7d: vol7,
       totalTransfers: totals.tx ?? 0,
@@ -56,6 +60,8 @@ export async function registerApi(app: FastifyInstance) {
       liveStreamers,
       chainSplit: chains.map((c) => ({ chain: c.chain, value: c.v ?? 0 })),
     }
+    statsCache = { data, at: Date.now() }
+    return data
   })
 
   // ── entities (a.k.a. casinos/exchanges) leaderboard ──────────────────────────
