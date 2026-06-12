@@ -104,7 +104,7 @@ export default function Blockchain() {
                 </thead>
                 <tbody>
                   {rows.map((t, i) => (
-                    <tr key={t.tx_hash + t.direction} className={`border-b border-white/5 ${i === 0 ? 'row-flash' : ''}`}>
+                    <tr key={`${t.chain}:${t.tx_hash}:${t.counterparty}:${i}`} className={`border-b border-white/5 ${i === 0 ? 'row-flash' : ''}`}>
                       <td className="px-2 py-2.5">
                         <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${t.direction === 'in' ? 'bg-mint-400/12 text-mint-400' : 'bg-rose-400/12 text-rose-400'}`}>
                           {t.direction === 'in' ? <ArrowDownRight size={12} /> : <ArrowUpRight size={12} />}
@@ -135,8 +135,8 @@ export default function Blockchain() {
             <h3 className="mb-3 font-display text-lg font-semibold">🐋 Whale Alerts</h3>
             <div className="space-y-2.5">
               {whales.length === 0 && <p className="text-sm text-white/40">Watching for transfers &gt; $100K…</p>}
-              {whales.map((t) => (
-                <div key={t.tx_hash + t.direction} className="flex items-center gap-3 rounded-lg bg-white/[0.03] p-2.5">
+              {whales.map((t, i) => (
+                <div key={`${t.chain}:${t.tx_hash}:${t.counterparty}:${i}`} className="flex items-center gap-3 rounded-lg bg-white/[0.03] p-2.5">
                   <Bubble seed={t.label} size={30} />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium">{t.label}</div>
