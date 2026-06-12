@@ -56,7 +56,7 @@ export default function Overview() {
     <div className="fade-up">
       <PageHead
         title="Market Overview"
-        subtitle="Live on-chain intelligence — USDT/USDC settlement across Ethereum & Tron"
+        subtitle={`Live multi-chain intelligence — real stablecoin & native settlement across ${chainSplit.length || 9} indexed chains`}
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -122,8 +122,13 @@ export default function Overview() {
         </Card>
 
         <Card className="p-5">
-          <h3 className="font-display text-lg font-semibold">Volume by Chain</h3>
-          <p className="text-sm text-white/45">Share of indexed settlement</p>
+          <div className="flex items-center justify-between">
+            <h3 className="font-display text-lg font-semibold">Volume by Chain</h3>
+            {chainSplit.length > 0 && (
+              <span className="rounded-lg bg-white/6 px-2 py-0.5 text-[12px] font-semibold text-white/70">{chainSplit.length} chains</span>
+            )}
+          </div>
+          <p className="text-sm text-white/45">Share of indexed settlement · 7d</p>
           <div className="mt-2 flex items-center justify-center">
             <div className="h-44 w-44">
               {chainSplit.length === 0 ? (
@@ -142,12 +147,13 @@ export default function Overview() {
               )}
             </div>
           </div>
-          <div className="mt-2 space-y-2">
+          <div className="mt-2 max-h-44 space-y-1.5 overflow-y-auto pr-1">
             {chainSplit.map((c) => (
               <div key={c.chain} className="flex items-center gap-2 text-sm">
-                <span className="h-2.5 w-2.5 rounded-full" style={{ background: c.color }} />
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: c.color }} />
                 <span className="text-white/70">{c.chain}</span>
-                <span className="ml-auto font-semibold tabular-nums">{((c.value / totalChain) * 100).toFixed(1)}%</span>
+                <span className="ml-auto tabular-nums text-white/45">{fmtUsd(c.value)}</span>
+                <span className="w-12 text-right font-semibold tabular-nums">{((c.value / totalChain) * 100).toFixed(1)}%</span>
               </div>
             ))}
           </div>
@@ -162,8 +168,8 @@ export default function Overview() {
           </div>
           <div className="space-y-2">
             {feed.length === 0 && <EmptyState title="Awaiting on-chain events…" />}
-            {feed.map((t) => (
-              <div key={t.tx_hash + t.direction} className="row-flash flex items-center gap-2.5 rounded-lg px-1 py-1.5">
+            {feed.map((t, i) => (
+              <div key={`${t.chain}:${t.tx_hash}:${t.counterparty}:${i}`} className="row-flash flex items-center gap-2.5 rounded-lg px-1 py-1.5">
                 <div className={`grid h-7 w-7 shrink-0 place-items-center rounded-md ${t.direction === 'in' ? 'bg-mint-400/12 text-mint-400' : 'bg-rose-400/12 text-rose-400'}`}>
                   {t.direction === 'in' ? <ArrowDownRight size={15} /> : <ArrowUpRight size={15} />}
                 </div>

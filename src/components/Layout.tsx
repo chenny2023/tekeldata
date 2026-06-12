@@ -135,7 +135,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
 
         <footer className="border-t border-white/6 px-6 py-5 text-center text-[12px] text-white/30">
-          © 2026 WCOIN.CASINO — The Intelligence Layer for iGaming · Live on-chain data (ETH + TRON)
+          © 2026 WCOIN.CASINO — The Intelligence Layer for iGaming · Live on-chain data across 9 chains
         </footer>
       </div>
     </div>
