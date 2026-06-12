@@ -32,6 +32,20 @@ export interface Entity {
   votesUp: number
   votesDown: number
   firstSeen: number | null
+  byChain: { chain: string; value: number }[]
+  meta: CasinoMeta | null
+}
+
+export interface CasinoMeta {
+  name: string
+  license: string | null
+  foundedYear: number | null
+  houseEdge: number | null
+  sportsHouseEdge: number | null
+  currencies: string[]
+  chains: string[]
+  website: string | null
+  logo: string | null
 }
 
 export interface Transfer {

@@ -4,6 +4,7 @@ import { evmBalanceUsd } from './collectors/evm.ts'
 import { tronBalanceUsd } from './collectors/tron.ts'
 import { tronRpcBalanceUsd } from './collectors/tronrpc.ts'
 import { evmChainsBalanceUsd } from './collectors/evmchains.ts'
+import { matchCasinoMeta, CasinoMeta } from './casinometa.ts'
 
 const DAY = 86_400_000
 
@@ -28,6 +29,8 @@ export interface EntityAgg {
   votesUp: number
   votesDown: number
   firstSeen: number | null
+  byChain: { chain: string; value: number }[] // 7d volume split across the chains this entity transacts on
+  meta: CasinoMeta | null // public reference profile (license, house edge, …)
 }
 
 const aggSql = db.prepare(`
@@ -64,6 +67,18 @@ export function aggregateEntities(): EntityAgg[] {
     )
     .all() as { watch_id: number; up: number; down: number }[]
   const voteMap = new Map(voteRows.map((v) => [v.watch_id, v]))
+
+  // 7d volume per (entity, chain) in one scan — gives each entity its real
+  // multi-chain deposit split (one watch entry accrues flow on every EVM chain)
+  const chainRows = db
+    .prepare('SELECT watch_id, chain, SUM(usd) v FROM transfers WHERE ts >= ? GROUP BY watch_id, chain')
+    .all(params.d7) as { watch_id: number; chain: string; v: number }[]
+  const byChainMap = new Map<number, { chain: string; value: number }[]>()
+  for (const r of chainRows) {
+    const arr = byChainMap.get(r.watch_id) ?? []
+    arr.push({ chain: r.chain, value: r.v ?? 0 })
+    byChainMap.set(r.watch_id, arr)
+  }
 
   for (const w of rows) {
     const a = aggSql.get({ id: w.id, ...params }) as any
@@ -105,6 +120,8 @@ export function aggregateEntities(): EntityAgg[] {
       votesUp,
       votesDown,
       firstSeen: a.firstSeen ?? null,
+      byChain: (byChainMap.get(w.id) ?? []).sort((x, y) => y.value - x.value),
+      meta: w.category === 'casino' ? matchCasinoMeta(w.label) : null,
     })
   }
   out.sort((x, y) => y.volume7d - x.volume7d)
