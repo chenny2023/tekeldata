@@ -22,6 +22,7 @@ import { startWayback } from './collectors/wayback.ts'
 import { startCircus } from './collectors/circus.ts'
 import { startSolana } from './collectors/solana.ts'
 import { startAggregation } from './aggregate.ts'
+import { startAlerts } from './alerts.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const distDir = join(__dirname, '../../dist')
@@ -69,6 +70,7 @@ async function main() {
   startReddit() // social mentions (Reddit OAuth, optional creds)
   startNews() // brand mentions (Google News RSS, keyless)
   startAggregation()
+  startAlerts() // user-defined alert rules: whale stream + net-flow / reserve checks
 }
 
 main().catch((e) => {

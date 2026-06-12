@@ -218,6 +218,35 @@ export const api = {
     sendJson<{ token: string; user: AuthUser }>('/auth/login', 'POST', { email, password }),
   me: () => getJson<{ user: AuthUser }>('/auth/me'),
   logout: () => sendJson<{ ok: boolean }>('/auth/logout', 'POST'),
+  alertRules: () => getJson<AlertRule[]>('/alerts/rules'),
+  createAlertRule: (body: { kind: string; scope: string; scopeLabel?: string; threshold: number; windowH?: number; webhook?: string }) =>
+    sendJson<{ ok: boolean }>('/alerts/rules', 'POST', body),
+  deleteAlertRule: (id: number) => sendJson<{ ok: boolean }>(`/alerts/rules/${id}`, 'DELETE'),
+  alertEvents: (limit = 50) => getJson<AlertEvent[]>(`/alerts/events?limit=${limit}`),
+}
+
+export interface AlertRule {
+  id: number
+  kind: string
+  scope: string
+  scope_label: string | null
+  threshold: number
+  window_h: number
+  webhook: string | null
+  active: number
+  created_at: number
+}
+export interface AlertEvent {
+  id: number
+  rule_id: number
+  kind: string
+  title: string
+  detail: string | null
+  usd: number | null
+  entity: string | null
+  chain: string | null
+  tx_hash: string | null
+  ts: number
 }
 
 // ── Generic polling hook ──────────────────────────────────────────────────────

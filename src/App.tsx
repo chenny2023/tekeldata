@@ -10,6 +10,7 @@ import Streamers from './pages/Streamers'
 import Sentiment from './pages/Sentiment'
 import Players from './pages/Players'
 import Watchlist from './pages/Watchlist'
+import Alerts from './pages/Alerts'
 import Reports from './pages/Reports'
 import ApiAccess from './pages/ApiAccess'
 
@@ -24,6 +25,7 @@ function Dashboard() {
         <Route path="sentiment" element={<Sentiment />} />
         <Route path="players" element={<Players />} />
         <Route path="watchlist" element={<Watchlist />} />
+        <Route path="alerts" element={<Alerts />} />
         <Route path="reports" element={<Reports />} />
         <Route path="api" element={<ApiAccess />} />
       </Routes>

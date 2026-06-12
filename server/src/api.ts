@@ -265,6 +265,40 @@ export async function registerApi(app: FastifyInstance) {
     return { ok: true }
   })
 
+  // ── alerts: user-defined rules + fired events ────────────────────────────────
+  app.get('/api/alerts/rules', async (req, reply) => {
+    const user = userFromRequest(req)
+    if (!user) return reply.code(401).send({ error: 'login required' })
+    return db.prepare('SELECT * FROM alert_rules WHERE user_id=? ORDER BY created_at DESC').all(user.id)
+  })
+  app.post('/api/alerts/rules', async (req, reply) => {
+    const user = userFromRequest(req)
+    if (!user) return reply.code(401).send({ error: 'login required' })
+    const b = req.body as { kind?: string; scope?: string; scopeLabel?: string; threshold?: number; windowH?: number; webhook?: string }
+    const kind = b?.kind ?? ''
+    if (!['whale', 'netflow', 'reserve_drop'].includes(kind)) return reply.code(400).send({ error: 'invalid kind' })
+    if (!(Number(b?.threshold) > 0)) return reply.code(400).send({ error: 'threshold must be > 0' })
+    db.prepare(
+      `INSERT INTO alert_rules(user_id, kind, scope, scope_label, threshold, window_h, webhook, active, created_at)
+       VALUES(?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+    ).run(user.id, kind, b.scope || 'all', b.scopeLabel ?? null, Number(b.threshold), Number(b.windowH ?? 24), b.webhook?.trim() || null, Date.now())
+    return { ok: true }
+  })
+  app.delete('/api/alerts/rules/:id', async (req, reply) => {
+    const user = userFromRequest(req)
+    if (!user) return reply.code(401).send({ error: 'login required' })
+    const { id } = req.params as { id: string }
+    db.prepare('DELETE FROM alert_rules WHERE id=? AND user_id=?').run(Number(id), user.id)
+    return { ok: true }
+  })
+  app.get('/api/alerts/events', async (req, reply) => {
+    const user = userFromRequest(req)
+    if (!user) return reply.code(401).send({ error: 'login required' })
+    const q = req.query as { limit?: string }
+    const limit = Math.min(100, Number(q.limit ?? 50))
+    return db.prepare('SELECT * FROM alert_events WHERE user_id=? ORDER BY ts DESC LIMIT ?').all(user.id, limit)
+  })
+
   // ── SSE live transfer stream ─────────────────────────────────────────────────
   app.get('/api/stream', (req, reply) => {
     reply.raw.writeHead(200, {

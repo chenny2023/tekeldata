@@ -101,6 +101,36 @@ CREATE TABLE IF NOT EXISTS votes (
   PRIMARY KEY(user_id, watch_id)
 );
 
+CREATE TABLE IF NOT EXISTS alert_rules (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id     INTEGER NOT NULL,
+  kind        TEXT NOT NULL,                 -- 'whale' | 'netflow' | 'reserve_drop'
+  scope       TEXT NOT NULL DEFAULT 'all',   -- 'all' | watch_id (number, as text)
+  scope_label TEXT,                          -- display name of the target
+  threshold   REAL NOT NULL,                 -- USD (whale/netflow) or percent (reserve_drop)
+  window_h    INTEGER NOT NULL DEFAULT 24,
+  webhook     TEXT,                          -- optional POST endpoint
+  active      INTEGER NOT NULL DEFAULT 1,
+  created_at  INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS alert_events (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  rule_id   INTEGER NOT NULL,
+  user_id   INTEGER NOT NULL,
+  kind      TEXT NOT NULL,
+  title     TEXT NOT NULL,
+  detail    TEXT,
+  usd       REAL,
+  entity    TEXT,
+  chain     TEXT,
+  tx_hash   TEXT,
+  dedupe    TEXT,                            -- collapses repeat firings
+  ts        INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_alert_events_user ON alert_events(user_id, ts DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_alert_events_dedupe ON alert_events(rule_id, dedupe);
+
 CREATE TABLE IF NOT EXISTS mentions (
   id         TEXT PRIMARY KEY,            -- source post id
   watch_label TEXT NOT NULL,              -- entity label the mention matched
