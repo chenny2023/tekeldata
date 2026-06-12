@@ -203,6 +203,8 @@ export const api = {
   series: (days = 7) => getJson<SeriesPoint[]>(`/series?days=${days}`),
   entitySeries: (id: number, days = 30) =>
     getJson<{ chains: string[]; series: ({ t: number } & Record<string, number>)[] }>(`/entity/${id}/series?days=${days}`),
+  entityFlow: (id: number, days = 30) =>
+    getJson<{ entity: string | null; days: number; sources: FlowNode[]; sinks: FlowNode[] }>(`/entity/${id}/flow?days=${days}`),
   flow: () => getJson<FlowBucket[]>('/flow'),
   streamers: () =>
     getJson<{ enabled: boolean; twitch: boolean; roster: number; streamers: StreamerRow[]; offline: StreamerRow[] }>(
@@ -227,6 +229,12 @@ export const api = {
     sendJson<{ ok: boolean }>('/alerts/rules', 'POST', body),
   deleteAlertRule: (id: number) => sendJson<{ ok: boolean }>(`/alerts/rules/${id}`, 'DELETE'),
   alertEvents: (limit = 50) => getJson<AlertEvent[]>(`/alerts/events?limit=${limit}`),
+}
+
+export interface FlowNode {
+  name: string
+  usd: number
+  named: boolean
 }
 
 export interface AlertRule {

@@ -73,6 +73,85 @@ function ChainDist({ byChain }: { byChain: Entity['byChain'] }) {
   )
 }
 
+// money-flow Sankey: sources → entity → destinations, bands sized by real $ flow
+function MoneyFlow({ id }: { id: number }) {
+  const [data, setData] = useState<Awaited<ReturnType<typeof api.entityFlow>> | null>(null)
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    let alive = true
+    api.entityFlow(id, 30).then((d) => alive && setData(d)).catch(() => alive && setFailed(true))
+    return () => { alive = false }
+  }, [id])
+  if (failed) return null
+  if (!data) return <Skeleton className="h-40 w-full" />
+  const sources = data.sources, sinks = data.sinks
+  const totalIn = sources.reduce((s, n) => s + n.usd, 0)
+  const totalOut = sinks.reduce((s, n) => s + n.usd, 0)
+  if (totalIn === 0 && totalOut === 0) return <p className="text-[12px] text-white/35">No directional flow indexed in the last 30 days yet.</p>
+
+  const W = 820
+  const rows = Math.max(sources.length, sinks.length, 1)
+  const H = Math.max(150, rows * 32 + 30)
+  const top = 16, usable = H - top - 16
+  const ENTX = 402, SRCX = 150, SNKX = 660
+
+  // stacked bands on each side, proportional to share of that side's total
+  const band = (nodes: typeof sources, total: number) => {
+    let y = top
+    return nodes.map((n) => {
+      const h = total > 0 ? (n.usd / total) * usable : 0
+      const seg = { ...n, y, h, mid: y + h / 2 }
+      y += h
+      return seg
+    })
+  }
+  const src = band(sources, totalIn)
+  const snk = band(sinks, totalOut)
+  const IN = '#2ee6a6', OUT = '#f5b100'
+
+  // links also stacked along the entity bar (left = inflow order, right = outflow)
+  let ly = top
+  const inLinks = src.map((s) => { const h = s.h; const o = { s, ey: ly, eh: h }; ly += h; return o })
+  let ry = top
+  const outLinks = snk.map((s) => { const h = s.h; const o = { s, ey: ry, eh: h }; ry += h; return o })
+
+  const path = (x1: number, y1: number, x2: number, y2: number) => {
+    const mx = (x1 + x2) / 2
+    return `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`
+  }
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: 260 }}>
+      {/* inflow links */}
+      {inLinks.map((l, i) => (
+        <path key={'il' + i} d={path(SRCX + 8, l.s.mid, ENTX, l.ey + l.eh / 2)} stroke={IN} strokeOpacity={0.28} strokeWidth={Math.max(1, l.eh)} fill="none" />
+      ))}
+      {/* outflow links */}
+      {outLinks.map((l, i) => (
+        <path key={'ol' + i} d={path(ENTX + 8, l.ey + l.eh / 2, SNKX, l.s.mid)} stroke={OUT} strokeOpacity={0.28} strokeWidth={Math.max(1, l.eh)} fill="none" />
+      ))}
+      {/* source nodes */}
+      {src.map((s, i) => (
+        <g key={'s' + i}>
+          <rect x={SRCX} y={s.y} width={8} height={Math.max(2, s.h)} rx={2} fill={IN} fillOpacity={s.named ? 0.95 : 0.45} />
+          <text x={SRCX - 6} y={s.mid + 3} textAnchor="end" fontSize={11} fill="rgba(255,255,255,0.7)">{s.name}</text>
+          <text x={SRCX - 6} y={s.mid + 15} textAnchor="end" fontSize={9} fill="rgba(255,255,255,0.35)">{fmtUsd(s.usd)}</text>
+        </g>
+      ))}
+      {/* entity node */}
+      <rect x={ENTX} y={top} width={8} height={usable} rx={2} fill="#8b3df0" />
+      {/* sink nodes */}
+      {snk.map((s, i) => (
+        <g key={'k' + i}>
+          <rect x={SNKX} y={s.y} width={8} height={Math.max(2, s.h)} rx={2} fill={OUT} fillOpacity={s.named ? 0.95 : 0.45} />
+          <text x={SNKX + 14} y={s.mid + 3} fontSize={11} fill="rgba(255,255,255,0.7)">{s.name}</text>
+          <text x={SNKX + 14} y={s.mid + 15} fontSize={9} fill="rgba(255,255,255,0.35)">{fmtUsd(s.usd)}</text>
+        </g>
+      ))}
+    </svg>
+  )
+}
+
 function MetaCell({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
   return (
     <div>
@@ -331,6 +410,18 @@ export default function Casinos() {
                               <div className="mt-4">
                                 <div className="mb-2 text-[11px] uppercase tracking-wider text-white/40">Daily volume · 30d, stacked by chain{view === 'brand' ? ' (largest wallet)' : ''}</div>
                                 <EntityHistory id={c.histId} />
+                              </div>
+                            )}
+                            {c.histId > 0 && (
+                              <div className="mt-4">
+                                <div className="mb-2 flex items-center justify-between text-[11px] uppercase tracking-wider text-white/40">
+                                  <span>Money flow · 30d{view === 'brand' ? ' (largest wallet)' : ''}</span>
+                                  <span className="flex gap-3 normal-case tracking-normal">
+                                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-mint-400" />deposits in</span>
+                                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-gold-500" />withdrawals out</span>
+                                  </span>
+                                </div>
+                                <MoneyFlow id={c.histId} />
                               </div>
                             )}
                           </td>

@@ -157,6 +157,42 @@ export async function registerApi(app: FastifyInstance) {
     return { chains, series: out }
   })
 
+  // ── per-entity money-flow graph: sources → entity → destinations ─────────────
+  // Counterparties that are themselves watched are named; the rest roll up into
+  // an "Other …" bucket. Powers the Sankey on the casino detail view.
+  app.get('/api/entity/:id/flow', async (req) => {
+    const { id } = req.params as { id: string }
+    const q = req.query as { days?: string }
+    const days = Math.min(90, Math.max(7, Number(q.days ?? 30)))
+    const since = Date.now() - days * 86_400_000
+    const wid = Number(id)
+    const ent = db.prepare('SELECT label FROM watchlist WHERE id=?').get(wid) as any
+    if (!ent) return { entity: null, sources: [], sinks: [] }
+
+    const side = (direction: 'in' | 'out') => {
+      const rows = db
+        .prepare(
+          `SELECT t.counterparty AS addr, w2.label AS label, SUM(t.usd) AS usd, COUNT(*) AS n
+           FROM transfers t
+           LEFT JOIN watchlist w2 ON w2.address = t.counterparty AND w2.active = 1
+           WHERE t.watch_id = ? AND t.direction = ? AND t.ts >= ?
+           GROUP BY t.counterparty ORDER BY usd DESC`,
+        )
+        .all(wid, direction, since) as { addr: string; label: string | null; usd: number; n: number }[]
+      const named = rows.filter((r) => r.label)
+      const anon = rows.filter((r) => !r.label)
+      const top = named.slice(0, 6).map((r) => ({ name: r.label as string, usd: r.usd, named: true }))
+      // fold remaining named + all anonymous into buckets
+      const otherNamed = named.slice(6).reduce((s, r) => s + r.usd, 0)
+      const anonUsd = anon.reduce((s, r) => s + r.usd, 0)
+      const out = [...top]
+      if (otherNamed > 0) out.push({ name: 'Other entities', usd: otherNamed, named: false })
+      if (anonUsd > 0) out.push({ name: direction === 'in' ? `Depositors (${anon.length})` : `Withdrawers (${anon.length})`, usd: anonUsd, named: false })
+      return out
+    }
+    return { entity: ent.label, days, sources: side('in'), sinks: side('out') }
+  })
+
   // ── flow intelligence: tx-size distribution (REAL, derived) ──────────────────
   app.get('/api/flow', async () => {
     const d7 = Date.now() - 7 * 86_400_000
