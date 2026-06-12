@@ -2,12 +2,18 @@ import { useMemo, useState } from 'react'
 import { ArrowDownRight, ArrowUpRight, Boxes, Filter, ExternalLink } from 'lucide-react'
 import { Card, PageHead, ChainPill, LiveBadge, Bubble, EmptyState } from '../components/ui'
 import { api, usePoll, useLiveFeed } from '../data/api'
-import { fmtUsd, timeAgo, shortHash } from '../data/format'
+import { fmtUsd, timeAgo, shortHash, CHAIN_COLOR } from '../data/format'
 
-const CHAINS = ['ALL', 'ETH', 'TRON']
 const TX_URL: Record<string, (h: string) => string> = {
   ETH: (h) => `https://etherscan.io/tx/${h}`,
   TRON: (h) => `https://tronscan.org/#/transaction/${h}`,
+  BSC: (h) => `https://bscscan.com/tx/${h}`,
+  BASE: (h) => `https://basescan.org/tx/${h}`,
+  ARB: (h) => `https://arbiscan.io/tx/${h}`,
+  OP: (h) => `https://optimistic.etherscan.io/tx/${h}`,
+  POLYGON: (h) => `https://polygonscan.com/tx/${h}`,
+  AVAX: (h) => `https://snowtrace.io/tx/${h}`,
+  SOL: (h) => `https://solscan.io/tx/${h}`,
 }
 
 export default function Blockchain() {
@@ -33,13 +39,20 @@ export default function Blockchain() {
   const inflow = win.filter((t) => t.direction === 'in').reduce((s, t) => s + t.usd, 0)
   const outflow = win.filter((t) => t.direction === 'out').reduce((s, t) => s + t.usd, 0)
 
-  const chainCount = (stats?.chainSplit ?? []).filter((c) => c.value > 0).length
+  // chains offered in the filter = those with indexed volume, plus any seen live
+  const chainSplit = (stats?.chainSplit ?? []).filter((c) => c.value > 0).sort((a, b) => b.value - a.value)
+  const chainCount = chainSplit.length
+  const CHAINS = useMemo(() => {
+    const set = new Set<string>(chainSplit.map((c) => c.chain))
+    for (const t of feed) set.add(t.chain)
+    return ['ALL', ...[...set].sort()]
+  }, [stats, feed])
 
   return (
     <div className="fade-up">
       <PageHead
         title="Blockchain Mapping"
-        subtitle="Real-time USDT/USDC deposit & withdrawal flow across watched wallets"
+        subtitle="Real-time deposit & withdrawal flow across 9 chains — stablecoins & native settlement"
         right={<LiveBadge />}
       />
 
@@ -61,7 +74,7 @@ export default function Blockchain() {
         <Card className="p-4">
           <div className="text-[12px] uppercase tracking-wider text-white/45">Chains Mapped</div>
           <div className="mt-1 flex items-center gap-2 font-display text-2xl font-bold">
-            <Boxes size={20} className="text-violet-400" /> {chainCount || 2}
+            <Boxes size={20} className="text-violet-400" /> {chainCount || 9}
           </div>
         </Card>
       </div>
@@ -155,16 +168,17 @@ export default function Blockchain() {
             <h3 className="mb-3 font-display text-lg font-semibold">Chain Distribution</h3>
             <div className="space-y-3">
               {(() => {
-                const cs = stats?.chainSplit ?? []
-                const total = cs.reduce((s, c) => s + c.value, 0) || 1
-                return cs.map((c) => {
+                const total = chainSplit.reduce((s, c) => s + c.value, 0) || 1
+                return chainSplit.map((c) => {
                   const pct = (c.value / total) * 100
-                  const color = c.chain === 'ETH' ? '#8b3df0' : '#f5b100'
+                  const color = CHAIN_COLOR[c.chain] ?? '#888'
                   return (
                     <div key={c.chain}>
                       <div className="mb-1 flex justify-between text-[13px]">
-                        <span className="text-white/70">{c.chain}</span>
-                        <span className="font-semibold tabular-nums">{pct.toFixed(1)}%</span>
+                        <span className="flex items-center gap-1.5 text-white/70">
+                          <span className="h-2 w-2 rounded-full" style={{ background: color }} />{c.chain}
+                        </span>
+                        <span className="tabular-nums text-white/45">{fmtUsd(c.value)} · <span className="font-semibold text-white/80">{pct.toFixed(1)}%</span></span>
                       </div>
                       <div className="h-1.5 overflow-hidden rounded-full bg-white/8">
                         <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
