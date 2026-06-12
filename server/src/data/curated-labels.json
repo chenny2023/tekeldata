@@ -1,0 +1,27 @@
+{
+  "_about": "Curated, publicly-documented casino/sportsbook hot wallets. Every entry carries a public block-explorer name-tag (Etherscan/BscScan 'public name tag' cloud) — the same authoritative attribution class the platform already trusts. NOTHING here is guessed: each address is tagged by name on its block explorer and verifiable by opening the explorer URL. Operators may extend this file or add via the Watchlist UI; the indexer treats every entry identically. ETH addresses are matched on Ethereum mainnet (casinos routinely reuse the same 0x address across EVM chains).",
+  "_source_class": "block-explorer public name-tag",
+  "_updated": "2026-06-12",
+  "labels": [
+    { "chain": "ETH", "address": "0xcbd6832ebc203e49e2b771897067fce3c58575ac", "label": "Rollbit", "category": "casino", "source": "Etherscan name-tag: Rollbit: Hot Wallet" },
+    { "chain": "ETH", "address": "0xc94ebb328ac25b95db0e0aa968371885fa516215", "label": "Roobet", "category": "casino", "source": "Etherscan name-tag: Roobet: Hot Wallet" },
+    { "chain": "ETH", "address": "0xd5fbda4c79f38920159fe5f22df9655fde292d47", "label": "Gamdom", "category": "casino", "source": "Etherscan name-tag: Gamdom: Hot Wallet" },
+    { "chain": "ETH", "address": "0x788529118f2a28c60b9de2ba0353f5ee4293e044", "label": "BC.Game (Hot Wallet 1)", "category": "casino", "source": "Etherscan name-tag: BC.GAME: Hot Wallet 1" },
+    { "chain": "ETH", "address": "0x8aaf720bbbcac82c592ac8f6c628bbac1590e079", "label": "BC.Game (Hot Wallet 2)", "category": "casino", "source": "Etherscan name-tag: BC.GAME: Hot Wallet 2" },
+    { "chain": "ETH", "address": "0x41fc802e01bcf85d91e5708b42d41c2eaf01f375", "label": "BC.Game (Hot Wallet 3)", "category": "casino", "source": "Etherscan name-tag: BC.Game: Hot Wallet" },
+    { "chain": "ETH", "address": "0xe983fd1798689eee00c0fb77e79b8f372df41060", "label": "BC.Game (Hot Wallet 4)", "category": "casino", "source": "Etherscan name-tag: BC.GAME: Hot Wallet 4" },
+    { "chain": "ETH", "address": "0x9d2a0e32633d9be838bfde19d510e6aa6eb202dd", "label": "BC.Game (Hot Wallet 5)", "category": "casino", "source": "Etherscan name-tag: BC.GAME: Hot Wallet 5" },
+    { "chain": "ETH", "address": "0x014435b1e39945cf4f5f0c3cbb5833195a95cc9b", "label": "Duelbits", "category": "casino", "source": "Etherscan name-tag: Duelbits" },
+    { "chain": "ETH", "address": "0x5bcbdfb6cc624b959c39a2d16110d1f2d9204f72", "label": "Bitcasino.io", "category": "casino", "source": "Etherscan name-tag: Bitcasino.io: Hot Wallet" },
+    { "chain": "ETH", "address": "0x52a258ed593c793251a89bfd36cae158ee9fc4f8", "label": "BetFury", "category": "casino", "source": "Etherscan name-tag: BetFury: Hot Wallet" },
+    { "chain": "ETH", "address": "0x527f023e75e381073c9b6a998ad516a0dfaabfad", "label": "Crypto.Games", "category": "casino", "source": "Etherscan name-tag: Crypto.Games: Hot Wallet" },
+    { "chain": "ETH", "address": "0x1544d2de126e3a4b194cfad2a5c6966b3460ebe3", "label": "MetaWin", "category": "casino", "source": "Etherscan name-tag: Metawin: Deployer 1" },
+    { "chain": "ETH", "address": "0xafc53db8506736e8264b4629e971a152ec3ff7d4", "label": "500 Casino", "category": "casino", "source": "Etherscan name-tag: 500 Casino: Hot Wallet" },
+    { "chain": "ETH", "address": "0x12352a385b6ca96b724d6203e234dc25f73e224c", "label": "CSGO500", "category": "casino", "source": "Etherscan name-tag: CSGO500: Hot Wallet" },
+    { "chain": "ETH", "address": "0x4ad8d9cf9424b477e77a0d7c339c4de792b92fc6", "label": "1xBet (Hot Wallet 1)", "category": "casino", "source": "Etherscan name-tag: 1xBet: Hot Wallet 1" },
+    { "chain": "ETH", "address": "0x974caa59e49682cda0ad2bbe82983419a2ecc400", "label": "Stake.com", "category": "casino", "source": "Etherscan name-tag: Stake.com" },
+    { "chain": "ETH", "address": "0xb04c0eb29c72cebc467b9d4944d29116fa02c44a", "label": "Stake.com (4)", "category": "casino", "source": "Etherscan name-tag: Stake.com 4" },
+    { "chain": "ETH", "address": "0x787b8840100d9baadd7463f4a73b5ba73b00c6ca", "label": "Stake.com (11)", "category": "casino", "source": "Etherscan name-tag: Stake.com 11" },
+    { "chain": "ETH", "address": "0x7a7f78a2af5aef01a889e8713083ab77dcc9fc9b", "label": "wolf.bet", "category": "casino", "source": "Etherscan/BscScan name-tag: wolf.bet" }
+  ]
+}

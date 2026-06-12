@@ -18,6 +18,7 @@ import { startReddit } from './collectors/reddit.ts'
 import { startNews } from './collectors/news.ts'
 import { startLabels } from './collectors/labels.ts'
 import { startWayback } from './collectors/wayback.ts'
+import { startCircus } from './collectors/circus.ts'
 import { startAggregation } from './aggregate.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -58,6 +59,7 @@ async function main() {
   }
   startLabels() // casino-wallet attribution harvester (Etherscan/Tronscan labels)
   startWayback() // etherscan-nametag attribution via Wayback snapshots (keyless)
+  startCircus() // casino attribution via circus.fyi whale-feed → on-chain tx resolution
   startKick() // streamer monitoring (Kick public API, keyless)
   startTwitch() // streamer monitoring (Twitch Helix, optional creds)
   startReddit() // social mentions (Reddit OAuth, optional creds)
