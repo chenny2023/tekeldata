@@ -1,0 +1,272 @@
+import { config, TRANSFER_TOPIC } from '../config.ts'
+import { db, stmt, stateGet, stateSet, WatchRow } from '../db.ts'
+import { emitTransfer } from '../bus.ts'
+import { b58ToHex20, hex20ToB58 } from '../tronaddr.ts'
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tron collector via the EVM-compatible JSON-RPC layer (eth_getLogs).
+//
+// Verified against TronGrid's public /jsonrpc: topic filtering works and the
+// node accepts ranges up to 5000 blocks (~4h at 3s/block). This replaces the
+// per-address REST polling with the same wide-scan strategy as Ethereum:
+// one getLogs pair covers EVERY watched Tron address, and a deep backfill
+// walks history backward. Point TRON_JSONRPC at a dedicated provider
+// (e.g. GetBlock with protocol = JSON-RPC) for unlimited rate.
+//
+// Addresses: watchlist stores base58 (T…); on the wire we use 20-byte hex.
+// Timestamps: derived from block numbers (3s Tron slots) against a live anchor.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const BLOCK_MS = 3_000
+const RANGE_FLOOR = 100
+
+async function rpc(method: string, params: unknown[]): Promise<any> {
+  const res = await fetch(config.tronJsonRpc, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+    signal: AbortSignal.timeout(20_000),
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const json = await res.json()
+  if (json.error) throw new Error(json.error.message || 'rpc error')
+  return json.result
+}
+
+interface TronWatch {
+  row: WatchRow
+  hex20: string
+}
+
+function watchedTron(): TronWatch[] {
+  const rows = stmt.watchByChain.all('TRON') as WatchRow[]
+  const out: TronWatch[] = []
+  for (const row of rows) {
+    try {
+      out.push({ row, hex20: b58ToHex20(row.address) })
+    } catch {
+      console.warn(`[tronrpc] skipping malformed address ${row.address} (${row.label})`)
+    }
+  }
+  return out
+}
+
+const pad32 = (hex20: string) => '0x000000000000000000000000' + hex20
+
+async function getLogsRange(
+  usdtHex: string,
+  watched: string[],
+  from: number,
+  to: number,
+  topicPos: 1 | 2,
+): Promise<any[]> {
+  return rpc('eth_getLogs', [
+    {
+      address: usdtHex,
+      fromBlock: '0x' + from.toString(16),
+      toBlock: '0x' + to.toString(16),
+      topics:
+        topicPos === 2
+          ? [TRANSFER_TOPIC, null, watched.map(pad32)]
+          : [TRANSFER_TOPIC, watched.map(pad32), null],
+    },
+  ])
+}
+
+function insertLogs(
+  logs: any[],
+  byHex: Map<string, WatchRow>,
+  anchorBlock: number,
+  anchorTs: number,
+  emitRecent: boolean,
+): number {
+  let added = 0
+  const tx = db.transaction((items: any[]) => {
+    for (const log of items) {
+      const fromHex = log.topics[1].slice(26).toLowerCase()
+      const toHex = log.topics[2].slice(26).toLowerCase()
+      const watchTo = byHex.get(toHex)
+      const watchFrom = byHex.get(fromHex)
+      const w = watchTo ?? watchFrom
+      if (!w) continue
+      const amount = Number(BigInt(log.data === '0x' ? '0x0' : log.data)) / 1e6 // USDT 6dp
+      if (!(amount > 0)) continue
+      const block = Number(BigInt(log.blockNumber))
+      const ts = anchorTs - (anchorBlock - block) * BLOCK_MS
+      const fromB58 = hex20ToB58(fromHex)
+      const toB58 = hex20ToB58(toHex)
+      const rec = {
+        chain: 'TRON',
+        tx_hash: log.transactionHash,
+        log_index: Number(BigInt(log.logIndex ?? '0x0')),
+        token: 'USDT',
+        from_addr: fromB58,
+        to_addr: toB58,
+        counterparty: watchTo ? fromB58 : toB58,
+        amount,
+        usd: amount,
+        watch_id: w.id,
+        label: w.label,
+        category: w.category,
+        direction: watchTo ? ('in' as const) : ('out' as const),
+        block,
+        ts,
+      }
+      const r = stmt.insertTransfer.run(rec)
+      if (r.changes > 0) {
+        added++
+        if (emitRecent && Date.now() - ts < 600_000) emitTransfer(rec)
+      }
+    }
+  })
+  tx(logs)
+  return added
+}
+
+// One-time migration: v1-collected TRON rows have synthetic block=0/log_index=0
+// and would duplicate the jsonrpc rows. Drop them; the backfill below restores
+// the same window with real block numbers and log indices.
+function migrateFromV1() {
+  if (stateGet('tronrpc:migrated')) return
+  const n = db.prepare("DELETE FROM transfers WHERE chain='TRON'").run().changes
+  for (const row of db.prepare("SELECT key FROM sync_state WHERE key LIKE 'tron:%'").all() as any[]) {
+    db.prepare('DELETE FROM sync_state WHERE key=?').run(row.key)
+  }
+  stateSet('tronrpc:migrated', 1)
+  if (n) console.log(`[tronrpc] migrated: dropped ${n} v1 rows — re-indexing with real block data`)
+}
+
+// ── forward indexer ───────────────────────────────────────────────────────────
+export async function runTronRpcOnce() {
+  const watched = watchedTron()
+  if (watched.length === 0) return
+  const byHex = new Map(watched.map((w) => [w.hex20, w.row]))
+  const hexes = watched.map((w) => w.hex20)
+  const usdtHex = '0x' + b58ToHex20(config.tronUsdt.address)
+
+  const head = Number(BigInt(await rpc('eth_blockNumber', [])))
+  let last = Number(stateGet('tronrpc:lastBlock') ?? 0)
+  if (last === 0) last = head - 100
+  if (last >= head) return
+
+  let from = last + 1
+  while (from <= head) {
+    const to = Math.min(from + config.tronMaxRange - 1, head)
+    // sequential (not parallel) to stay under shared-endpoint burst limits
+    const deposits = await getLogsRange(usdtHex, hexes, from, to, 2)
+    await new Promise((r) => setTimeout(r, 300))
+    const withdrawals = await getLogsRange(usdtHex, hexes, from, to, 1)
+    const added = insertLogs([...deposits, ...withdrawals], byHex, head, Date.now(), true)
+    stateSet('tronrpc:lastBlock', to)
+    if (added) console.log(`[tronrpc] blocks ${from}-${to}: +${added} transfers`)
+    from = to + 1
+  }
+}
+
+// ── deep historical backfill (mirrors the ETH backfiller) ─────────────────────
+export async function runTronBackfill() {
+  if (config.deepBackfillDays <= 0) return
+  const watched = watchedTron()
+  if (watched.length === 0) return
+  const byHex = new Map(watched.map((w) => [w.hex20, w.row]))
+  const hexes = watched.map((w) => w.hex20)
+  const usdtHex = '0x' + b58ToHex20(config.tronUsdt.address)
+
+  let anchorBlock = Number(stateGet('tronrpc:anchor') ?? 0)
+  let anchorTs = Number(stateGet('tronrpc:anchorTs') ?? 0)
+  if (!anchorBlock) {
+    anchorBlock = Number(BigInt(await rpc('eth_blockNumber', [])))
+    anchorTs = Date.now()
+    stateSet('tronrpc:anchor', anchorBlock)
+    stateSet('tronrpc:anchorTs', anchorTs)
+  }
+  const target = anchorBlock - Math.ceil((config.deepBackfillDays * 86_400_000) / BLOCK_MS)
+  let cursor = Number(stateGet('tronrpc:cursor') ?? anchorBlock)
+
+  if (cursor <= target) {
+    const doneCount = Number(stateGet('tronrpc:doneWatchCount') ?? 0)
+    if (doneCount && watched.length >= doneCount + 5) {
+      console.log(`[tronrpc] watchlist grew ${doneCount} → ${watched.length}, rescanning history`)
+      cursor = anchorBlock
+      stateSet('tronrpc:cursor', cursor)
+    } else {
+      if (!doneCount) stateSet('tronrpc:doneWatchCount', watched.length)
+      return
+    }
+  }
+
+  let range = config.tronMaxRange
+  let failsAtFloor = 0
+  console.log(
+    `[tronrpc] backfill ${cursor} → ${target} (${(((cursor - target) * BLOCK_MS) / 86_400_000).toFixed(1)}d remaining)`,
+  )
+  while (cursor > target) {
+    const from = Math.max(target, cursor - range)
+    try {
+      const deposits = await getLogsRange(usdtHex, hexes, from, cursor, 2)
+      await new Promise((r) => setTimeout(r, 400))
+      const withdrawals = await getLogsRange(usdtHex, hexes, from, cursor, 1)
+      const added = insertLogs([...deposits, ...withdrawals], byHex, anchorBlock, anchorTs, false)
+      cursor = from - 1
+      stateSet('tronrpc:cursor', cursor)
+      range = Math.min(config.tronMaxRange, Math.ceil(range * 1.5))
+      failsAtFloor = 0
+      if (added > 0) {
+        const daysLeft = Math.max(0, ((cursor - target) * BLOCK_MS) / 86_400_000)
+        console.log(`[tronrpc] backfill ${from}-${cursor + range}: +${added} · ${daysLeft.toFixed(1)}d left`)
+      }
+    } catch {
+      if (range > RANGE_FLOOR) range = Math.max(RANGE_FLOOR, Math.floor(range / 2))
+      else if (++failsAtFloor >= 4) {
+        cursor = from - 1
+        stateSet('tronrpc:cursor', cursor)
+        failsAtFloor = 0
+      }
+    }
+    await new Promise((r) => setTimeout(r, 1200)) // polite on shared jsonrpc
+  }
+  stateSet('tronrpc:doneWatchCount', watched.length)
+  console.log(`[tronrpc] backfill complete — ${config.deepBackfillDays}d of TRON history indexed`)
+}
+
+// ── reserves via eth_call balanceOf (replaces v1 account API) ─────────────────
+export async function tronRpcBalanceUsd(addressB58: string): Promise<number> {
+  try {
+    const usdtHex = '0x' + b58ToHex20(config.tronUsdt.address)
+    const data = '0x70a08231' + pad32(b58ToHex20(addressB58)).slice(2)
+    const res = await rpc('eth_call', [{ to: usdtHex, data }, 'latest'])
+    return Number(BigInt(res === '0x' ? '0x0' : res)) / 1e6
+  } catch {
+    return 0
+  }
+}
+
+export function startTronRpc() {
+  migrateFromV1()
+  let backoff = config.tronPollMs
+  const forward = async () => {
+    let ok = true
+    try {
+      await runTronRpcOnce()
+    } catch (e) {
+      ok = false
+      console.warn('[tronrpc] forward error:', (e as Error).message)
+    } finally {
+      // exponential backoff on shared-endpoint rate limits, reset on success
+      backoff = ok ? config.tronPollMs : Math.min(backoff * 2, 90_000)
+      setTimeout(forward, backoff)
+    }
+  }
+  forward()
+
+  const backfill = async () => {
+    try {
+      await runTronBackfill()
+    } catch (e) {
+      console.warn('[tronrpc] backfill error:', (e as Error).message)
+    } finally {
+      setTimeout(backfill, 120_000)
+    }
+  }
+  setTimeout(backfill, 15_000)
+}

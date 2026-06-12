@@ -1,0 +1,158 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-ink-950: #06060b;
+  --color-ink-900: #0a0a12;
+  --color-ink-850: #0f0f1a;
+  --color-ink-800: #14141f;
+  --color-ink-700: #1c1c2b;
+  --color-ink-600: #262638;
+
+  --color-gold-300: #ffe27a;
+  --color-gold-400: #ffd24a;
+  --color-gold-500: #f5b100;
+  --color-gold-600: #d99400;
+
+  --color-violet-400: #a855f7;
+  --color-violet-500: #8b3df0;
+  --color-violet-600: #7026d9;
+
+  --color-mint-400: #2ee6a6;
+  --color-rose-400: #ff5c7a;
+
+  --font-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--color-ink-950);
+  color: #e9e9f2;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Ambient background glow */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(900px 600px at 12% -5%, rgba(139, 61, 240, 0.16), transparent 60%),
+    radial-gradient(820px 560px at 95% 0%, rgba(245, 177, 0, 0.1), transparent 55%),
+    radial-gradient(1000px 700px at 50% 110%, rgba(139, 61, 240, 0.08), transparent 60%);
+  pointer-events: none;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #26263a;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #34344e;
+  background-clip: padding-box;
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+  }
+  .glass {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015));
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    backdrop-filter: blur(12px);
+  }
+  .glass-hover {
+    transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease;
+  }
+  .glass-hover:hover {
+    border-color: rgba(245, 177, 0, 0.35);
+    transform: translateY(-2px);
+  }
+  .text-gradient-gold {
+    background: linear-gradient(95deg, #ffe27a, #f5b100 55%, #d99400);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .text-gradient-violet {
+    background: linear-gradient(95deg, #c79bff, #8b3df0);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .ring-gold {
+    box-shadow: 0 0 0 1px rgba(245, 177, 0, 0.4), 0 0 28px rgba(245, 177, 0, 0.18);
+  }
+  .grid-noise {
+    background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.8); }
+}
+.live-dot {
+  animation: pulse-dot 1.4s ease-in-out infinite;
+}
+
+@keyframes ticker-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.ticker-track {
+  animation: ticker-scroll 38s linear infinite;
+}
+.ticker-track:hover {
+  animation-play-state: paused;
+}
+
+@keyframes row-flash {
+  from { background-color: rgba(245, 177, 0, 0.14); }
+  to { background-color: transparent; }
+}
+.row-flash {
+  animation: row-flash 1.6s ease-out;
+}
+
+@keyframes spin-slow {
+  to { transform: rotate(360deg); }
+}
+.spin-slow {
+  animation: spin-slow 9s linear infinite;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-up {
+  animation: fade-up 0.4s ease both;
+}
