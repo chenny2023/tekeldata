@@ -37,15 +37,14 @@ const SEEDS: Seed[] = [
   { chain: 'TRON', address: 'THPvaUhoh2Qn2y9THCZML3H815hhFhn5YC', label: 'OKX (TRON)', category: 'exchange' },
   { chain: 'TRON', address: 'TMuA6YqfCeX8EhbfYEg5y7S4DqzSJireY9', label: 'Huobi (TRON)', category: 'exchange' },
 
-  // ── XRP Ledger — public exchange hot wallets (XRP native + issued stables) ──
-  { chain: 'XRP', address: 'rLW9gnQo7BQhU6igk5keqYnH3TVrCxGRzm', label: 'Binance (XRP)', category: 'exchange' },
-
-  // ── Bitcoin — public exchange hot wallets (Esplora-indexed) ────────────────
-  { chain: 'BTC', address: 'bc1qgdjqv0av3q56jvd82tkdjpy7gdp9ut8tlqmgrpmv24sq90ecnvqqjwvw97', label: 'Bitfinex (BTC)', category: 'exchange' },
-  { chain: 'BTC', address: '3M219KR5vEneNb47ewrPfWyb5jQ2DjxRP6', label: 'Binance (BTC)', category: 'exchange' },
-
-  // ── Litecoin — public exchange hot wallet ──────────────────────────────────
-  { chain: 'LTC', address: 'MGxNPPB7eBoWPUaprtX9v9CXJZoD2465zN', label: 'Binance (LTC)', category: 'exchange' },
+  // ── Non-EVM seeds — large, on-chain-active public addresses. Labeled
+  // conservatively as "whale" because (unlike ETH/TRON) we have no keyless
+  // block-explorer name-tag to confirm a specific exchange. They exist so each
+  // chain shows real, live flow immediately; rename them on the Watchlist once
+  // attributed.
+  { chain: 'XRP', address: 'rLW9gnQo7BQhU6igk5keqYnH3TVrCxGRzm', label: 'XRP Whale', category: 'whale' },
+  { chain: 'BTC', address: '3M219KR5vEneNb47ewrPfWyb5jQ2DjxRP6', label: 'Bitcoin Whale', category: 'whale' },
+  { chain: 'LTC', address: 'MGxNPPB7eBoWPUaprtX9v9CXJZoD2465zN', label: 'Litecoin Whale', category: 'whale' },
 ]
 
 export function seedWatchlist() {
