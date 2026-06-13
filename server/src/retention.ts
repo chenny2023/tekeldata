@@ -11,7 +11,7 @@ import { config } from './config.ts'
 // size in place without an (impossible-on-a-full-disk) VACUUM.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BATCH = 20_000
+const BATCH = 5_000
 
 export async function pruneOldTransfers(): Promise<number> {
   if (!(config.retainDays > 0)) return 0
@@ -22,8 +22,6 @@ export async function pruneOldTransfers(): Promise<number> {
   const del = db.prepare(
     'DELETE FROM transfers WHERE rowid IN (SELECT rowid FROM transfers WHERE ts < ? LIMIT ?)',
   )
-  // reclaim WAL space up front so the first batches have room to write
-  try { db.pragma('wal_checkpoint(TRUNCATE)') } catch {}
   let deleted = 0
   for (;;) {
     let changes = 0
@@ -34,10 +32,13 @@ export async function pruneOldTransfers(): Promise<number> {
       break
     }
     deleted += changes
-    try { db.pragma('wal_checkpoint(TRUNCATE)') } catch {}
     if (changes < BATCH) break
-    await new Promise((r) => setImmediate(r)) // yield so the API/event loop stays responsive
+    // breathe between batches so the API/event loop stays fully responsive — the
+    // WAL is size-capped (journal_size_limit) + auto-checkpointed, so it can't
+    // bloat even without an explicit checkpoint here.
+    await new Promise((r) => setTimeout(r, 60))
   }
+  try { db.pragma('wal_checkpoint(TRUNCATE)') } catch {}
   console.log(`[retention] pruned ${deleted} transfers; freed pages are reused so the DB file stops growing`)
   return deleted
 }
@@ -47,7 +48,11 @@ export function startRetention() {
     console.log('[retention] disabled (set RETAIN_DAYS to enable)')
     return
   }
-  // periodic prune; the initial pass is run explicitly at boot in server.ts
+  // run the first pass shortly after boot (never blocks startup/healthcheck),
+  // then every 6h
+  setTimeout(() => {
+    pruneOldTransfers().catch((e) => console.warn('[retention] initial prune failed:', (e as Error).message))
+  }, 30_000)
   setInterval(() => {
     pruneOldTransfers().catch((e) => console.warn('[retention] prune failed:', (e as Error).message))
   }, 6 * 3600_000)
