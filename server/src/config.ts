@@ -91,12 +91,21 @@ export const config = {
   twitchClientId: env.TWITCH_CLIENT_ID ?? '',
   twitchClientSecret: env.TWITCH_CLIENT_SECRET ?? '',
 
-  // ── Email delivery for passwordless sign-in codes (Resend HTTP API) ──────────
+  // ── Email delivery for passwordless sign-in codes ────────────────────────────
   // The product is 100% free: anyone signs up with just an email + a 6-digit
-  // code. Set RESEND_API_KEY to send real emails; without it the code is logged
-  // to the server console (and surfaced to the client in dev) so the flow still
-  // works end-to-end. RESEND_FROM must be a verified sender on your Resend
-  // account (the shared onboarding@resend.dev only delivers to the account owner).
+  // code. Two transports are supported (first one configured wins):
+  //   1. SMTP (e.g. Gmail): set EMAIL_USER + EMAIL_PASSWORD (a Gmail App
+  //      Password, NOT the account password). Host/port default to Gmail.
+  //   2. Resend HTTP API: set RESEND_API_KEY (+ RESEND_FROM verified sender).
+  // With neither set, the code is logged to the server console (and returned to
+  // the client only outside production) so the flow still works end-to-end.
+  smtpHost: env.EMAIL_HOST ?? 'smtp.gmail.com',
+  smtpPort: Number(env.EMAIL_PORT ?? 465),
+  smtpUser: env.EMAIL_USER ?? '',
+  smtpPass: env.EMAIL_PASSWORD ?? '',
+  // From-address: defaults to the SMTP user; override with EMAIL_FROM
+  emailFrom: env.EMAIL_FROM ?? env.EMAIL_USER ?? '',
+
   resendApiKey: env.RESEND_API_KEY ?? '',
   resendFrom: env.RESEND_FROM ?? 'WCOIN.CASINO <onboarding@resend.dev>',
 }

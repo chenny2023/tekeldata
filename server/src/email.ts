@@ -1,26 +1,30 @@
+import nodemailer, { type Transporter } from 'nodemailer'
 import { webFetch } from './net.ts'
 import { config } from './config.ts'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Transactional email for passwordless sign-in codes. Pluggable + degrades
-// gracefully: when RESEND_API_KEY is set we send a real email via the Resend
-// HTTP API (no extra dependency — reuses the proxy-aware webFetch); when it is
-// unset the code is logged to the server console and reported as undelivered,
+// gracefully. Transport precedence:
+//   1. SMTP (e.g. Gmail) when EMAIL_USER + EMAIL_PASSWORD are set
+//   2. Resend HTTP API when RESEND_API_KEY is set
+//   3. neither → log the code to the server console, report undelivered
 // so the whole sign-up flow still works in dev / before email is configured.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function emailEnabled(): boolean {
+export function smtpEnabled(): boolean {
+  return !!(config.smtpUser && config.smtpPass)
+}
+export function resendEnabled(): boolean {
   return !!config.resendApiKey
+}
+export function emailEnabled(): boolean {
+  return smtpEnabled() || resendEnabled()
 }
 
 const escapeHtml = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
 
-export async function sendVerificationCode(email: string, code: string): Promise<{ delivered: boolean }> {
-  if (!config.resendApiKey) {
-    console.log(`[email] RESEND_API_KEY not set — verification code for ${email}: ${code}`)
-    return { delivered: false }
-  }
+function bodies(code: string): { subject: string; html: string; text: string } {
   const safeCode = escapeHtml(code)
   const html = `
     <div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#0b0d12;padding:32px;color:#e8eaf0">
@@ -33,29 +37,62 @@ export async function sendVerificationCode(email: string, code: string): Promise
       </div>
     </div>`
   const text = `Your WCOIN.CASINO sign-in code is ${code}. It expires in 10 minutes. If you didn't request this, ignore this email.`
+  return { subject: `Your WCOIN.CASINO code: ${code}`, html, text }
+}
+
+// Lazily-built, reused SMTP transport.
+let smtpTransport: Transporter | null = null
+function getSmtpTransport(): Transporter {
+  if (!smtpTransport) {
+    smtpTransport = nodemailer.createTransport({
+      host: config.smtpHost,
+      port: config.smtpPort,
+      secure: config.smtpPort === 465, // 465 = implicit TLS; 587 = STARTTLS
+      auth: { user: config.smtpUser, pass: config.smtpPass },
+    })
+  }
+  return smtpTransport
+}
+
+async function sendViaSmtp(email: string, b: ReturnType<typeof bodies>): Promise<boolean> {
+  try {
+    await getSmtpTransport().sendMail({
+      from: config.emailFrom || config.smtpUser,
+      to: email,
+      subject: b.subject,
+      text: b.text,
+      html: b.html,
+    })
+    return true
+  } catch (e) {
+    console.error('[email] SMTP send failed:', (e as Error).message)
+    return false
+  }
+}
+
+async function sendViaResend(email: string, b: ReturnType<typeof bodies>): Promise<boolean> {
   try {
     const res = await webFetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${config.resendApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: config.resendFrom,
-        to: [email],
-        subject: `Your WCOIN.CASINO code: ${code}`,
-        html,
-        text,
-      }),
+      headers: { Authorization: `Bearer ${config.resendApiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: config.resendFrom, to: [email], subject: b.subject, html: b.html, text: b.text }),
     })
     if (!res.ok) {
       const body = await res.text().catch(() => '')
       console.error(`[email] Resend send failed (${res.status}): ${body.slice(0, 300)}`)
-      return { delivered: false }
+      return false
     }
-    return { delivered: true }
+    return true
   } catch (e) {
     console.error('[email] Resend request error:', (e as Error).message)
-    return { delivered: false }
+    return false
   }
+}
+
+export async function sendVerificationCode(email: string, code: string): Promise<{ delivered: boolean }> {
+  const b = bodies(code)
+  if (smtpEnabled()) return { delivered: await sendViaSmtp(email, b) }
+  if (resendEnabled()) return { delivered: await sendViaResend(email, b) }
+  console.log(`[email] no transport configured — verification code for ${email}: ${code}`)
+  return { delivered: false }
 }
