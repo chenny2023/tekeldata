@@ -87,6 +87,13 @@ export async function runTelegramOnce() {
     }
     const msgs = messages(html)
     if (msgs.length === 0) continue // empty/private/non-existent → try next slug
+    // verify this is actually the casino's channel, not a typosquat/unrelated one:
+    // the channel title must reference the brand (skip if it clearly doesn't).
+    const ogTitle = html.match(/<meta property="og:title" content="([^"]*)"/i)?.[1] ?? ''
+    const titleKey = ogTitle.toLowerCase().replace(/[^a-z0-9]/g, '')
+    if (ogTitle && titleKey && !titleKey.includes(key) && !key.includes(titleKey)) {
+      continue // channel title doesn't match the brand → don't trust its subs/messages
+    }
     const subs = parseSubs(html)
     let added = 0
     const now = Date.now()
