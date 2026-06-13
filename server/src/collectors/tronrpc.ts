@@ -73,15 +73,21 @@ async function getLogsRange(
   ])
 }
 
-function insertLogs(
+// Insert in chunks, yielding the event loop between them. Tron USDT is so
+// high-volume that a single tick can carry ~15k logs; inserting them all in one
+// synchronous better-sqlite3 transaction would block Node's single thread for
+// seconds and starve the HTTP server (API/healthcheck timeouts). Chunking +
+// setImmediate keeps the loop responsive while indexing.
+const INSERT_CHUNK = 1000
+async function insertLogs(
   logs: any[],
   byHex: Map<string, WatchRow>,
   anchorBlock: number,
   anchorTs: number,
   emitRecent: boolean,
-): number {
-  let added = 0
-  const tx = db.transaction((items: any[]) => {
+): Promise<number> {
+  const insertChunk = db.transaction((items: any[]) => {
+    let n = 0
     for (const log of items) {
       const fromHex = log.topics[1].slice(26).toLowerCase()
       const toHex = log.topics[2].slice(26).toLowerCase()
@@ -114,12 +120,17 @@ function insertLogs(
       }
       const r = stmt.insertTransfer.run(rec)
       if (r.changes > 0) {
-        added++
+        n++
         if (emitRecent && Date.now() - ts < 600_000) emitTransfer(rec)
       }
     }
+    return n
   })
-  tx(logs)
+  let added = 0
+  for (let i = 0; i < logs.length; i += INSERT_CHUNK) {
+    added += insertChunk(logs.slice(i, i + INSERT_CHUNK))
+    if (i + INSERT_CHUNK < logs.length) await new Promise((r) => setImmediate(r)) // breathe
+  }
   return added
 }
 
@@ -161,7 +172,7 @@ export async function runTronRpcOnce() {
       const deposits = await getLogsRange(usdtHex, hexes, from, to, 2)
       await new Promise((r) => setTimeout(r, 300))
       const withdrawals = await getLogsRange(usdtHex, hexes, from, to, 1)
-      const added = insertLogs([...deposits, ...withdrawals], byHex, head, Date.now(), true)
+      const added = await insertLogs([...deposits, ...withdrawals], byHex, head, Date.now(), true)
       stateSet('tronrpc:lastBlock', to)
       if (added) console.log(`[tronrpc] blocks ${from}-${to}: +${added} transfers`)
       from = to + 1
@@ -219,7 +230,7 @@ export async function runTronBackfill() {
       const deposits = await getLogsRange(usdtHex, hexes, from, cursor, 2)
       await new Promise((r) => setTimeout(r, 400))
       const withdrawals = await getLogsRange(usdtHex, hexes, from, cursor, 1)
-      const added = insertLogs([...deposits, ...withdrawals], byHex, anchorBlock, anchorTs, false)
+      const added = await insertLogs([...deposits, ...withdrawals], byHex, anchorBlock, anchorTs, false)
       cursor = from - 1
       stateSet('tronrpc:cursor', cursor)
       range = Math.min(config.tronMaxRange, Math.ceil(range * 1.5))
