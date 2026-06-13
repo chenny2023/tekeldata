@@ -101,16 +101,16 @@ export default function Landing() {
             </p>
             <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
               <Link
-                to="/app"
+                to="/login"
                 className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-gold-400 to-gold-600 px-6 py-3 text-sm font-semibold text-ink-950 hover:brightness-110"
               >
-                Explore the live demo <ArrowRight size={16} />
+                Sign up free <ArrowRight size={16} />
               </Link>
               <Link
-                to="/contact"
+                to="/app"
                 className="rounded-xl border border-white/12 bg-white/5 px-6 py-3 text-sm font-semibold text-white/85 hover:bg-white/10"
               >
-                Get in touch
+                Browse the live data
               </Link>
             </div>
 
@@ -271,9 +271,8 @@ export default function Landing() {
           <Logo />
           <p className="text-sm text-white/40">© 2026 WCOIN.CASINO — The Intelligence Layer for iGaming</p>
           <div className="flex gap-5 text-sm text-white/50">
-            <Link to="/login" className="hover:text-white">Casino Login</Link>
-            <Link to="/login" className="hover:text-white">Streamer Login</Link>
-            <Link to="/contact" className="hover:text-white">Contact</Link>
+            <Link to="/login" className="hover:text-white">Sign up free</Link>
+            <Link to="/app" className="hover:text-white">Browse data</Link>
           </div>
         </div>
       </footer>

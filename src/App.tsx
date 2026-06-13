@@ -2,7 +2,6 @@ import { Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
 import Landing from './pages/Landing'
 import Login from './pages/Login'
-import Contact from './pages/Contact'
 import Overview from './pages/Overview'
 import Casinos from './pages/Casinos'
 import Blockchain from './pages/Blockchain'
@@ -38,7 +37,6 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
-      <Route path="/contact" element={<Contact />} />
       <Route path="/app/*" element={<Dashboard />} />
       <Route path="*" element={<Landing />} />
     </Routes>
