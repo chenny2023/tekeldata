@@ -66,17 +66,27 @@ function slugCandidates(name: string): string[] {
 }
 
 async function fetchSafetyIndex(slug: string): Promise<{ score: number; reviewed: string } | null> {
-  // network/timeout errors propagate so the caller can RETRY (transient), instead
-  // of being cached as a permanent "no review" — a single blip otherwise poisoned
-  // a casino's Safety Index for days. Only a loaded 200 page with no rating, or a
-  // 404, is a genuine miss worth caching (return null).
+  // casino.guru sits behind Cloudflare and 403s datacenter IPs (e.g. Railway), so
+  // we read its review page through the Wayback Machine (archive.org is reachable),
+  // exactly like Trustpilot — the archived JSON-LD still carries the Safety Index.
+  // network/timeout/HTTP errors propagate so the caller RETRIES (transient); only
+  // a successfully-loaded page with no rating, or no archived snapshot, is a
+  // genuine miss worth caching (return null).
   {
-    const res = await webFetch(`https://casino.guru/${slug}-casino-review`, {
+    const target = `casino.guru/${slug}-casino-review`
+    const cdx = await webFetch(
+      `https://web.archive.org/cdx/search/cdx?url=${encodeURIComponent(target)}&output=json&limit=-3&filter=statuscode:200`,
+      { signal: AbortSignal.timeout(20_000) },
+    )
+    if (!cdx.ok) throw new Error(`wayback cdx HTTP ${cdx.status}`)
+    const rows = (await cdx.json()) as string[][]
+    if (!Array.isArray(rows) || rows.length < 2) return null // no snapshot → genuine miss
+    const snap = rows[rows.length - 1][1]
+    const res = await webFetch(`https://web.archive.org/web/${snap}/https://${target}`, {
       headers: { 'User-Agent': UA },
-      signal: AbortSignal.timeout(18_000),
+      signal: AbortSignal.timeout(25_000),
     })
-    if (res.status === 404) return null
-    if (res.status !== 200) throw new Error(`casino.guru HTTP ${res.status}`)
+    if (!res.ok) throw new Error(`wayback page HTTP ${res.status}`)
     const t = await res.text()
     for (const m of t.matchAll(/<script[^>]*application\/ld\+json[^>]*>([\s\S]*?)<\/script>/g)) {
       try {
