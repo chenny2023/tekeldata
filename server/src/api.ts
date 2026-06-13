@@ -19,9 +19,12 @@ export async function registerApi(app: FastifyInstance) {
     const sv = (k: string) =>
       Number((db.prepare('SELECT value FROM sync_state WHERE key=?').get(k) as any)?.value ?? 0)
     const anchor = sv('backfill:anchor')
-    const cursor = sv('backfill:cursor') || anchor
+    // ETH backfill is split into a casino (priority) + exchange segment; report
+    // the casino segment's progress as the headline (the old combined
+    // backfill:cursor is deprecated and never set on current builds)
+    const casCursor = sv('backfill:cas:cursor') || sv('backfill:cursor') || anchor
     const targetBlocks = Math.ceil((config.deepBackfillDays * 86_400_000) / 12_000)
-    const backfillPct = anchor ? Math.min(100, Math.round(((anchor - cursor) / targetBlocks) * 100)) : 0
+    const backfillPct = anchor && casCursor < anchor ? Math.min(100, Math.round(((anchor - casCursor) / targetBlocks) * 100)) : 0
     return {
       ok: true,
       env: config.nodeEnv,
