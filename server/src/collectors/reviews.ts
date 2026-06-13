@@ -65,7 +65,7 @@ function slugCandidates(name: string): string[] {
   return [...new Set([hyphen, plain])].filter(Boolean)
 }
 
-async function fetchSafetyIndex(slug: string): Promise<number | null> {
+async function fetchSafetyIndex(slug: string): Promise<{ score: number; reviewed: string } | null> {
   try {
     const res = await webFetch(`https://casino.guru/${slug}-casino-review`, {
       headers: { 'User-Agent': UA },
@@ -76,13 +76,22 @@ async function fetchSafetyIndex(slug: string): Promise<number | null> {
     for (const m of t.matchAll(/<script[^>]*application\/ld\+json[^>]*>([\s\S]*?)<\/script>/g)) {
       try {
         const j = JSON.parse(m[1])
-        if (j['@type'] === 'Review' && j.reviewRating?.ratingValue) return Number(j.reviewRating.ratingValue)
+        if (j['@type'] === 'Review' && j.reviewRating?.ratingValue) {
+          // capture which casino the page actually reviews, to guard against
+          // a guessed slug resolving to a DIFFERENT casino's page
+          const reviewed = String(j.itemReviewed?.name ?? j.name ?? '')
+          return { score: Number(j.reviewRating.ratingValue), reviewed }
+        }
       } catch {
         /* skip */
       }
     }
     const fb = t.match(/"@type"\s*:\s*"Review"[\s\S]{0,400}?"ratingValue"\s*:\s*"?([\d.]+)/)
-    return fb ? Number(fb[1]) : null
+    if (fb) {
+      const reviewed = t.match(/<title>([^<]*)<\/title>/i)?.[1] ?? ''
+      return { score: Number(fb[1]), reviewed }
+    }
+    return null
   } catch {
     return null
   }
@@ -124,12 +133,22 @@ export async function runReviewsOnce() {
   // 1) casino.guru Safety Index (skip if recently fetched)
   if (!fresh('casino.guru')) {
     let guru = 0
+    const bk = brandKey(name)
     for (const slug of slugCandidates(name)) {
-      const s = await fetchSafetyIndex(slug)
-      if (s != null && s > 0) {
-        guru = s
-        upsert.run({ brand_key: key, source: 'casino.guru', score: s, score_max: 10, url: `https://casino.guru/${slug}-casino-review`, updated_at: Date.now() })
-        console.log(`[reviews] ${name}: casino.guru Safety Index ${s}/10`)
+      const r = await fetchSafetyIndex(slug)
+      if (r != null && r.score > 0) {
+        // guard against slug collisions: the casino the page reviews must match
+        // the brand we asked for, or we'd attribute another casino's score.
+        // (accept when the name can't be extracted — best-effort, slug-derived)
+        const reviewedKey = r.reviewed.toLowerCase().replace(/[^a-z0-9]/g, '')
+        if (r.reviewed && bk && !reviewedKey.includes(bk) && !bk.includes(reviewedKey)) {
+          console.warn(`[reviews] ${name}: casino.guru page reviews "${r.reviewed}" (slug ${slug}) — brand mismatch, skipping`)
+          await new Promise((res) => setTimeout(res, 600))
+          continue
+        }
+        guru = r.score
+        upsert.run({ brand_key: key, source: 'casino.guru', score: r.score, score_max: 10, url: `https://casino.guru/${slug}-casino-review`, updated_at: Date.now() })
+        console.log(`[reviews] ${name}: casino.guru Safety Index ${r.score}/10`)
         break
       }
       await new Promise((r) => setTimeout(r, 600))
