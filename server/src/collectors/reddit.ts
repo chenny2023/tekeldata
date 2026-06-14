@@ -150,6 +150,25 @@ export function startReddit() {
     console.log('[reddit] disabled (no REDDIT_CLIENT_ID/SECRET) — mention feed will be empty')
     return
   }
+  // one-time boot diagnostic: fetch the token endpoint once and print the full
+  // outcome (status + Server/cf-ray headers + body) on a single line that lands
+  // in the startup logs — so we can tell WHO returns the 403 (Reddit's own
+  // forbidden JSON vs a Cloudflare bot-block vs a proxy provider's block page).
+  void (async () => {
+    try {
+      const basic = Buffer.from(`${env.REDDIT_CLIENT_ID}:${env.REDDIT_CLIENT_SECRET}`).toString('base64')
+      const r = await webFetch('https://www.reddit.com/api/v1/access_token', {
+        method: 'POST',
+        headers: { Authorization: `Basic ${basic}`, 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': UA, Accept: 'application/json' },
+        body: 'grant_type=client_credentials',
+        signal: AbortSignal.timeout(25_000),
+      })
+      const body = (await r.text().catch(() => '')).replace(/\s+/g, ' ').slice(0, 200)
+      console.log(`[reddit:diag] HTTP ${r.status} | server=${r.headers.get('server')} | cf-ray=${r.headers.get('cf-ray')} | www-auth=${r.headers.get('www-authenticate')} | body=${body}`)
+    } catch (e) {
+      console.log(`[reddit:diag] request threw: ${(e as Error).message}`)
+    }
+  })()
   const loop = async () => {
     await runRedditOnce()
     // healthy: one casino per 20s (well inside free-tier limits). Blocked: after a
