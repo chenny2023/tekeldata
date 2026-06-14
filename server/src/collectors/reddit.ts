@@ -87,6 +87,12 @@ const insertMention = db.prepare(`
 `)
 
 let rr = 0
+// Circuit breaker: Reddit hard-blocks our IPs (Railway + datacenter/residential
+// proxies all 403). When the token fetch keeps failing, stop hammering every 20s
+// — back off — but auto-recover the instant a request succeeds (e.g. a clean
+// proxy is configured later). Exposed so startReddit() can pace the loop.
+export let redditConsecutiveFails = 0
+
 export async function runRedditOnce() {
   if (!redditEnabled()) return
   const casinos = db
@@ -124,9 +130,14 @@ export async function runRedditOnce() {
       }
     })
     tx(json.data?.children ?? [])
+    if (redditConsecutiveFails > 0) console.log('[reddit] recovered — resuming normal cadence')
+    redditConsecutiveFails = 0
     if (added) console.log(`[reddit] ${target}: +${added} mentions`)
   } catch (e) {
-    console.warn(`[reddit] ${target} failed:`, (e as Error).message)
+    redditConsecutiveFails++
+    // only log the first few of a failure streak, then go quiet until recovery
+    if (redditConsecutiveFails <= 3) console.warn(`[reddit] ${target} failed:`, (e as Error).message)
+    else if (redditConsecutiveFails === 4) console.warn('[reddit] persistent failures (likely Reddit IP-block) — backing off to 30m until a request succeeds')
   }
 }
 
@@ -137,7 +148,10 @@ export function startReddit() {
   }
   const loop = async () => {
     await runRedditOnce()
-    setTimeout(loop, 20_000) // one casino per 20s — well inside free-tier limits
+    // healthy: one casino per 20s (well inside free-tier limits). Blocked: after a
+    // failure streak, poll every 30m so a single success can flip us back to fast.
+    const delay = redditConsecutiveFails >= 4 ? 30 * 60_000 : 20_000
+    setTimeout(loop, delay)
   }
   loop()
 }
