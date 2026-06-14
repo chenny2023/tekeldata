@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { Search, SlidersHorizontal, Wallet, ExternalLink, ChevronDown, ShieldCheck, ShieldAlert, Calendar, Percent, Coins, Star, Award } from 'lucide-react'
+import { Search, SlidersHorizontal, Wallet, ExternalLink, ChevronDown, ShieldCheck, ShieldAlert, Calendar, Percent, Coins, Star, Award, AlertTriangle, MessageSquare } from 'lucide-react'
 import { Card, PageHead, Bubble, TrustBadge, Delta, CategoryBadge, ChainPill, Skeleton } from '../components/ui'
 import { api, usePoll, Entity } from '../data/api'
 import { fmtUsd, fmtNum, shortHash, CHAIN_COLOR } from '../data/format'
@@ -45,6 +45,24 @@ function EditorialChip({ score }: { score: number }) {
       style={{ color }}
     >
       <Award size={10} /> {score}
+    </span>
+  )
+}
+
+// casino.guru complaints — the most actionable trust signal. Red when there are
+// UNRESOLVED disputes, amber when complaints exist but were all resolved, green
+// when there are none on record.
+function ComplaintsChip({ count, unresolved }: { count: number; unresolved: number | null }) {
+  const u = unresolved ?? 0
+  const color = u > 0 ? '#ff5c7a' : count > 0 ? '#f5b100' : '#2ee6a6'
+  const desc = u > 0 ? `${count} complaints · ${u} unresolved` : count > 0 ? `${count} complaints (all resolved)` : 'no complaints on record'
+  return (
+    <span
+      title={`casino.guru: ${desc}`}
+      className="inline-flex items-center gap-1 rounded-md bg-white/6 px-1.5 py-0.5 text-[10px] font-bold tabular-nums"
+      style={{ color }}
+    >
+      <AlertTriangle size={10} /> {count}{u > 0 ? `·${u}!` : ''}
     </span>
   )
 }
@@ -233,6 +251,9 @@ interface Row {
   safetyIndex: number | null
   trustpilot: number | null
   editorial: number | null
+  complaints: number | null
+  unresolved: number | null
+  userReviews: number | null
   risk: { hits: number; usd: number } | null
   address?: string
   chain?: string
@@ -271,6 +292,9 @@ export default function Casinos() {
             safetyIndex: b.safetyIndex,
             trustpilot: b.trustpilot,
             editorial: b.editorial,
+            complaints: b.complaints,
+            unresolved: b.unresolved,
+            userReviews: b.userReviews,
             risk: b.risk,
             wallets: b.wallets,
             members: b.members,
@@ -291,6 +315,9 @@ export default function Casinos() {
             safetyIndex: e.safetyIndex,
             trustpilot: e.trustpilot,
             editorial: e.editorial,
+            complaints: e.complaints,
+            unresolved: e.unresolved,
+            userReviews: e.userReviews,
             risk: e.risk,
             address: e.address,
             chain: e.chain,
@@ -411,6 +438,7 @@ export default function Casinos() {
                               {c.safetyIndex != null && <GuruChip score={c.safetyIndex} />}
                               {c.trustpilot != null && <TrustpilotChip score={c.trustpilot} />}
                               {c.editorial != null && <EditorialChip score={c.editorial} />}
+                              {c.complaints != null && <ComplaintsChip count={c.complaints} unresolved={c.unresolved} />}
                             </div>
                           </div>
                         </td>
@@ -443,6 +471,8 @@ export default function Casinos() {
                               {c.safetyIndex != null && <MetaCell icon={<ShieldCheck size={12} />} label="casino.guru" value={`${c.safetyIndex} / 10`} />}
                               {c.trustpilot != null && <MetaCell icon={<Star size={12} />} label="Trustpilot" value={`${c.trustpilot} / 5`} />}
                               {c.editorial != null && <MetaCell icon={<Award size={12} />} label="casino.org" value={`${c.editorial} / 5`} />}
+                              {c.complaints != null && <MetaCell icon={<AlertTriangle size={12} />} label="Complaints" value={`${c.complaints}${c.unresolved ? ` · ${c.unresolved} unresolved` : ' · all resolved'}`} />}
+                              {c.userReviews != null && <MetaCell icon={<MessageSquare size={12} />} label="User reviews" value={`${c.userReviews}`} />}
                             </div>
                             {c.byChain.length > 0 && (
                               <div className="mt-4">

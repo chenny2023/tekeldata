@@ -36,6 +36,9 @@ export interface EntityAgg {
   safetyIndex: number | null // casino.guru third-party Safety Index (0–10)
   trustpilot: number | null // Trustpilot rating (★/5)
   editorial: number | null // casino.org editorial rating (/5)
+  complaints: number | null // casino.guru current complaint count
+  unresolved: number | null // casino.guru unresolved complaints (red flag)
+  userReviews: number | null // casino.guru community-review count
   risk: { hits: number; usd: number; addresses: string[] } | null // OFAC-sanctioned exposure
 }
 
@@ -143,6 +146,9 @@ function computeEntities(): EntityAgg[] {
       safetyIndex: w.category === 'casino' ? reviews.get(brandKey(w.label))?.safety ?? null : null,
       trustpilot: w.category === 'casino' ? reviews.get(brandKey(w.label))?.trustpilot ?? null : null,
       editorial: w.category === 'casino' ? reviews.get(brandKey(w.label))?.editorial ?? null : null,
+      complaints: w.category === 'casino' ? reviews.get(brandKey(w.label))?.complaints ?? null : null,
+      unresolved: w.category === 'casino' ? reviews.get(brandKey(w.label))?.unresolved ?? null : null,
+      userReviews: w.category === 'casino' ? reviews.get(brandKey(w.label))?.userReviews ?? null : null,
       risk: risks.get(w.id) ?? null,
     })
   }
@@ -177,6 +183,9 @@ export interface BrandAgg {
   safetyIndex: number | null
   trustpilot: number | null
   editorial: number | null
+  complaints: number | null
+  unresolved: number | null
+  userReviews: number | null
   risk: { hits: number; usd: number } | null
   members: { id: number; label: string; chain: string; address: string; volume7d: number }[]
 }
@@ -227,6 +236,9 @@ function computeBrands(): BrandAgg[] {
       safetyIndex: members.map((e) => e.safetyIndex).find((s) => s != null) ?? null,
       trustpilot: members.map((e) => e.trustpilot).find((s) => s != null) ?? null,
       editorial: members.map((e) => e.editorial).find((s) => s != null) ?? null,
+      complaints: members.map((e) => e.complaints).find((s) => s != null) ?? null,
+      unresolved: members.map((e) => e.unresolved).find((s) => s != null) ?? null,
+      userReviews: members.map((e) => e.userReviews).find((s) => s != null) ?? null,
       risk: members.some((e) => e.risk)
         ? { hits: sum((e) => e.risk?.hits ?? 0), usd: sum((e) => e.risk?.usd ?? 0) }
         : null,

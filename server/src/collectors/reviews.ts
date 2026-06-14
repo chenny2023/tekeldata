@@ -127,7 +127,27 @@ function parseSafetyIndex(t: string): { score: number; reviewed: string } | null
   return null
 }
 
-async function fetchSafetyIndex(slug: string): Promise<{ score: number; reviewed: string } | null> {
+// casino.guru renders the number and its label in separate elements, so to read
+// "6 complaints about this casino" / "76 user reviews" robustly we strip tags in
+// the ~150 chars before the phrase and take the last number there.
+function numberBefore(html: string, phrase: string): number | null {
+  const i = html.indexOf(phrase)
+  if (i < 0) return null
+  const nums = html.slice(Math.max(0, i - 150), i).replace(/<[^>]+>/g, ' ').match(/[\d][\d,]*/g)
+  if (!nums) return null
+  const n = Number(nums[nums.length - 1].replace(/,/g, ''))
+  return Number.isFinite(n) ? n : null
+}
+
+export interface GuruTrust {
+  score: number
+  reviewed: string
+  complaints: number | null // current complaints about this casino
+  unresolved: number | null // unresolved complaints — the actionable red flag
+  userReviews: number | null // community-review count (credibility weight)
+}
+
+async function fetchSafetyIndex(slug: string): Promise<GuruTrust | null> {
   // casino.guru 403s datacenter IPs (Cloudflare), but the rotating proxy pool in
   // net.ts bypasses that (verified HTTP 200 through the pool). Two things make the
   // production fetch flaky where a local curl is instant: (1) the page is ~600KB,
@@ -146,7 +166,15 @@ async function fetchSafetyIndex(slug: string): Promise<{ score: number; reviewed
       })
       if (res.status === 404) return null
       if (res.status !== 200) throw new Error(`casino.guru HTTP ${res.status}`)
-      return parseSafetyIndex(await res.text()) // 200 with no rating block → genuine null
+      const t = await res.text()
+      const si = parseSafetyIndex(t) // 200 with no rating block → genuine null
+      if (!si) return null
+      return {
+        ...si,
+        complaints: numberBefore(t, 'complaints about this casino'),
+        unresolved: numberBefore(t, 'unresolved'),
+        userReviews: numberBefore(t, 'user reviews'),
+      }
     } catch (e) {
       lastErr = e as Error
       await new Promise((r) => setTimeout(r, 500)) // brief pause, then a fresh proxy
@@ -250,8 +278,14 @@ export async function runReviewsOnce() {
           continue
         }
         guru = r.score
-        upsert.run({ brand_key: key, source: 'casino.guru', score: r.score, score_max: 10, url: `https://casino.guru/${slug}-casino-review`, updated_at: Date.now() })
-        console.log(`[reviews] ${name}: casino.guru Safety Index ${r.score}/10`)
+        const now2 = Date.now()
+        const cgUrl = `https://casino.guru/${slug}-casino-review`
+        upsert.run({ brand_key: key, source: 'casino.guru', score: r.score, score_max: 10, url: cgUrl, updated_at: now2 })
+        // actionable trust extras — store even when 0 (0 unresolved disputes is GOOD)
+        if (r.complaints != null) upsert.run({ brand_key: key, source: 'cg.complaints', score: r.complaints, score_max: 0, url: cgUrl, updated_at: now2 })
+        if (r.unresolved != null) upsert.run({ brand_key: key, source: 'cg.unresolved', score: r.unresolved, score_max: 0, url: cgUrl, updated_at: now2 })
+        if (r.userReviews != null) upsert.run({ brand_key: key, source: 'cg.userreviews', score: r.userReviews, score_max: 0, url: cgUrl, updated_at: now2 })
+        console.log(`[reviews] ${name}: casino.guru ${r.score}/10 · ${r.complaints ?? '?'} complaints (${r.unresolved ?? '?'} unresolved) · ${r.userReviews ?? '?'} user reviews`)
         break
       }
       await new Promise((r) => setTimeout(r, 600))
@@ -317,15 +351,24 @@ export interface ReviewScore {
   safety: number | null // casino.guru 0–10
   trustpilot: number | null // ★/5
   editorial: number | null // casino.org /5
+  complaints: number | null // casino.guru current complaint count
+  unresolved: number | null // casino.guru unresolved complaints (actionable red flag)
+  userReviews: number | null // casino.guru community-review count
 }
 export function reviewScores(): Map<string, ReviewScore> {
   const out = new Map<string, ReviewScore>()
-  const rows = db.prepare("SELECT brand_key, source, score FROM reviews WHERE score>0").all() as { brand_key: string; source: string; score: number }[]
+  // read ALL rows: rating sources are only meaningful when >0 (0 = cached miss),
+  // but the count sources (complaints/unresolved/reviews) are meaningful AT 0 too
+  const rows = db.prepare('SELECT brand_key, source, score FROM reviews').all() as { brand_key: string; source: string; score: number }[]
+  const blank = (): ReviewScore => ({ safety: null, trustpilot: null, editorial: null, complaints: null, unresolved: null, userReviews: null })
   for (const r of rows) {
-    const e = out.get(r.brand_key) ?? { safety: null, trustpilot: null, editorial: null }
-    if (r.source === 'casino.guru') e.safety = r.score
-    else if (r.source === 'trustpilot') e.trustpilot = r.score
-    else if (r.source === 'casino.org') e.editorial = r.score
+    const e = out.get(r.brand_key) ?? blank()
+    if (r.source === 'casino.guru' && r.score > 0) e.safety = r.score
+    else if (r.source === 'trustpilot' && r.score > 0) e.trustpilot = r.score
+    else if (r.source === 'casino.org' && r.score > 0) e.editorial = r.score
+    else if (r.source === 'cg.complaints') e.complaints = r.score
+    else if (r.source === 'cg.unresolved') e.unresolved = r.score
+    else if (r.source === 'cg.userreviews') e.userReviews = r.score
     out.set(r.brand_key, e)
   }
   return out
@@ -341,6 +384,15 @@ export function startReviews() {
       const n = db.prepare('DELETE FROM reviews WHERE score = 0').run().changes
       stateSet('reviews:clearmisses:v2', 1)
       if (n) console.log(`[reviews] cleared ${n} stale 0-score entries to re-fetch`)
+    }
+    // one-time: existing casino.guru rows are "fresh" so the new complaint/
+    // user-review extraction wouldn't run for up to REFRESH_DAYS. Mark them stale
+    // (updated_at=0) so the next sweep re-fetches the page and populates the
+    // complaint signals. The Safety Index value persists across the re-fetch.
+    if (!stateGet('reviews:complaints:v1')) {
+      const n = db.prepare("UPDATE reviews SET updated_at = 0 WHERE source = 'casino.guru'").run().changes
+      stateSet('reviews:complaints:v1', 1)
+      if (n) console.log(`[reviews] marked ${n} casino.guru rows stale to backfill complaint data`)
     }
   } catch {
     /* non-fatal */
