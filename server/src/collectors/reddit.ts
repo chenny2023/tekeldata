@@ -26,17 +26,35 @@ let tokenExp = 0
 async function appToken(): Promise<string> {
   if (token && Date.now() < tokenExp) return token
   const basic = Buffer.from(`${env.REDDIT_CLIENT_ID}:${env.REDDIT_CLIENT_SECRET}`).toString('base64')
-  const res = await webFetch('https://www.reddit.com/api/v1/access_token', {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${basic}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'User-Agent': UA,
-      Accept: 'application/json',
-    },
-    body: 'grant_type=client_credentials',
-    signal: AbortSignal.timeout(20_000),
-  })
+  // Reddit blocks datacenter IPs (Railway 403s; the proxy pool gets tarpitted on
+  // some IPs). webFetch picks a fresh random proxy each call, so retry a few
+  // times — if only SOME upstream IPs are blocked, a retry rolls onto a good one.
+  let res: Awaited<ReturnType<typeof webFetch>> | null = null
+  let lastErr: Error | null = null
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      res = await webFetch('https://www.reddit.com/api/v1/access_token', {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${basic}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': UA,
+          Accept: 'application/json',
+        },
+        body: 'grant_type=client_credentials',
+        signal: AbortSignal.timeout(25_000),
+      })
+      if (res.status === 401) break // bad creds — retrying won't help
+      if (res.ok) break
+      lastErr = new Error(`token HTTP ${res.status}`)
+      res = null
+    } catch (e) {
+      lastErr = e as Error
+      res = null
+    }
+    await new Promise((r) => setTimeout(r, 600)) // brief pause, then a fresh proxy
+  }
+  if (!res) throw lastErr ?? new Error('reddit token: all proxy attempts failed')
   if (!res.ok) {
     const body = (await res.text().catch(() => '')).replace(/\s+/g, ' ').slice(0, 160)
     throw new Error(`token HTTP ${res.status} — ${body}`)
