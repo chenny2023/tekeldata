@@ -1,9 +1,39 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { Search, SlidersHorizontal, Wallet, ExternalLink, ChevronDown, ShieldCheck, ShieldAlert, Calendar, Percent, Coins } from 'lucide-react'
+import { Search, SlidersHorizontal, Wallet, ExternalLink, ChevronDown, ShieldCheck, ShieldAlert, Calendar, Percent, Coins, Star } from 'lucide-react'
 import { Card, PageHead, Bubble, TrustBadge, Delta, CategoryBadge, ChainPill, Skeleton } from '../components/ui'
 import { api, usePoll, Entity } from '../data/api'
 import { fmtUsd, fmtNum, shortHash, CHAIN_COLOR } from '../data/format'
+
+// casino.guru Safety Index (0–10, independent expert review) — colored on
+// casino.guru's own bands: 8+ very good, 6–8 fair, <6 caution. An external
+// reputation signal blended alongside our on-chain trust score.
+function GuruChip({ score }: { score: number }) {
+  const color = score >= 8 ? '#2ee6a6' : score >= 6 ? '#f5b100' : '#ff5c7a'
+  return (
+    <span
+      title={`casino.guru Safety Index ${score}/10 — independent expert review`}
+      className="inline-flex items-center gap-1 rounded-md bg-white/6 px-1.5 py-0.5 text-[10px] font-bold tabular-nums"
+      style={{ color }}
+    >
+      <ShieldCheck size={10} /> {score}
+    </span>
+  )
+}
+
+// Trustpilot consumer rating (★/5) sourced via the Wayback archive.
+function TrustpilotChip({ score }: { score: number }) {
+  const color = score >= 4 ? '#2ee6a6' : score >= 3 ? '#f5b100' : '#ff5c7a'
+  return (
+    <span
+      title={`Trustpilot ${score}/5 — consumer rating`}
+      className="inline-flex items-center gap-1 rounded-md bg-white/6 px-1.5 py-0.5 text-[10px] font-bold tabular-nums"
+      style={{ color }}
+    >
+      <Star size={10} /> {score}
+    </span>
+  )
+}
 
 // 30d daily volume history for one entity, stacked by chain — loads when a row
 // expands; thin until the chain backfills deepen, then fills in automatically
@@ -187,6 +217,7 @@ interface Row {
   byChain: { chain: string; value: number }[]
   histId: number
   safetyIndex: number | null
+  trustpilot: number | null
   risk: { hits: number; usd: number } | null
   address?: string
   chain?: string
@@ -223,6 +254,7 @@ export default function Casinos() {
             byChain: b.byChain,
             histId: b.members[0]?.id ?? 0,
             safetyIndex: b.safetyIndex,
+            trustpilot: b.trustpilot,
             risk: b.risk,
             wallets: b.wallets,
             members: b.members,
@@ -241,6 +273,7 @@ export default function Casinos() {
             byChain: e.byChain,
             histId: e.id,
             safetyIndex: e.safetyIndex,
+            trustpilot: e.trustpilot,
             risk: e.risk,
             address: e.address,
             chain: e.chain,
@@ -354,7 +387,15 @@ export default function Casinos() {
                         <td className={`px-4 py-3 font-semibold tabular-nums ${c.net7d >= 0 ? 'text-mint-400' : 'text-rose-400'}`}>
                           {c.net7d >= 0 ? '+' : '−'}{fmtUsd(Math.abs(c.net7d))}
                         </td>
-                        <td className="px-4 py-3"><TrustBadge score={c.trust} /></td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-col items-start gap-1">
+                            <TrustBadge score={c.trust} />
+                            <div className="flex items-center gap-1.5">
+                              {c.safetyIndex != null && <GuruChip score={c.safetyIndex} />}
+                              {c.trustpilot != null && <TrustpilotChip score={c.trustpilot} />}
+                            </div>
+                          </div>
+                        </td>
                         <td className="px-4 py-3">
                           <span className="inline-flex items-center gap-1.5 tabular-nums text-white/80">
                             <Wallet size={13} className="text-gold-400" />{fmtUsd(c.reserves)}
@@ -381,6 +422,8 @@ export default function Casinos() {
                               {c.meta?.sportsHouseEdge != null && <MetaCell icon={<Percent size={12} />} label="Sports Edge" value={`${c.meta.sportsHouseEdge}%`} />}
                               {c.meta?.website && <MetaCell icon={<ExternalLink size={12} />} label="Site" value={<a href={c.meta.website} target="_blank" rel="noreferrer" className="text-gold-400 hover:underline">{c.meta.website.replace(/^https?:\/\//, '')}</a>} />}
                               {c.meta?.currencies?.length ? <MetaCell icon={<Coins size={12} />} label="Currencies" value={c.meta.currencies.slice(0, 8).join(', ')} /> : null}
+                              {c.safetyIndex != null && <MetaCell icon={<ShieldCheck size={12} />} label="casino.guru" value={`${c.safetyIndex} / 10`} />}
+                              {c.trustpilot != null && <MetaCell icon={<Star size={12} />} label="Trustpilot" value={`${c.trustpilot} / 5`} />}
                             </div>
                             {c.byChain.length > 0 && (
                               <div className="mt-4">
