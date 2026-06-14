@@ -65,40 +65,54 @@ function slugCandidates(name: string): string[] {
   return [...new Set([hyphen, plain])].filter(Boolean)
 }
 
+function parseSafetyIndex(t: string): { score: number; reviewed: string } | null {
+  for (const m of t.matchAll(/<script[^>]*application\/ld\+json[^>]*>([\s\S]*?)<\/script>/g)) {
+    try {
+      const j = JSON.parse(m[1])
+      if (j['@type'] === 'Review' && j.reviewRating?.ratingValue) {
+        // capture which casino the page actually reviews, to guard against
+        // a guessed slug resolving to a DIFFERENT casino's page
+        const reviewed = String(j.itemReviewed?.name ?? j.name ?? '')
+        return { score: Number(j.reviewRating.ratingValue), reviewed }
+      }
+    } catch {
+      /* skip */
+    }
+  }
+  const fb = t.match(/"@type"\s*:\s*"Review"[\s\S]{0,400}?"ratingValue"\s*:\s*"?([\d.]+)/)
+  if (fb) {
+    const reviewed = t.match(/<title>([^<]*)<\/title>/i)?.[1] ?? ''
+    return { score: Number(fb[1]), reviewed }
+  }
+  return null
+}
+
 async function fetchSafetyIndex(slug: string): Promise<{ score: number; reviewed: string } | null> {
   // casino.guru 403s datacenter IPs (Cloudflare), but the rotating proxy pool in
-  // net.ts bypasses that, so fetch the live page directly for fresh Safety Indexes
-  // (verified 200 through the pool). network/timeout/HTTP errors propagate so the
-  // caller RETRIES (transient); a 200 page with no rating, or a 404, is a genuine
-  // miss worth caching (return null).
-  {
-    const res = await webFetch(`https://casino.guru/${slug}-casino-review`, {
-      headers: { 'User-Agent': UA },
-      signal: AbortSignal.timeout(40_000), // proxy hop + ~600KB page — be patient
-    })
-    if (res.status === 404) return null
-    if (res.status !== 200) throw new Error(`casino.guru HTTP ${res.status}`)
-    const t = await res.text()
-    for (const m of t.matchAll(/<script[^>]*application\/ld\+json[^>]*>([\s\S]*?)<\/script>/g)) {
-      try {
-        const j = JSON.parse(m[1])
-        if (j['@type'] === 'Review' && j.reviewRating?.ratingValue) {
-          // capture which casino the page actually reviews, to guard against
-          // a guessed slug resolving to a DIFFERENT casino's page
-          const reviewed = String(j.itemReviewed?.name ?? j.name ?? '')
-          return { score: Number(j.reviewRating.ratingValue), reviewed }
-        }
-      } catch {
-        /* skip */
-      }
+  // net.ts bypasses that (verified HTTP 200 through the pool). Two things make the
+  // production fetch flaky where a local curl is instant: (1) the page is ~600KB,
+  // and reading that many socket chunks competes with the heavy synchronous DB
+  // backfill on the single Node loop — so we ask for GZIP (undici auto-decodes the
+  // body, but ~600KB → ~80KB on the wire = far fewer reads through the busy loop);
+  // (2) a given random proxy may be slow/dead — so on a timeout/transient HTTP
+  // error we RETRY, and since webFetch picks a fresh random agent each call the
+  // retry rolls onto a different proxy. A 404 (wrong slug) is a real miss → null.
+  let lastErr: Error | null = null
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await webFetch(`https://casino.guru/${slug}-casino-review`, {
+        headers: { 'User-Agent': UA, 'Accept-Encoding': 'gzip, deflate' },
+        signal: AbortSignal.timeout(30_000),
+      })
+      if (res.status === 404) return null
+      if (res.status !== 200) throw new Error(`casino.guru HTTP ${res.status}`)
+      return parseSafetyIndex(await res.text()) // 200 with no rating block → genuine null
+    } catch (e) {
+      lastErr = e as Error
+      await new Promise((r) => setTimeout(r, 500)) // brief pause, then a fresh proxy
     }
-    const fb = t.match(/"@type"\s*:\s*"Review"[\s\S]{0,400}?"ratingValue"\s*:\s*"?([\d.]+)/)
-    if (fb) {
-      const reviewed = t.match(/<title>([^<]*)<\/title>/i)?.[1] ?? ''
-      return { score: Number(fb[1]), reviewed }
-    }
-    return null
   }
+  throw lastErr ?? new Error('casino.guru fetch failed')
 }
 
 let queue: { key: string; name: string }[] = []
