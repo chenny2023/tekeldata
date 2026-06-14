@@ -109,7 +109,11 @@ const residentialAgents = buildAgents(
     .filter((s) => /^https?:\/\/.+/.test(s)),
 )
 if (residentialAgents.length) console.log(`[net] ${residentialAgents.length} residential prox${residentialAgents.length > 1 ? 'ies' : 'y'} for IP-blocked hosts (reddit…)`)
-const residentialHosts = (process.env.RESIDENTIAL_HOSTS || 'reddit.com')
+// All the hosts that block datacenter IPs route through the residential proxy:
+// Reddit, Bluesky and GDELT each maintain their OWN blocklist, so a residential
+// IP that one rejects may well be fine for the others — worth trying all via the
+// residential exit rather than the (failing) datacenter pool.
+const residentialHosts = (process.env.RESIDENTIAL_HOSTS || 'reddit.com,bsky.app,gdeltproject.org')
   .split(',')
   .map((s) => s.trim().toLowerCase())
   .filter(Boolean)
@@ -118,7 +122,7 @@ const residentialHosts = (process.env.RESIDENTIAL_HOSTS || 'reddit.com')
 // proxy pool — proxying every open-web call (Kick, Google News, label dumps…)
 // just saturates the proxies and times out the calls that truly need them.
 // Override the list with PROXY_HOSTS (comma-separated host substrings).
-const proxyHosts = (process.env.PROXY_HOSTS || 'casino.guru,archive.org,trustpilot.com,casino.org,bsky.app,gdeltproject.org')
+const proxyHosts = (process.env.PROXY_HOSTS || 'casino.guru,archive.org,trustpilot.com,casino.org')
   .split(',')
   .map((s) => s.trim().toLowerCase())
   .filter(Boolean)
