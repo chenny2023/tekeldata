@@ -6,6 +6,7 @@ import { tronRpcBalanceUsd } from './collectors/tronrpc.ts'
 import { evmChainsBalanceUsd } from './collectors/evmchains.ts'
 import { matchCasinoMeta, brandKey, brandName, CasinoMeta } from './casinometa.ts'
 import { reviewScores } from './collectors/reviews.ts'
+import { tokenData, TokenInfo } from './collectors/casinotokens.ts'
 import { riskFlags } from './collectors/risk.ts'
 
 const DAY = 86_400_000
@@ -39,6 +40,7 @@ export interface EntityAgg {
   complaints: number | null // casino.guru current complaint count
   unresolved: number | null // casino.guru unresolved complaints (red flag)
   userReviews: number | null // casino.guru community-review count
+  token: TokenInfo | null // the casino's own token market data (CoinGecko), if any
   risk: { hits: number; usd: number; addresses: string[] } | null // OFAC-sanctioned exposure
 }
 
@@ -99,6 +101,7 @@ function computeEntities(): EntityAgg[] {
     byChainMap.set(r.watch_id, arr)
   }
   const reviews = reviewScores()
+  const tokens = tokenData()
   const risks = riskFlags()
 
   for (const w of rows) {
@@ -149,6 +152,7 @@ function computeEntities(): EntityAgg[] {
       complaints: w.category === 'casino' ? reviews.get(brandKey(w.label))?.complaints ?? null : null,
       unresolved: w.category === 'casino' ? reviews.get(brandKey(w.label))?.unresolved ?? null : null,
       userReviews: w.category === 'casino' ? reviews.get(brandKey(w.label))?.userReviews ?? null : null,
+      token: w.category === 'casino' ? tokens.get(brandKey(w.label)) ?? null : null,
       risk: risks.get(w.id) ?? null,
     })
   }
@@ -186,6 +190,7 @@ export interface BrandAgg {
   complaints: number | null
   unresolved: number | null
   userReviews: number | null
+  token: TokenInfo | null
   risk: { hits: number; usd: number } | null
   members: { id: number; label: string; chain: string; address: string; volume7d: number }[]
 }
@@ -239,6 +244,7 @@ function computeBrands(): BrandAgg[] {
       complaints: members.map((e) => e.complaints).find((s) => s != null) ?? null,
       unresolved: members.map((e) => e.unresolved).find((s) => s != null) ?? null,
       userReviews: members.map((e) => e.userReviews).find((s) => s != null) ?? null,
+      token: members.map((e) => e.token).find((t) => t != null) ?? null,
       risk: members.some((e) => e.risk)
         ? { hits: sum((e) => e.risk?.hits ?? 0), usd: sum((e) => e.risk?.usd ?? 0) }
         : null,

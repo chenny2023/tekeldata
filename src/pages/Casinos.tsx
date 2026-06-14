@@ -49,6 +49,25 @@ function EditorialChip({ score }: { score: number }) {
   )
 }
 
+// the casino's own token — symbol + 24h move (CoinGecko). A financial-confidence
+// signal for the operators that issue a token.
+function TokenBadge({ token }: { token: NonNullable<Row['token']> }) {
+  const ch = token.change24h ?? 0
+  const color = ch >= 0 ? '#2ee6a6' : '#ff5c7a'
+  const mc = token.marketCap
+  const mcap = mc >= 1e9 ? `$${(mc / 1e9).toFixed(1)}B` : mc >= 1e6 ? `$${(mc / 1e6).toFixed(0)}M` : `$${(mc / 1e3).toFixed(0)}K`
+  return (
+    <span
+      title={`$${token.symbol} — ${mcap} market cap · ${ch >= 0 ? '+' : ''}${ch.toFixed(1)}% 24h (CoinGecko)`}
+      className="inline-flex items-center gap-1 rounded-md bg-white/6 px-1.5 py-0.5 text-[10px] font-bold"
+    >
+      <Coins size={10} className="text-gold-400" />
+      <span className="text-white/70">${token.symbol}</span>
+      <span style={{ color }} className="tabular-nums">{ch >= 0 ? '+' : ''}{ch.toFixed(1)}%</span>
+    </span>
+  )
+}
+
 // casino.guru complaints — the most actionable trust signal. Red when there are
 // UNRESOLVED disputes, amber when complaints exist but were all resolved, green
 // when there are none on record.
@@ -254,6 +273,7 @@ interface Row {
   complaints: number | null
   unresolved: number | null
   userReviews: number | null
+  token: Entity['token']
   risk: { hits: number; usd: number } | null
   address?: string
   chain?: string
@@ -295,6 +315,7 @@ export default function Casinos() {
             complaints: b.complaints,
             unresolved: b.unresolved,
             userReviews: b.userReviews,
+            token: b.token,
             risk: b.risk,
             wallets: b.wallets,
             members: b.members,
@@ -318,6 +339,7 @@ export default function Casinos() {
             complaints: e.complaints,
             unresolved: e.unresolved,
             userReviews: e.userReviews,
+            token: e.token,
             risk: e.risk,
             address: e.address,
             chain: e.chain,
@@ -416,6 +438,7 @@ export default function Casinos() {
                                     <ShieldAlert size={11} /> OFAC
                                   </span>
                                 )}
+                                {c.token && <TokenBadge token={c.token} />}
                               </div>
                               {c.meta && (
                                 <div className="mt-0.5 text-[11px] text-white/40">
@@ -473,6 +496,7 @@ export default function Casinos() {
                               {c.editorial != null && <MetaCell icon={<Award size={12} />} label="casino.org" value={`${c.editorial} / 5`} />}
                               {c.complaints != null && <MetaCell icon={<AlertTriangle size={12} />} label="Complaints" value={`${c.complaints}${c.unresolved ? ` · ${c.unresolved} unresolved` : ''}`} />}
                               {c.userReviews != null && <MetaCell icon={<MessageSquare size={12} />} label="User reviews" value={`${c.userReviews}`} />}
+                              {c.token && <MetaCell icon={<Coins size={12} />} label={`$${c.token.symbol} token`} value={`$${c.token.price < 0.01 ? c.token.price.toPrecision(2) : c.token.price.toFixed(c.token.price < 1 ? 4 : 2)} · ${c.token.change24h != null ? `${c.token.change24h >= 0 ? '+' : ''}${c.token.change24h.toFixed(1)}% 24h` : ''}`} />}
                             </div>
                             {c.byChain.length > 0 && (
                               <div className="mt-4">

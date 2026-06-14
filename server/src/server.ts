@@ -29,6 +29,7 @@ import { startNative } from './collectors/native.ts'
 import { startBluesky } from './collectors/bluesky.ts'
 import { startGdelt } from './collectors/gdelt.ts'
 import { startBitcointalk } from './collectors/bitcointalk.ts'
+import { startCasinoTokens } from './collectors/casinotokens.ts'
 import { startSolana } from './collectors/solana.ts'
 import { startUtxo } from './collectors/utxo.ts'
 import { startXrp } from './collectors/xrp.ts'
@@ -95,6 +96,7 @@ async function main() {
   startBitcointalk() // social mentions (Bitcointalk gambling forum, keyless)
   startTelegram() // brand community signal (public Telegram channels, keyless)
   startReviews() // third-party trust: casino.guru Safety Index per casino
+  startCasinoTokens() // casino-token market data (CoinGecko, keyless)
   startRisk() // compliance: OFAC-sanctioned counterparty exposure flags
   startAggregation()
   startAlerts() // user-defined alert rules: whale stream + net-flow / reserve checks
