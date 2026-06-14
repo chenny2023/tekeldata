@@ -91,26 +91,50 @@ if (process.env.WEBSHARE_API_KEY) {
   setInterval(() => void loadWebshare(), 6 * 3600_000) // refresh 4×/day
 }
 
-function pickAgent(): ProxyAgent | undefined {
-  return agents.length ? agents[Math.floor(Math.random() * agents.length)] : undefined
+function pick(pool: ProxyAgent[]): ProxyAgent | undefined {
+  return pool.length ? pool[Math.floor(Math.random() * pool.length)] : undefined
 }
+
+// ── Residential pool — for hosts that block DATACENTER IPs outright ────────────
+// Reddit (and a few others) 403/tarpit every datacenter IP, including the
+// Webshare datacenter proxies, so the normal pool can't reach them. A residential
+// proxy (e.g. Webshare's residential plan) presents a home/mobile IP that these
+// sites accept. Configure REDDIT_PROXY with one or more residential proxy URLs
+// (comma-separated http://user:pass@host:port); reddit.com then routes through it
+// instead of the datacenter pool. Without it, reddit.com goes direct (and 403s).
+const residentialAgents = buildAgents(
+  (process.env.REDDIT_PROXY || process.env.RESIDENTIAL_PROXY || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => /^https?:\/\/.+/.test(s)),
+)
+if (residentialAgents.length) console.log(`[net] ${residentialAgents.length} residential prox${residentialAgents.length > 1 ? 'ies' : 'y'} for IP-blocked hosts (reddit…)`)
+const residentialHosts = (process.env.RESIDENTIAL_HOSTS || 'reddit.com')
+  .split(',')
+  .map((s) => s.trim().toLowerCase())
+  .filter(Boolean)
 
 // Only route the sites that actually IP-block datacenter ranges through the
 // proxy pool — proxying every open-web call (Kick, Google News, label dumps…)
 // just saturates the proxies and times out the calls that truly need them.
 // Override the list with PROXY_HOSTS (comma-separated host substrings).
-const proxyHosts = (process.env.PROXY_HOSTS || 'casino.guru,archive.org,trustpilot.com,casino.org,reddit.com')
+const proxyHosts = (process.env.PROXY_HOSTS || 'casino.guru,archive.org,trustpilot.com,casino.org')
   .split(',')
   .map((s) => s.trim().toLowerCase())
   .filter(Boolean)
-function needsProxy(url: string): boolean {
-  if (agents.length === 0) return false
+
+// Choose the right dispatcher for a URL: residential pool for hosts that block
+// datacenter IPs, the datacenter pool for the Cloudflare-walled review sites,
+// else direct.
+function dispatcherFor(url: string): ProxyAgent | undefined {
   const u = url.toLowerCase()
-  return proxyHosts.some((h) => u.includes(h))
+  if (residentialAgents.length && residentialHosts.some((h) => u.includes(h))) return pick(residentialAgents)
+  if (agents.length && proxyHosts.some((h) => u.includes(h))) return pick(agents)
+  return undefined
 }
 
 type FetchInit = NonNullable<Parameters<typeof undiciFetch>[1]>
 
 export function webFetch(url: string, init: FetchInit = {}) {
-  return undiciFetch(url, { ...init, dispatcher: needsProxy(url) ? pickAgent() : undefined })
+  return undiciFetch(url, { ...init, dispatcher: dispatcherFor(url) })
 }
