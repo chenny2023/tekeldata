@@ -21,7 +21,19 @@ function buildAgents(urls: string[]): ProxyAgent[] {
   const out: ProxyAgent[] = []
   for (const u of urls) {
     try {
-      out.push(new ProxyAgent(u))
+      // undici defaults to a 10s connect timeout, which Railway -> Webshare proxy
+      // CONNECT tunnels routinely blow through (datacenter-to-datacenter hop under
+      // a busy event loop), surfacing as an opaque "fetch failed". Give the tunnel
+      // and the slow ~600KB upstream pages room so transient slowness isn't a hard
+      // failure.
+      out.push(
+        new ProxyAgent({
+          uri: u,
+          connect: { timeout: 30_000 },
+          headersTimeout: 35_000,
+          bodyTimeout: 45_000,
+        }),
+      )
     } catch (e) {
       console.warn(`[net] skipping invalid proxy url: ${(e as Error).message}`)
     }

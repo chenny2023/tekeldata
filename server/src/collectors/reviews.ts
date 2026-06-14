@@ -175,7 +175,9 @@ export async function runReviewsOnce() {
     }
     } catch (e) {
       fetchOk = false // transient network/HTTP error — leave it unmarked so it retries
-      console.warn(`[reviews] ${name}: casino.guru fetch error (${(e as Error).message}), will retry`)
+      const cause = (e as { cause?: { message?: string } }).cause?.message
+      const why = cause ? `${(e as Error).message}: ${cause}` : (e as Error).message
+      console.warn(`[reviews] ${name}: casino.guru fetch error (${why}), will retry`)
     }
     // only cache a genuine "no rating found" miss; a transient error retries next cycle
     if (fetchOk && !guru) upsert.run({ brand_key: key, source: 'casino.guru', score: 0, score_max: 10, url: null, updated_at: Date.now() })
