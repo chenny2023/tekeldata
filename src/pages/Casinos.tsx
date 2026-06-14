@@ -53,9 +53,9 @@ function EditorialChip({ score }: { score: number }) {
 // UNRESOLVED disputes, amber when complaints exist but were all resolved, green
 // when there are none on record.
 function ComplaintsChip({ count, unresolved }: { count: number; unresolved: number | null }) {
-  const u = unresolved ?? 0
+  const u = unresolved && unresolved > 0 ? unresolved : 0
   const color = u > 0 ? '#ff5c7a' : count > 0 ? '#f5b100' : '#2ee6a6'
-  const desc = u > 0 ? `${count} complaints · ${u} unresolved` : count > 0 ? `${count} complaints (all resolved)` : 'no complaints on record'
+  const desc = u > 0 ? `${count} complaints · ${u} unresolved` : count > 0 ? `${count} complaints in casino.guru's database` : 'no complaints on record'
   return (
     <span
       title={`casino.guru: ${desc}`}
@@ -471,7 +471,7 @@ export default function Casinos() {
                               {c.safetyIndex != null && <MetaCell icon={<ShieldCheck size={12} />} label="casino.guru" value={`${c.safetyIndex} / 10`} />}
                               {c.trustpilot != null && <MetaCell icon={<Star size={12} />} label="Trustpilot" value={`${c.trustpilot} / 5`} />}
                               {c.editorial != null && <MetaCell icon={<Award size={12} />} label="casino.org" value={`${c.editorial} / 5`} />}
-                              {c.complaints != null && <MetaCell icon={<AlertTriangle size={12} />} label="Complaints" value={`${c.complaints}${c.unresolved ? ` · ${c.unresolved} unresolved` : ' · all resolved'}`} />}
+                              {c.complaints != null && <MetaCell icon={<AlertTriangle size={12} />} label="Complaints" value={`${c.complaints}${c.unresolved ? ` · ${c.unresolved} unresolved` : ''}`} />}
                               {c.userReviews != null && <MetaCell icon={<MessageSquare size={12} />} label="User reviews" value={`${c.userReviews}`} />}
                             </div>
                             {c.byChain.length > 0 && (
