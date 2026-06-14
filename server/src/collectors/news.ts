@@ -94,45 +94,57 @@ export async function runNewsOnce() {
   }
   const { label, brand } = targets[cursor++]
 
-  try {
-    const q = encodeURIComponent(`"${brand}"`)
-    const res = await webFetch(
-      `https://news.google.com/rss/search?q=${q}&hl=en-US&gl=US&ceid=US:en`,
-      { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(20_000) },
-    )
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const xml = await res.text()
-    const items = xml.match(/<item>[\s\S]*?<\/item>/g) ?? []
-    let added = 0
-    const tx = db.transaction(() => {
-      for (const item of items.slice(0, 30)) {
-        const title = tag(item, 'title')
-        const link = tag(item, 'link')
-        const pub = Date.parse(tag(item, 'pubDate'))
-        if (!title || !link || Number.isNaN(pub)) continue
-        // only keep headlines that actually name the brand — RSS search can
-        // return looser matches, and we never attribute those. Match on a WORD
-        // BOUNDARY so e.g. "Stake" doesn't false-match "mistake"/"staked".
-        const needle = brand.toLowerCase().replace(/\.(com|io|gg|game)$/, '')
-        const reNeedle = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-        if (!new RegExp(`\\b${reNeedle}\\b`, 'i').test(title)) continue
-        const r = insertMention.run({
-          id: `gn_${hash(link)}_${label}`,
-          watch_label: label,
-          title: title.slice(0, 300),
-          url: link,
-          score: 0,
-          sentiment: lexScore(title + ' ' + tag(item, 'description')),
-          ts: pub,
-        })
-        added += r.changes
-      }
-    })
-    tx()
-    if (added) console.log(`[news] ${brand}: +${added} mentions`)
-  } catch (e) {
-    console.warn(`[news] ${brand} failed:`, (e as Error).message)
+  // two queries per brand: the plain name (corporate/regulatory news) AND a
+  // sentiment-rich query (player reviews, scam/withdrawal/payout chatter) — the
+  // second surfaces the opinionated coverage the Sentiment page actually wants.
+  // Same-article hits across the two dedupe on the INSERT OR IGNORE id.
+  const needle = brand.toLowerCase().replace(/\.(com|io|gg|game)$/, '')
+  const reNeedle = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const brandRe = new RegExp(`\\b${reNeedle}\\b`, 'i')
+  const queries = [
+    `"${brand}"`,
+    `"${brand}" (review OR scam OR rigged OR withdrawal OR payout OR complaint OR bonus)`,
+  ]
+
+  let added = 0
+  for (const query of queries) {
+    try {
+      const q = encodeURIComponent(query)
+      const res = await webFetch(
+        `https://news.google.com/rss/search?q=${q}&hl=en-US&gl=US&ceid=US:en`,
+        { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(20_000) },
+      )
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const xml = await res.text()
+      const items = xml.match(/<item>[\s\S]*?<\/item>/g) ?? []
+      const tx = db.transaction(() => {
+        for (const item of items.slice(0, 30)) {
+          const title = tag(item, 'title')
+          const link = tag(item, 'link')
+          const pub = Date.parse(tag(item, 'pubDate'))
+          if (!title || !link || Number.isNaN(pub)) continue
+          // only keep headlines that actually name the brand on a WORD BOUNDARY
+          // (so "Stake" doesn't false-match "mistake"/"staked")
+          if (!brandRe.test(title)) continue
+          const r = insertMention.run({
+            id: `gn_${hash(link)}_${label}`,
+            watch_label: label,
+            title: title.slice(0, 300),
+            url: link,
+            score: 0,
+            sentiment: lexScore(title + ' ' + tag(item, 'description')),
+            ts: pub,
+          })
+          added += r.changes
+        }
+      })
+      tx()
+    } catch (e) {
+      console.warn(`[news] ${brand} (${query.includes('OR') ? 'sentiment' : 'name'}) failed:`, (e as Error).message)
+    }
+    await new Promise((r) => setTimeout(r, 800)) // small gap between the two queries
   }
+  if (added) console.log(`[news] ${brand}: +${added} mentions`)
 }
 
 export function startNews() {

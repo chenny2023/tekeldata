@@ -118,7 +118,7 @@ const residentialHosts = (process.env.RESIDENTIAL_HOSTS || 'reddit.com')
 // proxy pool — proxying every open-web call (Kick, Google News, label dumps…)
 // just saturates the proxies and times out the calls that truly need them.
 // Override the list with PROXY_HOSTS (comma-separated host substrings).
-const proxyHosts = (process.env.PROXY_HOSTS || 'casino.guru,archive.org,trustpilot.com,casino.org,bsky.app')
+const proxyHosts = (process.env.PROXY_HOSTS || 'casino.guru,archive.org,trustpilot.com,casino.org,bsky.app,gdeltproject.org')
   .split(',')
   .map((s) => s.trim().toLowerCase())
   .filter(Boolean)

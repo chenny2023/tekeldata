@@ -44,6 +44,10 @@ function targets(): { label: string; brand: string }[] {
 
 let list: { label: string; brand: string }[] = []
 let cursor = 0
+// Bluesky's edge 403s datacenter IPs (Railway + the datacenter proxies), like
+// Reddit. Back off when it persistently rejects us so we don't spam, and recover
+// the instant a request succeeds (e.g. a clean residential proxy is configured).
+export let blueskyConsecutiveFails = 0
 
 export async function runBlueskyOnce() {
   if (cursor >= list.length) {
@@ -86,9 +90,13 @@ export async function runBlueskyOnce() {
       }
     })
     tx()
+    if (blueskyConsecutiveFails > 0) console.log('[bluesky] recovered — resuming normal cadence')
+    blueskyConsecutiveFails = 0
     if (added) console.log(`[bluesky] ${brand}: +${added} mentions`)
   } catch (e) {
-    console.warn(`[bluesky] ${brand} failed:`, (e as Error).message)
+    blueskyConsecutiveFails++
+    if (blueskyConsecutiveFails <= 3) console.warn(`[bluesky] ${brand} failed:`, (e as Error).message)
+    else if (blueskyConsecutiveFails === 4) console.warn('[bluesky] persistent failures (datacenter IP-block) — backing off to 30m until a request succeeds')
   }
 }
 
@@ -96,7 +104,8 @@ export function startBluesky() {
   console.log('[bluesky] public post search active')
   const loop = async () => {
     await runBlueskyOnce()
-    setTimeout(loop, 25_000) // one brand per 25s — polite to the public AppView
+    const delay = blueskyConsecutiveFails >= 4 ? 30 * 60_000 : 25_000
+    setTimeout(loop, delay)
   }
   setTimeout(loop, 30_000)
 }
