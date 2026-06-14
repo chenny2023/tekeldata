@@ -17,7 +17,7 @@ const TOKENS: { brand: string; cgId: string }[] = [
   { brand: 'Rollbit', cgId: 'rollbit-coin' },
   { brand: 'Shuffle', cgId: 'shuffle-2' },
   { brand: 'Yeet', cgId: 'yeet' },
-  { brand: 'BetFury', cgId: 'betfury' },
+  { brand: 'BetFury', cgId: 'bfg-token' },
 ]
 
 export interface TokenInfo {

@@ -207,7 +207,11 @@ const isDeadLabel = (b: BrandAgg) => b.category === 'casino' && !b.meta && b.vol
 
 let brandCache: { at: number; data: BrandAgg[] } | null = null
 export function aggregateBrands(category?: string): BrandAgg[] {
-  const all = computeBrands().filter((b) => !isDeadLabel(b))
+  const raw = computeBrands()
+  // only prune dead labels once the aggregate is WARM (some brand has volume) — on
+  // a cold post-deploy window everything reads 0 and we'd wrongly hide real casinos
+  const warm = raw.some((b) => b.volume7d > 0 || b.reserves > 0)
+  const all = warm ? raw.filter((b) => !isDeadLabel(b)) : raw
   if (!category || category === 'all') return all
   return all.filter((b) => b.category === category)
 }

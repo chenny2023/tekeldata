@@ -83,8 +83,12 @@ async function fetchTrustpilotWayback(domain: string): Promise<number | null> {
   }
 }
 
-async function fetchTrustpilot(domain: string): Promise<number | null> {
-  return (await fetchTrustpilotLive(domain)) ?? (await fetchTrustpilotWayback(domain))
+// returns the rating + which path produced it (live residential vs stale archive)
+async function fetchTrustpilot(domain: string): Promise<{ rating: number; src: 'live' | 'wayback' } | null> {
+  const live = await fetchTrustpilotLive(domain)
+  if (live != null) return { rating: live, src: 'live' }
+  const wb = await fetchTrustpilotWayback(domain)
+  return wb != null ? { rating: wb, src: 'wayback' } : null
 }
 
 function domainOf(brand: string): string | null {
@@ -310,14 +314,14 @@ export async function runReviewsOnce() {
     if (fetchOk && !guru) upsert.run({ brand_key: key, source: 'casino.guru', score: 0, score_max: 10, url: null, updated_at: Date.now() })
   }
 
-  // 2) Trustpilot rating via Wayback (independent freshness — needs the domain)
+  // 2) Trustpilot rating — live via the residential proxy, Wayback as fallback
   if (!fresh('trustpilot')) {
     const domain = domainOf(name)
     if (domain) {
       const tp = await fetchTrustpilot(domain)
       if (tp != null) {
-        upsert.run({ brand_key: key, source: 'trustpilot', score: tp, score_max: 5, url: `https://www.trustpilot.com/review/${domain}`, updated_at: Date.now() })
-        console.log(`[reviews] ${name}: Trustpilot ★${tp}/5 (archived)`)
+        upsert.run({ brand_key: key, source: 'trustpilot', score: tp.rating, score_max: 5, url: `https://www.trustpilot.com/review/${domain}`, updated_at: Date.now() })
+        console.log(`[reviews] ${name}: Trustpilot ★${tp.rating}/5 (${tp.src})`)
       } else {
         upsert.run({ brand_key: key, source: 'trustpilot', score: 0, score_max: 5, url: null, updated_at: Date.now() })
       }
@@ -403,6 +407,14 @@ export function startReviews() {
       const n = db.prepare("UPDATE reviews SET updated_at = 0 WHERE source = 'casino.guru'").run().changes
       stateSet('reviews:complaints:v2', 1)
       if (n) console.log(`[reviews] marked ${n} casino.guru rows stale to backfill complaint data`)
+    }
+    // one-time: re-fetch Trustpilot now that trustpilot.com routes through the
+    // RESIDENTIAL proxy (the live site 403'd datacenter proxies, so we'd fallen
+    // back to stale Wayback snapshots — a clean residential IP can hit it live).
+    if (!stateGet('reviews:trustpilot:residential:v1')) {
+      const n = db.prepare("UPDATE reviews SET updated_at = 0 WHERE source = 'trustpilot'").run().changes
+      stateSet('reviews:trustpilot:residential:v1', 1)
+      if (n) console.log(`[reviews] marked ${n} trustpilot rows stale to re-fetch live via residential proxy`)
     }
   } catch {
     /* non-fatal */
