@@ -22,8 +22,47 @@ const upsert = db.prepare(`
   ON CONFLICT(brand_key, source) DO UPDATE SET score=excluded.score, score_max=excluded.score_max, url=excluded.url, updated_at=excluded.updated_at
 `)
 
-// ── Trustpilot rating via the Wayback Machine (the live site is Cloudflare-walled) ──
-async function fetchTrustpilot(domain: string): Promise<number | null> {
+function parseTrustpilotRating(html: string): number | null {
+  // Trustpilot embeds an AggregateRating in JSON-LD; fall back to a raw ratingValue
+  for (const m of html.matchAll(/<script[^>]*application\/ld\+json[^>]*>([\s\S]*?)<\/script>/g)) {
+    try {
+      const j = JSON.parse(m[1])
+      const nodes = Array.isArray(j) ? j : (j['@graph'] ?? [j])
+      for (const n of nodes) {
+        const rv = n?.aggregateRating?.ratingValue ?? (n?.['@type'] === 'AggregateRating' ? n.ratingValue : null)
+        if (rv != null) {
+          const v = Number(rv)
+          if (v > 0 && v <= 5) return v
+        }
+      }
+    } catch {
+      /* skip */
+    }
+  }
+  const m = html.match(/"ratingValue"\s*:\s*"?([\d.]+)/)
+  const v = m ? Number(m[1]) : null
+  return v && v > 0 && v <= 5 ? v : null
+}
+
+// ── Trustpilot rating ─────────────────────────────────────────────────────────
+// The live site is Cloudflare-walled, but the proxy pool (net.ts routes
+// trustpilot.com through it) gets past that — so read the CURRENT rating from the
+// live page first. Only if the live fetch is blocked/empty do we fall back to the
+// Wayback archive (reachable but a possibly-months-old snapshot).
+async function fetchTrustpilotLive(domain: string): Promise<number | null> {
+  try {
+    const res = await webFetch(`https://www.trustpilot.com/review/${domain}`, {
+      headers: { 'User-Agent': UA, 'Accept-Encoding': 'gzip, deflate' },
+      signal: AbortSignal.timeout(30_000),
+    })
+    if (res.status !== 200) return null
+    return parseTrustpilotRating(await res.text())
+  } catch {
+    return null
+  }
+}
+
+async function fetchTrustpilotWayback(domain: string): Promise<number | null> {
   try {
     const cdx = await webFetch(
       `https://web.archive.org/cdx/search/cdx?url=${encodeURIComponent('trustpilot.com/review/' + domain)}&output=json&limit=-2&filter=statuscode:200`,
@@ -38,13 +77,14 @@ async function fetchTrustpilot(domain: string): Promise<number | null> {
       signal: AbortSignal.timeout(25_000),
     })
     if (!page.ok) return null
-    const html = await page.text()
-    const m = html.match(/"ratingValue"\s*:\s*"?([\d.]+)/)
-    const v = m ? Number(m[1]) : null
-    return v && v > 0 && v <= 5 ? v : null
+    return parseTrustpilotRating(await page.text())
   } catch {
     return null
   }
+}
+
+async function fetchTrustpilot(domain: string): Promise<number | null> {
+  return (await fetchTrustpilotLive(domain)) ?? (await fetchTrustpilotWayback(domain))
 }
 
 function domainOf(brand: string): string | null {

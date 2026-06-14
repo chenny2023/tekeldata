@@ -42,10 +42,14 @@ export const config = {
   tronMode: env.TRON_MODE ?? 'jsonrpc',
   tronMaxRange: Number(env.TRON_MAX_RANGE ?? 4500), // ≤ node's 5000-block getLogs cap
 
-  // Stablecoin contracts we index (valued 1:1 USD for accurate, real USD figures)
+  // Stablecoin contracts we index (valued 1:1 USD for accurate, real USD figures).
+  // All entries MUST be USD-pegged 1:1 stablecoins — the indexer values every
+  // evmToken transfer at face value, so a non-stable here would mis-state volume.
   evmTokens: [
     { symbol: 'USDT', address: '0xdac17f958d2ee523a2206206994597c13d831ec7', decimals: 6 },
     { symbol: 'USDC', address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', decimals: 6 },
+    { symbol: 'DAI', address: '0x6b175474e89094c44da98b954eedeac495271d0f', decimals: 18 },
+    { symbol: 'PYUSD', address: '0x6c3ea9036406852006290770bedfcaba0e23a0e8', decimals: 6 },
   ],
   tronUsdt: { symbol: 'USDT', address: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t', decimals: 6 },
 
@@ -63,6 +67,7 @@ export const config = {
   bscTokens: [
     { symbol: 'USDT', address: '0x55d398326f99059ff775485246999027b3197955', decimals: 18 },
     { symbol: 'USDC', address: '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d', decimals: 18 },
+    { symbol: 'FDUSD', address: '0xc5f0f7b66764f6ec8c8dff7ba683102295e16409', decimals: 18 },
   ],
   bscMaxRange: Number(env.BSC_MAX_RANGE ?? 1800), // ≤ publicnode's ~2000 cap
   bscPollMs: Number(env.BSC_POLL_MS ?? 12_000),

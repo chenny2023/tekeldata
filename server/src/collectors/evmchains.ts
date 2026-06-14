@@ -37,7 +37,10 @@ const L2S = [
     name: 'Base',
     env: 'BASE',
     rpcs: ['https://base-rpc.publicnode.com', 'https://mainnet.base.org'],
-    tokens: [{ symbol: 'USDC', address: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', decimals: 6 }],
+    tokens: [
+      { symbol: 'USDC', address: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', decimals: 6 },
+      { symbol: 'USDbC', address: '0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca', decimals: 6 }, // bridged USDC, still heavy on Base
+    ],
     explorerHosts: ['basescan.org'],
     nominalBlockMs: 2_000,
   },
@@ -72,6 +75,7 @@ const L2S = [
     rpcs: ['https://polygon-bor-rpc.publicnode.com', 'https://polygon.llamarpc.com'],
     tokens: [
       { symbol: 'USDC', address: '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359', decimals: 6 },
+      { symbol: 'USDC.e', address: '0x2791bca1f2de4661ed88a30c99a7a9449aa84174', decimals: 6 }, // bridged USDC — dominant on Polygon
       { symbol: 'USDT', address: '0xc2132d05d31c914a87c6611c10748aeb04b58e8f', decimals: 6 },
     ],
     explorerHosts: ['polygonscan.com'],
