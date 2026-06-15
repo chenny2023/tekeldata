@@ -166,10 +166,14 @@ export function startArkham() {
     stateSet('arkham:revalidate:v1', 1)
     if (n) console.log(`[arkham] cleared ${n} matches to re-resolve with domain validation`)
   }
+  let iter = 0
   const loop = async () => {
-    // resolve everything first, then keep reserves fresh
-    const did = (await resolveOne().catch(() => false)) || (await refreshOne().catch(() => false))
-    setTimeout(loop, did ? 6_000 : 60_000) // gentle on the API; idle slowly when nothing to do
+    // interleave: resolve each tick, but also refresh reserves every 3rd tick so
+    // matched casinos start showing reserves without waiting for the full resolve.
+    const resolved = await resolveOne().catch(() => false)
+    let refreshed = false
+    if (!resolved || ++iter % 3 === 0) refreshed = await refreshOne().catch(() => false)
+    setTimeout(loop, resolved || refreshed ? 6_000 : 60_000)
   }
   setTimeout(loop, 30_000)
 }
