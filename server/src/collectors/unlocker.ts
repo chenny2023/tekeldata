@@ -15,6 +15,8 @@ const TIER_PARAM: Record<string, string> = {
   premium: '&premium=true',
   ultra: '&ultra_premium=true',
   ultra_render: '&ultra_premium=true&render=true', // ultra + JS render — for sites whose Cloudflare needs the challenge executed
+  premium_us: '&premium=true&country_code=us',
+  ultra_us: '&ultra_premium=true&country_code=us',
 }
 const DEFAULT_TIER: Record<string, string> = { trustpilot: 'ultra', reddit: 'premium' }
 
