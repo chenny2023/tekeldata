@@ -1,6 +1,6 @@
 import { db, stateSet } from '../db.ts'
 import { webFetch } from '../net.ts'
-import { unlockedFetch } from './unlocker.ts'
+import { unlockedFetch, tierName } from './unlocker.ts'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Trustpilot directory enricher. The casino *category* listing is bot-blocked
@@ -73,14 +73,19 @@ async function enrichOne(): Promise<void> {
       return
     }
     if (res.status !== 200) {
-      stateSet('trustpilot:last', JSON.stringify({ domain: row.domain, status: res.status }))
-      return // transient/block — leave tp_checked so a later tick retries on a fresh IP
+      // ALWAYS advance (mark checked) — otherwise pickNext re-selects this same
+      // domain every tick and burns unlocker credits in an infinite loop.
+      update.run({ domain: row.domain, rating: null, reviews: null, now })
+      stateSet('trustpilot:last', JSON.stringify({ domain: row.domain, status: res.status, tier: tierName('trustpilot') }))
+      return
     }
     const { rating, reviews } = parseReview(await res.text())
     update.run({ domain: row.domain, rating, reviews, now })
-    stateSet('trustpilot:last', JSON.stringify({ domain: row.domain, status: 200, rating, reviews }))
+    stateSet('trustpilot:last', JSON.stringify({ domain: row.domain, status: 200, rating, reviews, tier: tierName('trustpilot') }))
     if (rating != null) console.log(`[trustpilot] ${row.domain}: ★${rating} (${reviews ?? '?'} reviews)`)
   } catch (e) {
+    // network/timeout — advance too (short-circuit the loop); 3-week recheck retries
+    update.run({ domain: row.domain, rating: null, reviews: null, now })
     stateSet('trustpilot:last', JSON.stringify({ domain: row.domain, err: (e as Error).message.slice(0, 50) }))
   }
 }

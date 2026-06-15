@@ -5,6 +5,7 @@ import { aggregateEntities, aggregateBrands } from './aggregate.ts'
 import { reserveSeries } from './reservehistory.ts'
 import { twitchEnabled } from './collectors/twitch.ts'
 import { redditEnabled } from './collectors/reddit.ts'
+import { probeTier } from './collectors/unlocker.ts'
 import { newsEnabled } from './collectors/news.ts'
 import { telegramSubs } from './collectors/telegram.ts'
 import { brandKey } from './casinometa.ts'
@@ -159,6 +160,19 @@ export async function registerApi(app: FastifyInstance) {
       tpLast: parse('trustpilot:last'),
       scraperTier: { trustpilot: tier('trustpilot'), reddit: tier('reddit') },
     }
+  })
+
+  // one-off unlocker diagnostic: probe a known-good Trustpilot + Reddit URL at
+  // each ScraperAPI tier so we can see which tier actually unlocks them (and what
+  // it costs) instead of guessing. Costs a few credits per call — use sparingly.
+  app.get('/api/directory/unlockertest', async () => {
+    const ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+    const init = { headers: { 'User-Agent': ua }, signal: AbortSignal.timeout(70_000) }
+    const tiers = ['standard', 'premium', 'ultra']
+    const tp = []
+    for (const t of tiers) tp.push(await probeTier('https://www.trustpilot.com/review/stake.com', t, init))
+    const rd = await probeTier('https://www.reddit.com/search.json?q=stake&limit=5', 'premium', init)
+    return { trustpilot: tp, reddit: rd }
   })
 
   // ── casino directory (login-gated — outreach/contact data) ───────────────────
