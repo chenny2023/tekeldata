@@ -150,6 +150,26 @@ CREATE TABLE IF NOT EXISTS reviews (
   PRIMARY KEY(brand_key, source)
 );
 
+-- Casino directory: a broad catalogue of casinos vetted for outreach. Tiered
+-- inclusion — every reachable site is recorded, with flags for whether it has an
+-- accessible X account and a real (MX-valid) email. The contact data feeds future
+-- partnership email outreach.
+CREATE TABLE IF NOT EXISTS casino_directory (
+  domain      TEXT PRIMARY KEY,         -- normalized registrable domain (dedupe key)
+  name        TEXT NOT NULL,
+  website     TEXT NOT NULL,
+  twitter     TEXT,                      -- X handle (without @) if found
+  email       TEXT,                      -- contact email if found
+  site_ok     INTEGER NOT NULL DEFAULT 0,-- website loads (HTTP 200, not parked)
+  x_ok        INTEGER NOT NULL DEFAULT 0,-- has an X account
+  email_ok    INTEGER NOT NULL DEFAULT 0,-- has a real email (domain MX-valid)
+  source      TEXT,                      -- 'roster' | 'casino.guru'
+  status      TEXT,                      -- last check note (ok / http code / error)
+  last_checked INTEGER NOT NULL DEFAULT 0,
+  created_at  INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_directory_checked ON casino_directory(last_checked);
+
 -- daily solvency snapshots per casino brand, for the reserve-adequacy trend.
 -- coverage = reserves / weekly-outflow (≈ weeks of withdrawals the reserves cover)
 CREATE TABLE IF NOT EXISTS reserve_history (

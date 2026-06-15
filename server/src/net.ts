@@ -142,3 +142,11 @@ type FetchInit = NonNullable<Parameters<typeof undiciFetch>[1]>
 export function webFetch(url: string, init: FetchInit = {}) {
   return undiciFetch(url, { ...init, dispatcher: dispatcherFor(url) })
 }
+
+// Force a datacenter proxy for ANY url (the casino-directory crawler hits
+// thousands of arbitrary casino domains, many Cloudflare-walled to datacenter
+// IPs — routing through the pool gets past that). Falls back to direct if no
+// proxy is configured.
+export function webFetchProxied(url: string, init: FetchInit = {}) {
+  return undiciFetch(url, { ...init, dispatcher: pick(agents) })
+}

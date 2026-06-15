@@ -127,6 +127,41 @@ export async function registerApi(app: FastifyInstance) {
     return aggregateBrands(category ?? 'casino')
   })
 
+  // ── casino directory (login-gated — outreach/contact data) ───────────────────
+  const dirWhere = (filter?: string) =>
+    filter === 'withEmail' ? 'email_ok=1' : filter === 'withX' ? 'x_ok=1' : filter === 'included' ? 'site_ok=1 AND x_ok=1 AND email_ok=1' : filter === 'live' ? 'site_ok=1' : '1=1'
+
+  app.get('/api/directory', async (req, reply) => {
+    if (!userFromRequest(req)) return reply.code(401).send({ error: 'login required' })
+    const { filter, q } = req.query as { filter?: string; q?: string }
+    const args: any[] = []
+    let sql = `SELECT domain,name,website,twitter,email,site_ok,x_ok,email_ok,source,status,last_checked FROM casino_directory WHERE ${dirWhere(filter)}`
+    if (q) {
+      sql += ' AND (name LIKE ? OR domain LIKE ?)'
+      args.push(`%${q}%`, `%${q}%`)
+    }
+    sql += ' ORDER BY site_ok DESC, email_ok DESC, x_ok DESC, name LIMIT 5000'
+    const rows = db.prepare(sql).all(...args)
+    const stats = db
+      .prepare(
+        `SELECT COUNT(*) total, COALESCE(SUM(site_ok),0) site, COALESCE(SUM(x_ok),0) x, COALESCE(SUM(email_ok),0) email,
+                COALESCE(SUM(CASE WHEN site_ok=1 AND x_ok=1 AND email_ok=1 THEN 1 ELSE 0 END),0) included,
+                COALESCE(SUM(CASE WHEN last_checked>0 THEN 1 ELSE 0 END),0) checked FROM casino_directory`,
+      )
+      .get()
+    return { stats, rows }
+  })
+
+  app.get('/api/directory/export.csv', async (req, reply) => {
+    if (!userFromRequest(req)) return reply.code(401).send({ error: 'login required' })
+    const { filter } = req.query as { filter?: string }
+    const rows = db.prepare(`SELECT name,website,twitter,email FROM casino_directory WHERE ${dirWhere(filter ?? 'live')} ORDER BY name`).all() as any[]
+    const esc = (s: any) => `"${String(s ?? '').replace(/"/g, '""')}"`
+    const csv = ['name,website,x,email', ...rows.map((r) => [r.name, r.website, r.twitter ? `https://x.com/${r.twitter}` : '', r.email].map(esc).join(','))].join('\n')
+    reply.header('Content-Type', 'text/csv; charset=utf-8').header('Content-Disposition', 'attachment; filename=casino-directory.csv')
+    return csv
+  })
+
   // reserve-adequacy (solvency) trend for one casino brand — daily snapshots
   app.get('/api/reserves', async (req) => {
     const { brand, days } = req.query as { brand?: string; days?: string }

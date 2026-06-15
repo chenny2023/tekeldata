@@ -39,6 +39,7 @@ import { startAggregation } from './aggregate.ts'
 import { startAlerts } from './alerts.ts'
 import { startRetention } from './retention.ts'
 import { startReserveHistory } from './reservehistory.ts'
+import { startDirectory } from './directory.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const distDir = join(__dirname, '../../dist')
@@ -100,6 +101,7 @@ async function main() {
   startAlerts() // user-defined alert rules: whale stream + net-flow / reserve checks
   startRetention() // periodic prune of transfers past the retention window
   startReserveHistory() // daily solvency snapshots → reserve-adequacy trend
+  startDirectory() // casino directory crawler (site/X/email vetting for outreach)
 
   // Second wave (+90s): the HEAVY deep-backfill indexers. Their synchronous bulk
   // inserts are what saturate the single Node loop on boot and make the API
