@@ -20,6 +20,12 @@ const ROSTER_SEED = [
   'watchgamestv', 'slotspinner', 'fruityslots', 'deuceace', 'nickslots', 'jackpotmike',
   'ayezee', 'vondy', 'spintwix', 'hideousslots', 'knossi', 'm0e_tv', 'bymdoom', 'cheesur',
   'daskino', 'slotsfighter', 'bigwins', 'theclassybeef', 'mrgambleslots',
+  // wave 2
+  'roshtein_', 'casinogrounds', 'jarttu84', 'stop_and_step', 'ozzyslots', 'kingjafi',
+  'slotmojo', 'thebandit', 'craz', 'mexify', 'sapioo', 'jagbir', 'mrbigspin',
+  'ngslots', 'kimslots', 'rawslots', 'casinoninja', 'slothunters', 'bigwinboard',
+  'deuceace_', 'thomas', 'rincon', 'dinoo', 'gambit', 'p2isten', 'foltyn',
+  'montanablack88', 'eliasn97', 'westcol', 'adinross', 'cuffem', 'yassuo', 'm0xyy',
 ]
 
 const upsert = db.prepare(`

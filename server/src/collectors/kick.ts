@@ -27,6 +27,13 @@ const ROSTER_SEED = [
   'bdh', 'mhmdtv', 'm0xy', 'bobbynetwork', 'eddie', 'n3on', 'stake', 'yassuo',
   'westcol', 'eliasn97', 'knossi', 'montanablack', 'rebeu', 'agente', 'gambleboyz',
   'casinotest247', 'slotmonster', 'hugequads', 'thebandit',
+  // wave 2 — more gambling/slots channels
+  'ohnepixel', 'jukes', 'konvy', 'billyclips', 'drinkky', 'kyzia', 'jasontheween',
+  'suspendas', 'gambit', 'p2isten', 'foltyn', 'casinodaddyleon', 'casinodaddymattias',
+  'slotmojo', 'craz', 'mexify', 'twpclips', 'roshtein2', 'sapioo', 'jagbir',
+  'mrshmoo', 'thomas', 'rincon', 'dinoo', 'pamsmellz', 'tutkulu', 'slotrocket',
+  'spingang', 'bossmanjack', 'staysolidrocky', 'kevinsfm', 'wanted', 'gabepeixe',
+  'rdcworld', 'jynxzi', 'lacy', 'mando', 'amped', 'ricegum',
 ]
 
 // Common casino brands for affiliation matching (extended at runtime with

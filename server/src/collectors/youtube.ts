@@ -18,6 +18,12 @@ const ROSTER_SEED = [
   'TheBanditSlots', 'SpinTwix', 'Jarttu84', 'StopandStep', 'ClassyBeef', 'FruitySlots',
   'SlotSpinner', 'Vondy', 'JackpotMike', 'Daskino', 'CasinoGrounds', 'OnlineGamblingChannel',
   'SlotLady', 'BrianChristopherSlots', 'TheBigPayback', 'Slotsfighter',
+  // wave 2
+  'NGSlots', 'KimSlots', 'RawSlots', 'CasinoNinja', 'SlotHunters', 'BigwinBoard',
+  'MrBigSpin', 'TheReelStory', 'SlotMojo', 'DeuceAce', 'Xposed', 'CasinoGuru',
+  'AskGamblers', 'SlotLadyVegas', 'TheSlotCats', 'AllSlotsTV', 'GamblingRomania',
+  'CasinoTest247', 'OnlineCasinoGuide', 'SDGuy1234', 'VegasLowRoller', 'NgSlotsTooMuch',
+  'Watchgamestv', 'KingJafi', 'SpinGang', 'TheBigJackpot',
 ]
 
 const upsert = db.prepare(`
