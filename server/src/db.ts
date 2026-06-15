@@ -241,9 +241,10 @@ CREATE INDEX IF NOT EXISTS idx_mentions_label ON mentions(watch_label, ts DESC);
 for (const ddl of [
   'ALTER TABLE streamers ADD COLUMN followers INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE streamers ADD COLUMN affiliation TEXT',
-  // Trustpilot consumer signal merged onto each directory casino (from the casino category sweep)
+  // Trustpilot consumer signal merged onto each directory casino (per-domain /review/ enricher)
   'ALTER TABLE casino_directory ADD COLUMN tp_rating REAL',
   'ALTER TABLE casino_directory ADD COLUMN tp_reviews INTEGER',
+  'ALTER TABLE casino_directory ADD COLUMN tp_checked INTEGER NOT NULL DEFAULT 0',
 ]) {
   try {
     db.exec(ddl)

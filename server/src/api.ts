@@ -144,7 +144,7 @@ export async function registerApi(app: FastifyInstance) {
     }
     let tpLast: unknown = null
     try {
-      const v = stateGet('trustpilot:cat:last')
+      const v = stateGet('trustpilot:last')
       if (v) tpLast = JSON.parse(v)
     } catch {
       /* ignore */
