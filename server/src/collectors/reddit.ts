@@ -28,6 +28,33 @@ const insertMention = db.prepare(`
 export let redditConsecutiveFails = 0
 let rr = 0
 
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;|&#x27;|&apos;/gi, "'")
+    .replace(/&amp;/g, '&')
+}
+
+// Reddit's search.rss is Atom XML — pull the post out of each <entry>.
+function parseAtom(xml: string): { id: string; title: string; link: string; content: string; ts: number }[] {
+  const out: { id: string; title: string; link: string; content: string; ts: number }[] = []
+  for (const m of xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)) {
+    const e = m[1]
+    const id = (e.match(/<id>([^<]+)<\/id>/)?.[1] ?? '').replace(/^t3_/, '').trim()
+    if (!id) continue
+    const title = decodeEntities((e.match(/<title>([\s\S]*?)<\/title>/)?.[1] ?? '').trim())
+    const link = (e.match(/<link[^>]*href="([^"]+)"/)?.[1] ?? '').replace(/&amp;/g, '&')
+    const contentRaw = e.match(/<content[^>]*>([\s\S]*?)<\/content>/)?.[1] ?? ''
+    const content = decodeEntities(contentRaw).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 1000)
+    const pub = e.match(/<(?:published|updated)>([^<]+)</)?.[1] ?? ''
+    const ts = pub ? Date.parse(pub) : 0
+    out.push({ id, title, link, content, ts: Number.isFinite(ts) ? ts : 0 })
+  }
+  return out
+}
+
 export async function runRedditOnce() {
   const casinos = db
     .prepare("SELECT DISTINCT label FROM watchlist WHERE category='casino' AND active=1")
@@ -37,23 +64,17 @@ export async function runRedditOnce() {
   rr++
 
   const q = encodeURIComponent(`"${target.replace(/\.(com|io|gg)$/i, '')}"`)
-  // public, keyless search — retry a few times (each webFetch picks a fresh proxy)
-  const urls = [
-    `https://www.reddit.com/search.json?q=${q}&sort=new&t=month&limit=25&type=link`,
-    `https://old.reddit.com/search.json?q=${q}&sort=new&t=month&limit=25&type=link`, // old reddit is often less guarded
-  ]
-  let json: any = null
+  // Reddit's JSON endpoints are blocked even through the unlocker, but the RSS
+  // search feed comes through (ScraperAPI premium). Fetch + parse the Atom XML.
+  const url = `https://www.reddit.com/search.rss?q=${q}&sort=new&limit=25`
+  let xml = ''
   let lastErr: Error | null = null
-  for (let attempt = 0; attempt < 3 && !json; attempt++) {
-    const url = urls[attempt % urls.length]
+  for (let attempt = 0; attempt < 2 && !xml; attempt++) {
     try {
-      // Reddit fingerprint-blocks datacenter AND residential IPs, so prefer the
-      // paid unlocker (ScraperAPI residential pool, no render → raw JSON) when
-      // configured; fall back to the residential proxy otherwise.
-      const init = { headers: { 'User-Agent': UA, Accept: 'application/json', 'Accept-Language': 'en-US,en;q=0.9' }, signal: AbortSignal.timeout(70_000) }
+      const init = { headers: { 'User-Agent': UA, Accept: 'application/atom+xml,application/xml,text/xml' }, signal: AbortSignal.timeout(70_000) }
       const res = (await unlockedFetch('reddit', url, init)) ?? (await webFetch(url, { ...init, signal: AbortSignal.timeout(20_000) }))
       if (res.ok) {
-        json = await res.json()
+        xml = await res.text()
         break
       }
       lastErr = new Error(`HTTP ${res.status}`)
@@ -63,7 +84,7 @@ export async function runRedditOnce() {
     await new Promise((r) => setTimeout(r, 600))
   }
 
-  if (!json) {
+  if (!xml) {
     redditConsecutiveFails++
     if (redditConsecutiveFails <= 3) console.warn(`[reddit] ${target} failed:`, lastErr?.message)
     else if (redditConsecutiveFails === 4) console.warn('[reddit] persistent failures — backing off to 30m until a request succeeds')
@@ -73,24 +94,23 @@ export async function runRedditOnce() {
   redditConsecutiveFails = 0
 
   let added = 0
-  const tx = db.transaction((children: any[]) => {
-    for (const c of children) {
-      const d = c?.data
-      if (!d?.id) continue
-      const text = `${d.title ?? ''} ${d.selftext ?? ''}`.slice(0, 4000)
+  const entries = parseAtom(xml)
+  const tx = db.transaction(() => {
+    for (const e of entries) {
+      const text = `${e.title} ${e.content}`.slice(0, 4000)
       const r = insertMention.run({
-        id: `rd_${d.id}_${target}`,
+        id: `rd_${e.id}_${target}`,
         watch_label: target,
-        title: (d.title ?? '').slice(0, 300),
-        url: 'https://reddit.com' + (d.permalink ?? ''),
-        score: d.score ?? 0,
+        title: e.title.slice(0, 300),
+        url: e.link,
+        score: 0, // RSS carries no upvote count
         sentiment: lexScore(text),
-        ts: Math.round((d.created_utc ?? 0) * 1000),
+        ts: e.ts,
       })
       added += r.changes
     }
   })
-  tx(json?.data?.children ?? [])
+  tx()
   if (added) console.log(`[reddit] ${target}: +${added} mentions`)
 }
 
