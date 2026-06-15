@@ -7,6 +7,7 @@ import Login from './pages/Login'
 import Overview from './pages/Overview'
 import Casinos from './pages/Casinos'
 import Directory from './pages/Directory'
+import Markets from './pages/Markets'
 import Blockchain from './pages/Blockchain'
 import Streamers from './pages/Streamers'
 import Sentiment from './pages/Sentiment'
@@ -49,6 +50,7 @@ function Dashboard() {
         <Route index element={<Overview />} />
         <Route path="casinos" element={<Casinos />} />
         <Route path="directory" element={<Directory />} />
+        <Route path="markets" element={<Markets />} />
         <Route path="blockchain" element={<Blockchain />} />
         <Route path="streamers" element={<Streamers />} />
         <Route path="sentiment" element={<Sentiment />} />

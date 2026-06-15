@@ -220,6 +220,41 @@ export interface DirRow {
   tp_reviews: number | null
   last_checked: number
 }
+export interface OnchainProtocol {
+  slug: string
+  name: string
+  category: string | null
+  chains: string | null
+  tvl: number | null
+  change_1d: number | null
+  change_7d: number | null
+  mcap: number | null
+  url: string | null
+  twitter: string | null
+  logo: string | null
+}
+export interface ProtocolsResp {
+  count: number
+  totalTvl: number
+  byCategory: Record<string, number>
+  protocols: OnchainProtocol[]
+}
+export interface PredictionMarket {
+  id: string
+  question: string
+  volume: number | null
+  liquidity: number | null
+  outcomes: string[] | null
+  prices: string[] | null
+  end_date: string | null
+  category: string | null
+  url: string | null
+}
+export interface PredictionsResp {
+  count: number
+  totalVolume: number
+  markets: PredictionMarket[]
+}
 export interface ArkhamReserves {
   count: number
   totalUsd: number
@@ -318,6 +353,8 @@ export const api = {
     return getJson<{ stats: DirStats; rows: DirRow[] }>('/directory?' + p.toString())
   },
   arkhamReserves: () => getJson<ArkhamReserves>('/arkham/reserves'),
+  protocols: (category?: string) => getJson<ProtocolsResp>('/protocols' + (category ? `?category=${encodeURIComponent(category)}` : '')),
+  predictions: () => getJson<PredictionsResp>('/predictions'),
   alertRules: () => getJson<AlertRule[]>('/alerts/rules'),
   createAlertRule: (body: { kind: string; scope: string; scopeLabel?: string; threshold: number; windowH?: number; webhook?: string }) =>
     sendJson<{ ok: boolean }>('/alerts/rules', 'POST', body),
