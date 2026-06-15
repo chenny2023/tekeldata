@@ -85,18 +85,26 @@ async function sweepOne(): Promise<void> {
   const page = Number(stateGet(PAGE_KEY) ?? '1') || 1
   const url = page === 1 ? CAT : `${CAT}?page=${page}`
   let html = ''
-  try {
-    const res = await webFetch(url, { headers: { 'User-Agent': UA, 'Accept-Encoding': 'gzip, deflate' }, signal: AbortSignal.timeout(30_000) })
-    if (res.status !== 200) {
-      stateSet('trustpilot:cat:last', JSON.stringify({ page, status: res.status }))
-      console.warn(`[trustpilot-cat] page ${page}: HTTP ${res.status} (retry later)`)
-      return // leave the cursor; a later tick retries on a fresh residential session
+  let lastErr = ''
+  // the category page is heavy and residential exits are slow — give it room, and
+  // retry up to 3× since webFetch rolls onto a fresh residential IP each attempt
+  for (let attempt = 0; attempt < 3 && !html; attempt++) {
+    try {
+      const res = await webFetch(url, { headers: { 'User-Agent': UA, 'Accept-Encoding': 'gzip, deflate' }, signal: AbortSignal.timeout(55_000) })
+      if (res.status !== 200) {
+        lastErr = `HTTP ${res.status}`
+        stateSet('trustpilot:cat:last', JSON.stringify({ page, status: res.status, attempt }))
+        continue
+      }
+      html = await res.text()
+    } catch (e) {
+      lastErr = (e as Error).message.slice(0, 50)
+      stateSet('trustpilot:cat:last', JSON.stringify({ page, err: lastErr, attempt }))
     }
-    html = await res.text()
-  } catch (e) {
-    stateSet('trustpilot:cat:last', JSON.stringify({ page, err: (e as Error).message.slice(0, 50) }))
-    console.warn(`[trustpilot-cat] page ${page}: ${(e as Error).message.slice(0, 40)} (retry later)`)
-    return
+  }
+  if (!html) {
+    console.warn(`[trustpilot-cat] page ${page}: ${lastErr} (retry later)`)
+    return // leave the cursor; a later tick retries on a fresh residential session
   }
 
   const biz = parsePage(html)

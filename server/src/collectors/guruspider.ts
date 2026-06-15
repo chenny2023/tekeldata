@@ -17,7 +17,10 @@ import { seedDirectory } from '../directory.ts'
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
 
 const enqueue = db.prepare('INSERT INTO crawl_queue(slug, found_at) VALUES(?, ?) ON CONFLICT(slug) DO NOTHING')
-const pickPending = db.prepare('SELECT slug FROM crawl_queue WHERE done=0 ORDER BY found_at ASC LIMIT 1')
+// random pick (not FIFO): the roster seed-slugs and freshly-discovered casinos
+// interleave, so newly-found casinos get resolved into the directory right away
+// instead of waiting behind the whole roster queue.
+const pickPending = db.prepare('SELECT slug FROM crawl_queue WHERE done=0 ORDER BY RANDOM() LIMIT 1')
 const markDone = db.prepare('UPDATE crawl_queue SET done=? WHERE slug=?')
 const queueStats = db.prepare(
   'SELECT COUNT(*) total, COALESCE(SUM(CASE WHEN done=0 THEN 1 ELSE 0 END),0) pending, COALESCE(SUM(CASE WHEN done=1 THEN 1 ELSE 0 END),0) fetched FROM crawl_queue',
