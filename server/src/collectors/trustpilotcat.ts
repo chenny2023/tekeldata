@@ -64,7 +64,7 @@ async function enrichOne(): Promise<void> {
     const target = `https://www.trustpilot.com/review/${row.domain}`
     // Trustpilot blocks even residential IPs at the fingerprint level, so prefer
     // the paid unlocker channel when configured; fall back to the residential path.
-    const init = { headers: { 'User-Agent': UA, 'Accept-Encoding': 'gzip, deflate' }, signal: AbortSignal.timeout(130_000) }
+    const init = { headers: { 'User-Agent': UA, 'Accept-Encoding': 'gzip, deflate' }, signal: AbortSignal.timeout(150_000) }
     const res = (await unlockedFetch('trustpilot', target, init)) ?? (await webFetch(target, init))
     if (res.status === 404) {
       // no Trustpilot profile — mark checked so we stop retrying it

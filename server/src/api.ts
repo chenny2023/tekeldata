@@ -167,11 +167,11 @@ export async function registerApi(app: FastifyInstance) {
   // it costs) instead of guessing. Costs a few credits per call — use sparingly.
   app.get('/api/directory/unlockertest', async () => {
     const ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
-    const init = { headers: { 'User-Agent': ua }, signal: AbortSignal.timeout(130_000) }
-    const tiers = ['standard', 'premium', 'ultra']
+    const init = { headers: { 'User-Agent': ua }, signal: AbortSignal.timeout(150_000) }
     const tp = []
-    for (const t of tiers) tp.push(await probeTier('https://www.trustpilot.com/review/stake.com', t, init))
-    const rd = await probeTier('https://www.reddit.com/search.json?q=stake&limit=5', 'premium', init)
+    for (const t of ['ultra', 'ultra_render']) tp.push(await probeTier('https://www.trustpilot.com/review/stake.com', t, init))
+    const rd = []
+    for (const t of ['premium', 'ultra']) rd.push(await probeTier('https://www.reddit.com/search.json?q=stake&limit=5', t, init))
     return { trustpilot: tp, reddit: rd }
   })
 

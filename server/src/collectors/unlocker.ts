@@ -10,7 +10,12 @@ import { webFetchUnlocked } from '../net.ts'
 // Credits: standard≈1, premium≈10, ultra≈30 per request.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const TIER_PARAM: Record<string, string> = { standard: '', premium: '&premium=true', ultra: '&ultra_premium=true' }
+const TIER_PARAM: Record<string, string> = {
+  standard: '',
+  premium: '&premium=true',
+  ultra: '&ultra_premium=true',
+  ultra_render: '&ultra_premium=true&render=true', // ultra + JS render — for sites whose Cloudflare needs the challenge executed
+}
 const DEFAULT_TIER: Record<string, string> = { trustpilot: 'ultra', reddit: 'premium' }
 
 export function tierName(channel: string): string {
