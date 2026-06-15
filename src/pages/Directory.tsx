@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Search, Download, ExternalLink, Check, X as XIcon, Loader2 } from 'lucide-react'
+import { Search, Download, ExternalLink, Check, X as XIcon, Loader2, Star } from 'lucide-react'
 import { Card, PageHead, Skeleton } from '../components/ui'
 import { api, usePoll, downloadDirectoryCsv } from '../data/api'
 
@@ -52,13 +52,14 @@ export default function Directory() {
       />
 
       {/* stat tiles */}
-      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
         {[
           ['Total', s?.total],
           ['Checked', s?.checked],
           ['Site live', s?.site],
           ['Has X', s?.x],
           ['Has email', s?.email],
+          ['Trustpilot', s?.rated],
           ['All 3 ✓', s?.included],
         ].map(([label, v]) => (
           <Card key={label as string} className="px-4 py-3">
@@ -89,7 +90,7 @@ export default function Directory() {
           <div className="space-y-2 p-4">{Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-sm">
+            <table className="w-full min-w-[880px] text-sm">
               <thead>
                 <tr className="border-b border-white/8 text-left text-[12px] uppercase tracking-wider text-white/40">
                   <th className="px-4 py-3 font-medium">Casino</th>
@@ -97,13 +98,14 @@ export default function Directory() {
                   <th className="px-4 py-3 text-center font-medium">Site</th>
                   <th className="px-4 py-3 font-medium">X</th>
                   <th className="px-4 py-3 font-medium">Email</th>
+                  <th className="px-4 py-3 font-medium">Trustpilot</th>
                   <th className="px-4 py-3 font-medium">Source</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-12 text-center text-sm text-white/40">
+                    <td colSpan={7} className="px-4 py-12 text-center text-sm text-white/40">
                       {loading ? 'Loading…' : 'No casinos yet — the crawler is still vetting sites (this fills in over time).'}
                     </td>
                   </tr>
@@ -131,6 +133,17 @@ export default function Directory() {
                         <span className={r.email_ok ? 'text-mint-400' : 'text-white/45'} title={r.email_ok ? 'MX-valid' : 'no MX record'}>{r.email}</span>
                       ) : (
                         <Flag ok={0} />
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {r.tp_rating != null ? (
+                        <a href={`https://www.trustpilot.com/review/${r.domain}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-emerald-400 hover:underline">
+                          <Star size={12} className="fill-emerald-400" />
+                          {r.tp_rating.toFixed(1)}
+                          {r.tp_reviews != null && <span className="text-white/35">({r.tp_reviews.toLocaleString()})</span>}
+                        </a>
+                      ) : (
+                        <span className="text-white/20">—</span>
                       )}
                     </td>
                     <td className="px-4 py-2.5 text-[12px] text-white/40">{r.source}</td>

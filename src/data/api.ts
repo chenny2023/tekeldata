@@ -216,6 +216,8 @@ export interface DirRow {
   email_ok: number
   source: string | null
   status: string | null
+  tp_rating: number | null
+  tp_reviews: number | null
   last_checked: number
 }
 export interface DirStats {
@@ -224,6 +226,7 @@ export interface DirStats {
   x: number
   email: number
   included: number
+  rated: number
   checked: number
 }
 

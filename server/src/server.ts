@@ -41,6 +41,7 @@ import { startRetention } from './retention.ts'
 import { startReserveHistory } from './reservehistory.ts'
 import { startDirectory } from './directory.ts'
 import { startGuruSpider } from './collectors/guruspider.ts'
+import { startTrustpilotCategory } from './collectors/trustpilotcat.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const distDir = join(__dirname, '../../dist')
@@ -104,6 +105,7 @@ async function main() {
   startReserveHistory() // daily solvency snapshots → reserve-adequacy trend
   startDirectory() // casino directory crawler (site/X/email vetting for outreach)
   startGuruSpider() // casino.guru spider — fans the directory out to thousands of casinos
+  startTrustpilotCategory() // Trustpilot casino-category sweep — merges consumer ratings onto the directory
 
   // Second wave (+90s): the HEAVY deep-backfill indexers. Their synchronous bulk
   // inserts are what saturate the single Node loop on boot and make the API

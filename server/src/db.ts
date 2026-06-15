@@ -163,8 +163,10 @@ CREATE TABLE IF NOT EXISTS casino_directory (
   site_ok     INTEGER NOT NULL DEFAULT 0,-- website loads (HTTP 200, not parked)
   x_ok        INTEGER NOT NULL DEFAULT 0,-- has an X account
   email_ok    INTEGER NOT NULL DEFAULT 0,-- has a real email (domain MX-valid)
-  source      TEXT,                      -- 'roster' | 'casino.guru'
+  source      TEXT,                      -- 'roster' | 'casino.guru' | 'trustpilot'
   status      TEXT,                      -- last check note (ok / http code / error)
+  tp_rating   REAL,                      -- Trustpilot TrustScore (★/5) from the casino category sweep
+  tp_reviews  INTEGER,                   -- Trustpilot review count
   last_checked INTEGER NOT NULL DEFAULT 0,
   created_at  INTEGER NOT NULL
 );
@@ -239,6 +241,9 @@ CREATE INDEX IF NOT EXISTS idx_mentions_label ON mentions(watch_label, ts DESC);
 for (const ddl of [
   'ALTER TABLE streamers ADD COLUMN followers INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE streamers ADD COLUMN affiliation TEXT',
+  // Trustpilot consumer signal merged onto each directory casino (from the casino category sweep)
+  'ALTER TABLE casino_directory ADD COLUMN tp_rating REAL',
+  'ALTER TABLE casino_directory ADD COLUMN tp_reviews INTEGER',
 ]) {
   try {
     db.exec(ddl)
