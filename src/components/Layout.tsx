@@ -12,6 +12,7 @@ import {
   Target,
   Search,
   Bell,
+  Library,
   Menu,
   X,
   ChevronLeft,
@@ -21,6 +22,7 @@ import { Logo, LiveBadge } from './ui'
 const NAV = [
   { to: '/app', label: 'Overview', icon: LayoutDashboard, end: true },
   { to: '/app/casinos', label: 'Casinos', icon: Building2 },
+  { to: '/app/directory', label: 'Directory', icon: Library },
   { to: '/app/blockchain', label: 'Blockchain', icon: Boxes },
   { to: '/app/streamers', label: 'Streamers', icon: Radio },
   { to: '/app/sentiment', label: 'Trust & Reserves', icon: Gauge },

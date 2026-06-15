@@ -205,6 +205,43 @@ function authHeaders(): Record<string, string> {
   return t ? { Authorization: `Bearer ${t}` } : {}
 }
 
+export interface DirRow {
+  domain: string
+  name: string
+  website: string
+  twitter: string | null
+  email: string | null
+  site_ok: number
+  x_ok: number
+  email_ok: number
+  source: string | null
+  status: string | null
+  last_checked: number
+}
+export interface DirStats {
+  total: number
+  site: number
+  x: number
+  email: number
+  included: number
+  checked: number
+}
+
+// CSV export needs the auth header, so fetch as a blob + trigger the download
+export async function downloadDirectoryCsv(filter = 'live') {
+  const res = await fetch(`${BASE}/directory/export.csv?filter=${filter}`, { headers: authHeaders() })
+  if (!res.ok) throw new Error(`export HTTP ${res.status}`)
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'casino-directory.csv'
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(BASE + path, { headers: authHeaders() })
   if (!res.ok) throw new Error(`${path} → HTTP ${res.status}`)
@@ -266,6 +303,12 @@ export const api = {
     sendJson<{ token: string; user: AuthUser }>('/auth/verify', 'POST', { email, code }),
   me: () => getJson<{ user: AuthUser }>('/auth/me'),
   logout: () => sendJson<{ ok: boolean }>('/auth/logout', 'POST'),
+  directory: (filter?: string, q?: string) => {
+    const p = new URLSearchParams()
+    if (filter) p.set('filter', filter)
+    if (q) p.set('q', q)
+    return getJson<{ stats: DirStats; rows: DirRow[] }>('/directory?' + p.toString())
+  },
   alertRules: () => getJson<AlertRule[]>('/alerts/rules'),
   createAlertRule: (body: { kind: string; scope: string; scopeLabel?: string; threshold: number; windowH?: number; webhook?: string }) =>
     sendJson<{ ok: boolean }>('/alerts/rules', 'POST', body),
