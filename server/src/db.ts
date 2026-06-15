@@ -170,6 +170,16 @@ CREATE TABLE IF NOT EXISTS casino_directory (
 );
 CREATE INDEX IF NOT EXISTS idx_directory_checked ON casino_directory(last_checked);
 
+-- casino.guru spider queue: discovered review-page slugs to crawl. Seeded from the
+-- roster, then each fetched review page yields more "*-casino-review" slugs, so the
+-- directory grows to thousands organically without needing casino.guru's master list.
+CREATE TABLE IF NOT EXISTS crawl_queue (
+  slug     TEXT PRIMARY KEY,
+  done     INTEGER NOT NULL DEFAULT 0,    -- 0 pending, 1 fetched, 2 dead (404/no-data)
+  found_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_crawl_done ON crawl_queue(done);
+
 -- daily solvency snapshots per casino brand, for the reserve-adequacy trend.
 -- coverage = reserves / weekly-outflow (≈ weeks of withdrawals the reserves cover)
 CREATE TABLE IF NOT EXISTS reserve_history (
