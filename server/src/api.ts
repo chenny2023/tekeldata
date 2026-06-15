@@ -188,7 +188,7 @@ export async function registerApi(app: FastifyInstance) {
     try {
       const r = await p
       const body = await r.text()
-      return { status: r.status, len: body.length, body: body.slice(0, 1200) }
+      return { status: r.status, len: body.length, body: body.slice(0, 5000) }
     } catch (e) {
       return { error: (e as Error).message.slice(0, 80) }
     }
