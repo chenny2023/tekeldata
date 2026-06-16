@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify'
 import { db, stmt, stateGet } from './db.ts'
 import { bus, TransferEvent } from './bus.ts'
 import { aggregateEntities, aggregateBrands, maintainedPlayers } from './aggregate.ts'
+import { runDataQualityChecks, lastDataQuality } from './dataquality.ts'
 import { reserveSeries } from './reservehistory.ts'
 import { twitchEnabled } from './collectors/twitch.ts'
 import { redditEnabled } from './collectors/reddit.ts'
@@ -935,6 +936,16 @@ export async function registerApi(app: FastifyInstance) {
     const { key } = req.params as { key: string }
     db.prepare('DELETE FROM user_watch WHERE user_id=? AND brand_key=?').run(user.id, key)
     return { ok: true }
+  })
+
+  // data-quality report (gated) — last run from the SEO regen cycle, or run on demand
+  app.get('/api/diag/dataquality', async (req, reply) => {
+    if (!userFromRequest(req)) return reply.code(401).send({ error: 'login required' })
+    const run = (req.query as { run?: string })?.run === '1'
+    const data = run ? { at: Date.now(), results: await runDataQualityChecks() } : lastDataQuality()
+    if (!data) return { at: 0, results: [], note: 'no run yet — append ?run=1 to force' }
+    const fails = data.results.filter((d) => d.status !== 'pass').length
+    return { ...data, summary: `${data.results.length - fails}/${data.results.length} passed`, ok: fails === 0 }
   })
 
   // ── alerts: user-defined rules + fired events ────────────────────────────────

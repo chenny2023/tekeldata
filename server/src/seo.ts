@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify'
 import { db } from './db.ts'
 import { aggregateBrands, type BrandAgg } from './aggregate.ts'
+import { runDataQualityChecks } from './dataquality.ts'
 import { brandKey, brandName, matchCasinoMeta, type CasinoMeta } from './casinometa.ts'
 import { reviewScores, type ReviewScore } from './collectors/reviews.ts'
 
@@ -890,6 +891,16 @@ export async function generateSeoPages(): Promise<void> {
     db.transaction(() => stale.forEach((r) => del.run(r.path)))()
   }
   console.log(`[seo] rebuilt ${n} pages (${cap_count(ranked)} casinos, ${snaps.length} reports, ${stale.length} pruned)`)
+
+  // data-quality gate — verify the public surface didn't regress on the 1.0 rules
+  try {
+    const dq = await runDataQualityChecks()
+    const fails = dq.filter((d) => d.status !== 'pass')
+    if (fails.length) console.warn(`[dq] ${fails.length}/${dq.length} FAILED — ${fails.map((f) => `${f.check}: ${f.detail}`).join(' | ')}`)
+    else console.log(`[dq] all ${dq.length} data-quality checks passed`)
+  } catch (e) {
+    console.warn('[dq] check failed to run:', (e as Error).message)
+  }
 }
 const cap_count = (ranked: CasinoView[]) => Math.min(ranked.length, MAX_CASINOS)
 
