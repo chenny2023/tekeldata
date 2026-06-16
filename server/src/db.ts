@@ -12,7 +12,9 @@ db.pragma('synchronous = NORMAL')
 // balloon and devour free disk (a bloated WAL was compounding disk-I/O errors
 // on the size-limited volume). Checkpoint aggressively too.
 db.pragma('journal_size_limit = 67108864')
-db.pragma('wal_autocheckpoint = 1000')
+// When litestream is backing up, it owns checkpointing (autocheckpoint=0) so it
+// never loses un-shipped WAL frames; otherwise the app self-checkpoints to cap WAL.
+db.pragma(`wal_autocheckpoint = ${config.backupActive ? 0 : 1000}`)
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS watchlist (

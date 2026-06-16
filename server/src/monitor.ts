@@ -1,0 +1,89 @@
+import { statfs } from 'node:fs/promises'
+import { statSync } from 'node:fs'
+import { dirname } from 'node:path'
+import { db } from './db.ts'
+import { config } from './config.ts'
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Built-in lightweight monitor. No external service required: it watches the few
+// things that actually take this single-process service down — disk filling, the
+// event loop freezing, the DB growing — and emits structured WARN/CRIT logs plus
+// an optional webhook POST (Slack/Discord/generic) so failures aren't silent.
+// Configure MONITOR_WEBHOOK to get pushed alerts; otherwise it just logs.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const WEBHOOK = process.env.MONITOR_WEBHOOK || ''
+const DISK_WARN = Number(process.env.MONITOR_DISK_WARN ?? 85) // % used
+const DISK_CRIT = Number(process.env.MONITOR_DISK_CRIT ?? 92)
+const LAG_WARN_MS = Number(process.env.MONITOR_LAG_WARN_MS ?? 5_000) // event-loop block
+const volumeDir = dirname(config.dbPath)
+
+type Level = 'info' | 'warn' | 'crit'
+// collapse repeat alerts so a sustained condition doesn't spam the webhook
+const lastSent = new Map<string, number>()
+
+async function notify(level: Level, key: string, msg: string, extra?: Record<string, unknown>) {
+  const line = `[monitor:${level}] ${msg}`
+  if (level === 'info') console.log(line)
+  else console.error(line, extra ? JSON.stringify(extra) : '')
+  if (!WEBHOOK || level === 'info') return
+  const now = Date.now()
+  if (now - (lastSent.get(key) ?? 0) < 30 * 60_000) return // ≤1 push / 30min / key
+  lastSent.set(key, now)
+  try {
+    const text = `🔴 WCOIN ${level.toUpperCase()}: ${msg}`
+    // text=Slack, content=Discord — send both keys so either webhook works
+    await fetch(WEBHOOK, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ text, content: text, ...extra }),
+      signal: AbortSignal.timeout(10_000),
+    })
+  } catch {
+    /* never let monitoring crash the process */
+  }
+}
+
+// Event-loop lag sampler — a 1s interval that fires late means a synchronous
+// query blocked the loop. This is the single best signal for the periodic freezes
+// (heavy reads / backfill batches) that stall the dashboard and risk SIGKILL.
+function startLagSampler() {
+  let last = Date.now()
+  setInterval(() => {
+    const now = Date.now()
+    const lag = now - last - 1_000
+    last = now
+    if (lag >= LAG_WARN_MS) {
+      void notify('warn', 'loop-lag', `event loop blocked ~${(lag / 1000).toFixed(1)}s (a synchronous query is freezing the thread)`, { lagMs: lag })
+    }
+  }, 1_000).unref?.()
+}
+
+async function check() {
+  try {
+    const fsst = await statfs(volumeDir)
+    const totalB = fsst.blocks * fsst.bsize
+    const usedB = (fsst.blocks - fsst.bfree) * fsst.bsize
+    const usedPct = totalB > 0 ? (usedB / totalB) * 100 : 0
+    let dbGB = 0
+    try {
+      dbGB = +(statSync(config.dbPath).size / 1e9).toFixed(2)
+    } catch {
+      /* file may be mid-checkpoint */
+    }
+    const tx = (db.prepare('SELECT MAX(id) n FROM transfers').get() as any).n ?? 0
+    const stat = { diskPct: +usedPct.toFixed(1), dbGB, totalGB: +(totalB / 1e9).toFixed(1), tx }
+    if (usedPct >= DISK_CRIT) await notify('crit', 'disk', `disk ${stat.diskPct}% of ${stat.totalGB}GB — write failures imminent (DB ${dbGB}GB)`, stat)
+    else if (usedPct >= DISK_WARN) await notify('warn', 'disk', `disk ${stat.diskPct}% of ${stat.totalGB}GB (DB ${dbGB}GB)`, stat)
+    else console.log(`[monitor:info] ok disk=${stat.diskPct}% db=${dbGB}GB tx=${tx}`)
+  } catch (e) {
+    console.warn('[monitor] check failed:', (e as Error).message)
+  }
+}
+
+export function startMonitor() {
+  console.log(`[monitor] active (disk warn≥${DISK_WARN}% crit≥${DISK_CRIT}%, webhook=${WEBHOOK ? 'on' : 'off'})`)
+  startLagSampler()
+  setTimeout(() => void check(), 30_000)
+  setInterval(() => void check(), 5 * 60_000).unref?.()
+}

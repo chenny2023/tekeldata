@@ -1,0 +1,19 @@
+# Litestream continuous backup of the SQLite DB → Cloudflare R2 (S3-compatible).
+# Activated by the entrypoint only when BACKUP_R2_* env vars are set. Litestream
+# streams WAL frames to R2 (~seconds RPO) and can restore the whole DB on a fresh
+# container — so a lost/corrupted Railway volume is recoverable instead of total
+# data loss. Values are interpolated from the environment.
+dbs:
+  - path: ${DB_PATH}
+    replicas:
+      - type: s3
+        bucket: ${BACKUP_R2_BUCKET}
+        path: ${BACKUP_R2_PATH}
+        endpoint: ${BACKUP_R2_ENDPOINT}
+        access-key-id: ${BACKUP_R2_ACCESS_KEY_ID}
+        secret-access-key: ${BACKUP_R2_SECRET_ACCESS_KEY}
+        region: auto            # R2 has no regions; litestream requires a value
+        force-path-style: true  # required for Cloudflare R2
+        # keep ~72h of point-in-time history; snapshot daily
+        retention: 72h
+        snapshot-interval: 24h

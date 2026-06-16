@@ -38,7 +38,11 @@ export async function pruneOldTransfers(): Promise<number> {
     // bloat even without an explicit checkpoint here.
     await new Promise((r) => setTimeout(r, 60))
   }
-  try { db.pragma('wal_checkpoint(TRUNCATE)') } catch {}
+  // skip the TRUNCATE checkpoint when litestream owns the WAL (it would drop
+  // un-shipped frames); litestream checkpoints itself after replicating
+  if (!config.backupActive) {
+    try { db.pragma('wal_checkpoint(TRUNCATE)') } catch {}
+  }
   console.log(`[retention] pruned ${deleted} transfers; freed pages are reused so the DB file stops growing`)
   return deleted
 }

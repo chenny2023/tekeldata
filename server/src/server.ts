@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path'
 import { existsSync } from 'node:fs'
 import { config } from './config.ts'
 import { db } from './db.ts'
+import { startMonitor } from './monitor.ts'
 import { seedWatchlist } from './watchlist.ts'
 import { registerApi } from './api.ts'
 import { registerAuth } from './auth.ts'
@@ -114,9 +115,11 @@ async function main() {
     console.log(`[shutdown] ${sig} received — draining…`)
     const done = () => {
       try {
-        db.pragma('wal_checkpoint(TRUNCATE)')
+        // when litestream owns the WAL, let it do the final checkpoint/replicate;
+        // truncating here could drop frames it hasn't shipped to R2 yet
+        if (!config.backupActive) db.pragma('wal_checkpoint(TRUNCATE)')
         db.close()
-        console.log('[shutdown] WAL checkpointed, DB closed — bye')
+        console.log('[shutdown] DB closed — bye')
       } catch (e) {
         console.warn('[shutdown] checkpoint/close failed:', (e as Error).message)
       }
@@ -147,6 +150,7 @@ async function main() {
   // event loop — which previously timed out Railway's deploy healthcheck before
   // it could pass. Letting /api/health go green first, then indexing, avoids that.
   setTimeout(() => {
+  startMonitor() // built-in disk / event-loop-lag / DB-size self-monitor (+ optional webhook)
   startEvm() // ETH transfer indexer (public RPC)
   startPrices() // daily historical price series (SOL) for non-1:1 valuation
   startNative() // native-coin (ETH) deposits — full-block scan, block-time priced
