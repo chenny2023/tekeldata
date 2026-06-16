@@ -52,9 +52,9 @@ export async function registerApi(app: FastifyInstance) {
   // and refresh at most once per aggregateMs; a background warmer keeps the hot
   // keys fresh so no user request ever pays the full compute cost.
   const aggCache = new Map<string, { data: unknown; at: number }>()
-  function aggCached<T>(key: string, fn: () => T): T {
+  function aggCached<T>(key: string, fn: () => T, ttl = config.aggregateMs): T {
     const c = aggCache.get(key)
-    if (c && Date.now() - c.at < config.aggregateMs) return c.data as T
+    if (c && Date.now() - c.at < ttl) return c.data as T
     const data = fn()
     aggCache.set(key, { data, at: Date.now() })
     return data
@@ -249,6 +249,7 @@ export async function registerApi(app: FastifyInstance) {
 
   // public — headline data-coverage counts for the landing page (one cheap call)
   app.get('/api/coverage', async () => aggCached('coverage', () => {
+    /* coverage counts change slowly — cache 5 min (see ttl arg below) */
     const one = (sql: string): any => {
       try {
         return db.prepare(sql).get()
@@ -263,7 +264,9 @@ export async function registerApi(app: FastifyInstance) {
     const me = one('SELECT COUNT(*) n FROM mentions')
     const str = one('SELECT COUNT(*) n FROM streamers')
     const tr = one("SELECT COUNT(DISTINCT brand_key) n FROM reviews WHERE score>0")
-    const chains = one('SELECT COUNT(DISTINCT chain) n FROM transfers')
+    // loose index scan via GROUP BY (idx_transfers_chain_ts) — counting distinct
+    // chains directly is a full 24M-row scan; grouping seeks one row per chain.
+    const chains = one('SELECT COUNT(*) n FROM (SELECT chain FROM transfers GROUP BY chain)')
     return {
       casinos: dir.total ?? 0,
       sitesLive: dir.live ?? 0,
@@ -279,7 +282,7 @@ export async function registerApi(app: FastifyInstance) {
       trustRated: tr.n ?? 0,
       chains: chains.n ?? 0,
     }
-  }))
+  }, 300_000))
 
   // public — on-chain iGaming protocol landscape (prediction markets, lotteries…)
   app.get('/api/protocols', async (req) => {
