@@ -285,6 +285,7 @@ interface Row {
   name: string
   category: string
   attributed: boolean
+  volumeSuspect?: boolean
   meta: Entity['meta']
   volume7d: number
   change24h: number
@@ -332,6 +333,7 @@ export default function Casinos() {
             name: b.brand,
             category: b.category,
             attributed: b.attributed,
+            volumeSuspect: b.volumeSuspect,
             meta: b.meta,
             volume7d: b.volume7d,
             change24h: b.change24h,
@@ -482,6 +484,11 @@ export default function Casinos() {
                                 {expandable && <ChevronDown size={13} className={`text-white/30 transition ${isOpen ? 'rotate-180' : ''}`} />}
                                 <span className="font-medium">{c.name}</span>
                                 <CategoryBadge category={c.category} />
+                                {c.volumeSuspect && (
+                                  <span title="Anomalous on-chain volume (very high value per counterparty) — pattern consistent with wash trading / internal transfers. Excluded from volume rankings." className="inline-flex items-center gap-1 rounded-md bg-gold-500/15 px-1.5 py-0.5 text-[10px] font-bold text-gold-400">
+                                    ⚠ vol unverified
+                                  </span>
+                                )}
                                 {c.risk && (
                                   <span title={`Transacted with ${c.risk.hits} OFAC-sanctioned counterparty event(s) · ${fmtUsd(c.risk.usd)}`} className="inline-flex items-center gap-1 rounded-md bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-bold text-rose-400">
                                     <ShieldAlert size={11} /> OFAC

@@ -203,8 +203,8 @@ export default function Landing() {
   const { data: brands } = usePoll(() => api.brands('casino'), 15_000)
   const { data: streamersRes } = usePoll(api.streamers, 30_000)
   const total = useCountUp(stats?.totalVolume ?? 0)
-  // verified, brand-merged casinos only (Casino-pattern / unattributed excluded)
-  const top = (brands ?? []).filter((b) => b.attributed).slice(0, 4).map((b) => ({ id: b.members[0]?.id ?? 0, label: b.brand, volume7d: b.volume7d }))
+  // verified, brand-merged casinos only — exclude unattributed + anomalous-volume (wash/internal)
+  const top = (brands ?? []).filter((b) => b.attributed && !b.volumeSuspect).slice(0, 4).map((b) => ({ id: b.members[0]?.id ?? 0, label: b.brand, volume7d: b.volume7d }))
   const live = (streamersRes?.streamers ?? []).slice(0, 4)
 
   return (

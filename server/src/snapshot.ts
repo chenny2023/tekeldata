@@ -81,6 +81,7 @@ export async function generateMarketSnapshot(): Promise<void> {
 
   const payload = {
     topMovers: verified
+      .filter((b) => !b.volumeSuspect) // keep anomalous wash/internal volume out of movers
       .slice()
       .sort((a, b) => (b.volume24h ?? 0) - (a.volume24h ?? 0))
       .slice(0, 8)

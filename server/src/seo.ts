@@ -351,7 +351,11 @@ function casinoPage(v: CasinoView, slug: string, related: { slug: string; label:
   const limitedNote = noindex
     ? `<p class="prose" style="margin:0 0 4px;padding:9px 13px;background:#ffffff08;border:1px solid var(--line);border-radius:10px;font-size:13px;color:var(--dim)">Limited profile — we don't yet have enough independent data to feature ${esc(v.name)}. It will be expanded as on-chain activity and additional rating sources are added.</p>`
     : ''
-  const body = `${limitedNote}${sub}${trustLine}${stats}${chainTable}${ratingsTable}${refTable}${website}${rel}${cta}`
+  // anomalous on-chain volume — caveat it so a wash/internal figure isn't read as real activity
+  const suspectNote = oc?.volumeSuspect
+    ? `<p class="prose" style="margin:0 0 4px;padding:9px 13px;background:#ffb02014;border:1px solid #ffb02033;border-radius:10px;font-size:13px;color:#e8c98a">⚠ Volume note: ${esc(v.name)}'s observed on-chain volume is anomalously concentrated (very high value per counterparty), a pattern consistent with wash trading or internal transfers rather than real player activity. We exclude it from volume rankings; read the volume figure with caution.</p>`
+    : ''
+  const body = `${limitedNote}${suspectNote}${sub}${trustLine}${stats}${chainTable}${ratingsTable}${refTable}${website}${rel}${cta}`
 
   const jsonLd = oc
     ? [
@@ -400,12 +404,17 @@ const METRICS: Record<string, MetricCfg> = {
   players: { title: 'Most active crypto casinos by on-chain counterparties', blurb: 'Operators ranked by distinct on-chain counterparties (a proxy for active players) over 7 days.', metric: (e) => e.players, fmt: (e) => fmtNum(e.players), col: 'Counterparties 7d' },
 }
 
+// flow-based rankings exclude volume-suspect brands (anomalous wash/internal volume)
+const SUSPECT_EXCLUDE_RANKINGS = new Set(['volume', 'movers', 'netflow', 'players'])
+
 function metricRankingPage(key: string, brands: BrandAgg[], slugOfBrand: (b: BrandAgg) => string): { title: string; description: string; html: string } | null {
   const cfg = METRICS[key]
   if (!cfg) return null
   const url = `${SITE}/rankings/${key}`
+  const excludeSuspect = SUSPECT_EXCLUDE_RANKINGS.has(key)
   const rows = brands
     .filter((e) => Math.abs(cfg.metric(e)) > 0)
+    .filter((e) => !(excludeSuspect && e.volumeSuspect))
     .sort((a, b) => cfg.metric(b) - cfg.metric(a))
     .slice(0, 50)
   const title = `${cfg.title} | WCOIN.CASINO`

@@ -28,6 +28,22 @@ export const BRAND_ALIASES: BrandAlias[] = [
   { canonical: 'Rainbet', slug: 'rainbet', aliases: ['Rainbet', 'Rainbet.com'] },
 ]
 
+// ── volume-suspect handling ──────────────────────────────────────────────────
+// Anomalous on-chain volume (wash trading / internal transfers / mislabelled
+// aggregator) must never be featured at #1 — it destroys data credibility. Real
+// casinos do ~$2–12K of volume per distinct counterparty; a brand doing $100K+
+// per counterparty on large volume is concentrated in a few addresses (not real
+// player flow). Config keys force-flag known cases; the heuristic catches the rest.
+export const VOLUME_SUSPECT_KEYS = new Set<string>([brandKey('Rain.gg')])
+const SUSPECT_VOL_FLOOR = Number(process.env.SUSPECT_VOL_FLOOR ?? 50_000_000) // only scrutinise large volume
+const SUSPECT_VOL_PER_CP = Number(process.env.SUSPECT_VOL_PER_CP ?? 50_000) // real casinos are well under this
+
+export function isVolumeSuspect(label: string, volume7d: number, players: number): boolean {
+  if (VOLUME_SUSPECT_KEYS.has(brandKey(label))) return true
+  if (volume7d < SUSPECT_VOL_FLOOR) return false
+  return volume7d / Math.max(players, 1) > SUSPECT_VOL_PER_CP
+}
+
 // brandKey(alias) → {canonical, slug}
 const byKey = new Map<string, BrandAlias>()
 for (const b of BRAND_ALIASES) for (const a of b.aliases) byKey.set(brandKey(a), b)

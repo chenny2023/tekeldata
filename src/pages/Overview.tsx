@@ -46,9 +46,9 @@ export default function Overview() {
   const animTotal = useCountUp(cs?.totalVolume ?? stats?.totalVolume ?? 0)
   const chainSplit = ((cs?.chainSplit ?? stats?.chainSplit) ?? []).map((c) => ({ ...c, color: CHAIN_COLOR[c.chain] ?? '#888' }))
   const totalChain = chainSplit.reduce((s, c) => s + c.value, 0) || 1
-  // verified, brand-merged casinos only (Casino-pattern / unattributed excluded)
+  // verified, brand-merged casinos only — exclude unattributed + anomalous-volume (wash/internal)
   const top = (brands ?? [])
-    .filter((b) => b.attributed)
+    .filter((b) => b.attributed && !b.volumeSuspect)
     .slice(0, 5)
     .map((b) => ({ id: b.members[0]?.id ?? 0, label: b.brand, category: b.category, players: b.players, volume7d: b.volume7d, change24h: b.change24h }))
   const liveStreamers = (streamersRes?.streamers ?? []).slice(0, 5)

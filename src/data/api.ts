@@ -87,6 +87,7 @@ export interface Brand {
   category: string
   attributed: boolean
   confidence: 'high' | 'medium' | 'low'
+  volumeSuspect: boolean
   wallets: number
   chains: string[]
   volume24h: number
