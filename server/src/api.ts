@@ -12,7 +12,7 @@ import { newsEnabled } from './collectors/news.ts'
 import { telegramSubs } from './collectors/telegram.ts'
 import { brandKey } from './casinometa.ts'
 import { userFromRequest } from './auth.ts'
-import { readWorkerEnabled } from './readpool.ts'
+import { readWorkerEnabled, workerGet, workerAll } from './readpool.ts'
 import { config } from './config.ts'
 
 export async function registerApi(app: FastifyInstance) {
@@ -115,11 +115,11 @@ export async function registerApi(app: FastifyInstance) {
     async () => aggCache.set('ent:casino', { data: await aggregateEntities('casino'), at: Date.now(), refreshing: false }),
     async () => aggCache.set('ent:all', { data: await aggregateEntities('all'), at: Date.now(), refreshing: false }),
     async () => aggCache.set('brand:casino', { data: await aggregateBrands('casino'), at: Date.now(), refreshing: false }),
-    () => aggCache.set('coverage', { data: computeCoverage(), at: Date.now(), refreshing: false }),
-    () => aggCache.set('flow:casino', { data: computeFlow('casino'), at: Date.now(), refreshing: false }),
-    () => aggCache.set('series:7:all', { data: computeSeries(7, 'all'), at: Date.now(), refreshing: false }),
-    () => aggCache.set('series:30:all', { data: computeSeries(30, 'all'), at: Date.now(), refreshing: false }),
-    () => void computeStats(), // primes statsCache + the expensive COUNT(DISTINCT) cache
+    async () => aggCache.set('coverage', { data: await computeCoverage(), at: Date.now(), refreshing: false }),
+    async () => aggCache.set('flow:casino', { data: await computeFlow('casino'), at: Date.now(), refreshing: false }),
+    async () => aggCache.set('series:7:all', { data: await computeSeries(7, 'all'), at: Date.now(), refreshing: false }),
+    async () => aggCache.set('series:30:all', { data: await computeSeries(30, 'all'), at: Date.now(), refreshing: false }),
+    async () => void (await computeStats()), // primes statsCache + the expensive count cache
   ]
   // Run the warm tasks SEQUENTIALLY with a yield between each, and never overlap a
   // cycle with itself. The old version fired all 8 heavy computes via setImmediate
@@ -173,31 +173,31 @@ export async function registerApi(app: FastifyInstance) {
   // endpoint is stale-while-revalidate), so the scan runs rarely and never on a
   // user's request.
   let countsCache: { at: number; totals: any; cas: any } | null = null
-  const expensiveCounts = () => {
+  const expensiveCounts = async () => {
     if (countsCache && Date.now() - countsCache.at < 6 * 3600_000) return countsCache
     const d7 = Date.now() - 7 * 86_400_000
-    const totals = db.prepare('SELECT COUNT(*) tx, SUM(usd) vol FROM transfers').get() as any
-    const cas = db
-      .prepare(
-        `SELECT COUNT(*) tx, SUM(usd) vol, SUM(CASE WHEN ts>=? THEN usd ELSE 0 END) vol7
+    // full-table COUNT/SUM over 24M rows → run in the read worker (off the loop)
+    const totals = (await workerGet('SELECT COUNT(*) tx, SUM(usd) vol FROM transfers')) as any
+    const cas = (await workerGet(
+      `SELECT COUNT(*) tx, SUM(usd) vol, SUM(CASE WHEN ts>=? THEN usd ELSE 0 END) vol7
          FROM transfers WHERE category='casino'`,
-      )
-      .get(d7) as any
+      [d7],
+    )) as any
     countsCache = { at: Date.now(), totals, cas }
     return countsCache
   }
   let statsRefreshing = false
-  const computeStats = () => {
+  const computeStats = async () => {
     const now = Date.now()
     const d7 = now - 7 * 86_400_000
-    const { totals, cas } = expensiveCounts()
+    const { totals, cas } = await expensiveCounts()
     const players = maintainedPlayers() // fresh each call; cheap, never scans
-    const vol7 = (db.prepare('SELECT SUM(usd) v FROM transfers WHERE ts>=?').get(d7) as any).v ?? 0
+    // heavy transfers scans → worker; small-table reads stay on the main thread
+    const vol7 = ((await workerGet('SELECT SUM(usd) v FROM transfers WHERE ts>=?', [d7])) as any).v ?? 0
+    const chains = (await workerAll('SELECT chain, SUM(usd) v FROM transfers WHERE ts>=? GROUP BY chain', [d7])) as any[]
+    const casChains = (await workerAll("SELECT chain, SUM(usd) v FROM transfers WHERE category='casino' AND ts>=? GROUP BY chain", [d7])) as any[]
     const reserves = (db.prepare('SELECT SUM(usd) v FROM balances').get() as any).v ?? 0
     const wl = (db.prepare('SELECT COUNT(*) n FROM watchlist WHERE active=1').get() as any).n
-    const chains = db
-      .prepare('SELECT chain, SUM(usd) v FROM transfers WHERE ts>=? GROUP BY chain')
-      .all(d7) as any[]
     const liveStreamers = (db.prepare('SELECT COUNT(*) n FROM streamers WHERE live=1').get() as any).n
     const casReserves = (
       db
@@ -209,9 +209,6 @@ export async function registerApi(app: FastifyInstance) {
     const casEntities = (
       db.prepare("SELECT COUNT(*) n FROM watchlist WHERE active=1 AND category='casino'").get() as any
     ).n
-    const casChains = db
-      .prepare("SELECT chain, SUM(usd) v FROM transfers WHERE category='casino' AND ts>=? GROUP BY chain")
-      .all(d7) as any[]
     const data = {
       totalVolume: totals.vol ?? 0,
       volume7d: vol7,
@@ -240,17 +237,13 @@ export async function registerApi(app: FastifyInstance) {
     if (statsCache) {
       if (Date.now() - statsCache.at >= config.aggregateMs && !statsRefreshing) {
         statsRefreshing = true
-        setImmediate(() => {
-          try {
-            computeStats()
-          } finally {
-            statsRefreshing = false
-          }
+        computeStats().finally(() => {
+          statsRefreshing = false
         })
       }
       return statsCache.data
     }
-    return computeStats() // cold: first call only
+    return await computeStats() // cold: first call only
   })
 
   // ── entities (a.k.a. casinos/exchanges) leaderboard ──────────────────────────
@@ -369,7 +362,7 @@ export async function registerApi(app: FastifyInstance) {
   // first (expensive) refresh runs an hour into uptime — by when the boot backfill
   // has calmed and the disk cache is hot — never during the post-deploy window.
   let chainsCache = { at: Date.now(), n: 11 }
-  const computeCoverage = () => {
+  const computeCoverage = async () => {
     const one = (sql: string): any => {
       try {
         return db.prepare(sql).get()
@@ -385,8 +378,12 @@ export async function registerApi(app: FastifyInstance) {
     const str = one('SELECT COUNT(*) n FROM streamers')
     const tr = one("SELECT COUNT(DISTINCT brand_key) n FROM reviews WHERE score>0")
     if (Date.now() - chainsCache.at > 3600_000) {
-      const c = one('SELECT COUNT(*) n FROM (SELECT chain FROM transfers GROUP BY chain)')
-      if (c && typeof c.n === 'number' && c.n > 0) chainsCache = { at: Date.now(), n: c.n }
+      try {
+        const c = (await workerGet('SELECT COUNT(*) n FROM (SELECT chain FROM transfers GROUP BY chain)')) as any
+        if (c && typeof c.n === 'number' && c.n > 0) chainsCache = { at: Date.now(), n: c.n }
+      } catch {
+        /* keep last-known chain count */
+      }
     }
     const chains = { n: chainsCache.n }
     return {
@@ -405,7 +402,7 @@ export async function registerApi(app: FastifyInstance) {
       chains: chains.n ?? 0,
     }
   }
-  app.get('/api/coverage', async () => aggCached('coverage', computeCoverage, 300_000))
+  app.get('/api/coverage', async () => aggCachedAsync('coverage', computeCoverage, 300_000))
 
   // public — global search across tracked casinos, directory, streamers, wallets
   app.get('/api/search', async (req) => {
@@ -576,20 +573,19 @@ export async function registerApi(app: FastifyInstance) {
   })
 
   // ── time-series flow chart (REAL) — ?days=7|14|30, bucket scales with window ─
-  const computeSeries = (days: number, cat: string) => {
+  const computeSeries = async (days: number, cat: string) => {
     const now = Date.now()
     const from = now - days * 86_400_000
     const bucketMs = days <= 7 ? 6 * 3600_000 : 24 * 3600_000 // 6h buckets ≤7d, daily beyond
     const catFilter = cat !== 'all' ? ' AND category = ?' : ''
     const catArg = catFilter ? [cat] : []
-    const rows = db
-      .prepare(
-        `SELECT CAST((ts - ?) / ? AS INTEGER) AS b,
-                SUM(CASE WHEN direction='in'  THEN usd ELSE 0 END) deposits,
-                SUM(CASE WHEN direction='out' THEN usd ELSE 0 END) withdrawals
-         FROM transfers WHERE ts >= ?${catFilter} GROUP BY b ORDER BY b`,
-      )
-      .all(from, bucketMs, from, ...catArg) as any[]
+    const rows = (await workerAll(
+      `SELECT CAST((ts - ?) / ? AS INTEGER) AS b,
+              SUM(CASE WHEN direction='in'  THEN usd ELSE 0 END) deposits,
+              SUM(CASE WHEN direction='out' THEN usd ELSE 0 END) withdrawals
+       FROM transfers WHERE ts >= ?${catFilter} GROUP BY b ORDER BY b`,
+      [from, bucketMs, from, ...catArg],
+    )) as any[]
     const map = new Map(rows.map((r) => [r.b, r]))
     const out: { t: number; deposits: number; withdrawals: number }[] = []
     const buckets = Math.ceil((now - from) / bucketMs)
@@ -603,7 +599,7 @@ export async function registerApi(app: FastifyInstance) {
     const q = req.query as { days?: string; category?: string }
     const days = Math.min(30, Math.max(1, Number(q.days ?? 7)))
     const cat = q.category ?? 'all'
-    return aggCached(`series:${days}:${cat}`, () => computeSeries(days, cat), 120_000)
+    return aggCachedAsync(`series:${days}:${cat}`, () => computeSeries(days, cat), 120_000)
   })
 
   // ── per-entity daily volume series, split by chain (REAL) ───────────────────
@@ -616,15 +612,14 @@ export async function registerApi(app: FastifyInstance) {
     const days = Math.min(90, Math.max(7, Number(q.days ?? 30)))
     // cache per (id,days): this GROUP BY scans the entity's window and was uncached
     // on the request path, blocking the single thread per call (see ARCHITECTURE_REVIEW PF-2)
-    return aggCached(`entseries:${id}:${days}`, () => {
+    return aggCachedAsync(`entseries:${id}:${days}`, async () => {
       const now = Date.now()
       const from = now - days * 86_400_000
-      const rows = db
-        .prepare(
-          `SELECT chain, CAST((ts - ?) / 86400000 AS INTEGER) AS b, SUM(usd) v
-           FROM transfers WHERE watch_id = ? AND ts >= ? GROUP BY chain, b`,
-        )
-        .all(from, Number(id), from) as { chain: string; b: number; v: number }[]
+      const rows = (await workerAll(
+        `SELECT chain, CAST((ts - ?) / 86400000 AS INTEGER) AS b, SUM(usd) v
+         FROM transfers WHERE watch_id = ? AND ts >= ? GROUP BY chain, b`,
+        [from, Number(id), from],
+      )) as { chain: string; b: number; v: number }[]
       const chains = [...new Set(rows.map((r) => r.chain))].sort()
       const byBucket = new Map<number, Record<string, number>>()
       for (const r of rows) {
@@ -650,22 +645,21 @@ export async function registerApi(app: FastifyInstance) {
     const days = Math.min(90, Math.max(7, Number(q.days ?? 30)))
     // cache per (id,days): two GROUP BY + LEFT JOIN scans, previously run on the
     // request path per call → loop freeze (see ARCHITECTURE_REVIEW PF-2)
-    return aggCached(`entflow:${id}:${days}`, () => {
+    return aggCachedAsync(`entflow:${id}:${days}`, async () => {
     const since = Date.now() - days * 86_400_000
     const wid = Number(id)
     const ent = db.prepare('SELECT label FROM watchlist WHERE id=?').get(wid) as any
     if (!ent) return { entity: null, sources: [], sinks: [] }
 
-    const side = (direction: 'in' | 'out') => {
-      const rows = db
-        .prepare(
-          `SELECT t.counterparty AS addr, w2.label AS label, SUM(t.usd) AS usd, COUNT(*) AS n
-           FROM transfers t
-           LEFT JOIN watchlist w2 ON w2.address = t.counterparty AND w2.active = 1
-           WHERE t.watch_id = ? AND t.direction = ? AND t.ts >= ?
-           GROUP BY t.counterparty ORDER BY usd DESC`,
-        )
-        .all(wid, direction, since) as { addr: string; label: string | null; usd: number; n: number }[]
+    const side = async (direction: 'in' | 'out') => {
+      const rows = (await workerAll(
+        `SELECT t.counterparty AS addr, w2.label AS label, SUM(t.usd) AS usd, COUNT(*) AS n
+         FROM transfers t
+         LEFT JOIN watchlist w2 ON w2.address = t.counterparty AND w2.active = 1
+         WHERE t.watch_id = ? AND t.direction = ? AND t.ts >= ?
+         GROUP BY t.counterparty ORDER BY usd DESC`,
+        [wid, direction, since],
+      )) as { addr: string; label: string | null; usd: number; n: number }[]
       const named = rows.filter((r) => r.label)
       const anon = rows.filter((r) => !r.label)
       const top = named.slice(0, 6).map((r) => ({ name: r.label as string, usd: r.usd, named: true }))
@@ -677,14 +671,14 @@ export async function registerApi(app: FastifyInstance) {
       if (anonUsd > 0) out.push({ name: direction === 'in' ? `Depositors (${anon.length})` : `Withdrawers (${anon.length})`, usd: anonUsd, named: false })
       return out
     }
-    return { entity: ent.label, days, sources: side('in'), sinks: side('out') }
+    return { entity: ent.label, days, sources: await side('in'), sinks: await side('out') }
     }, 120_000)
   })
 
   // ── flow intelligence: tx-size distribution (REAL, derived) ──────────────────
   // Casino-only by default so exchange/whale flow doesn't pollute the player
   // segmentation; ?category=all|exchange|… to widen.
-  const computeFlow = (cat: string) => {
+  const computeFlow = async (cat: string) => {
     const d7 = Date.now() - 7 * 86_400_000
     const meta = [
       { name: 'Whale', color: '#f5b100' },
@@ -694,15 +688,13 @@ export async function registerApi(app: FastifyInstance) {
     ]
     const catFilter = cat && cat !== 'all' ? ' AND category = ?' : ''
     const catArg = catFilter ? [cat] : []
-    // bucket + aggregate in SQL — never pull millions of rows into JS (that
-    // synchronous load froze the event loop for ~10s and ran on every request)
-    const rows = db
-      .prepare(
-        `SELECT CASE WHEN usd >= 100000 THEN 0 WHEN usd >= 10000 THEN 1 WHEN usd >= 500 THEN 2 ELSE 3 END AS b,
-                COUNT(*) cnt, SUM(usd) vol, COUNT(DISTINCT counterparty) players
-         FROM transfers WHERE ts >= ?${catFilter} GROUP BY b`,
-      )
-      .all(d7, ...catArg) as any[]
+    // bucket + COUNT(DISTINCT) in SQL, run in the read worker (off the main loop)
+    const rows = (await workerAll(
+      `SELECT CASE WHEN usd >= 100000 THEN 0 WHEN usd >= 10000 THEN 1 WHEN usd >= 500 THEN 2 ELSE 3 END AS b,
+              COUNT(*) cnt, SUM(usd) vol, COUNT(DISTINCT counterparty) players
+       FROM transfers WHERE ts >= ?${catFilter} GROUP BY b`,
+      [d7, ...catArg],
+    )) as any[]
     const byB = new Map(rows.map((r) => [r.b, r]))
     const res = meta.map((m, i) => {
       const r = byB.get(i)
@@ -714,7 +706,7 @@ export async function registerApi(app: FastifyInstance) {
   app.get('/api/flow', async (req) => {
     const { category } = req.query as { category?: string }
     const cat = category ?? 'casino'
-    return aggCached('flow:' + cat, () => computeFlow(cat), 120_000)
+    return aggCachedAsync('flow:' + cat, () => computeFlow(cat), 120_000)
   })
 
   // public — streamer↔casino sponsorship graph: which casino each streamer reps,

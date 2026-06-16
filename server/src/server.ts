@@ -100,6 +100,10 @@ async function main() {
 
   await app.listen({ port: config.port, host: '0.0.0.0' })
 
+  // Start the read-only analytics worker right after listen (cheap thread spawn) so
+  // heavy reads are offloaded before the first request and before maintenance.
+  startReadWorker()
+
   // ── Graceful shutdown ─────────────────────────────────────────────────────
   // The service has a mounted volume, so Railway deploys with a recreate
   // strategy: it SIGTERMs the old container before starting the new one. Without
@@ -151,7 +155,6 @@ async function main() {
   // event loop — which previously timed out Railway's deploy healthcheck before
   // it could pass. Letting /api/health go green first, then indexing, avoids that.
   setTimeout(() => {
-  startReadWorker() // read-only analytics worker (offloads heavy reads; flag READ_WORKER)
   startMonitor() // built-in disk / event-loop-lag / DB-size self-monitor (+ optional webhook)
   startEvm() // ETH transfer indexer (public RPC)
   startPrices() // daily historical price series (SOL) for non-1:1 valuation
