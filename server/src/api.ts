@@ -314,8 +314,17 @@ export async function registerApi(app: FastifyInstance) {
   })
 
   // public — headline data-coverage counts for the landing page (one cheap call)
+  // The distinct-chain count is the one genuinely expensive piece: GROUP BY over
+  // the 24M-row transfers table is a 30-40s full index scan when disk/loop is
+  // contended (right after a deploy, or while the multi-day backfill hammers I/O).
+  // It's effectively constant, so we refresh it at most hourly and keep it OUT of
+  // the per-request / per-30s-warmer path — this was the sole cause of the
+  // occasional ~40s coverage stalls. Seeded with the current known network count
+  // so the landing page is accurate immediately. Seeding `at` to now means the
+  // first (expensive) refresh runs an hour into uptime — by when the boot backfill
+  // has calmed and the disk cache is hot — never during the post-deploy window.
+  let chainsCache = { at: Date.now(), n: 11 }
   const computeCoverage = () => {
-    /* coverage counts change slowly — cache 5 min (see ttl arg below) */
     const one = (sql: string): any => {
       try {
         return db.prepare(sql).get()
@@ -330,9 +339,11 @@ export async function registerApi(app: FastifyInstance) {
     const me = one('SELECT COUNT(*) n FROM mentions')
     const str = one('SELECT COUNT(*) n FROM streamers')
     const tr = one("SELECT COUNT(DISTINCT brand_key) n FROM reviews WHERE score>0")
-    // loose index scan via GROUP BY (idx_transfers_chain_ts) — counting distinct
-    // chains directly is a full 24M-row scan; grouping seeks one row per chain.
-    const chains = one('SELECT COUNT(*) n FROM (SELECT chain FROM transfers GROUP BY chain)')
+    if (Date.now() - chainsCache.at > 3600_000) {
+      const c = one('SELECT COUNT(*) n FROM (SELECT chain FROM transfers GROUP BY chain)')
+      if (c && typeof c.n === 'number' && c.n > 0) chainsCache = { at: Date.now(), n: c.n }
+    }
+    const chains = { n: chainsCache.n }
     return {
       casinos: dir.total ?? 0,
       sitesLive: dir.live ?? 0,
