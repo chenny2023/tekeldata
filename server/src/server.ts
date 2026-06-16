@@ -65,10 +65,11 @@ async function main() {
     await app.register(fastifyStatic, {
       root: distDir,
       wildcard: false,
-      maxAge: '365d',
-      immutable: true,
+      // set Cache-Control per file (NOT via the global maxAge — it overrides
+      // setHeaders): content-hashed assets are immutable for a year, but
+      // index.html must revalidate so new deploys' asset hashes are picked up.
       setHeaders: (res, path) => {
-        if (path.endsWith('index.html')) res.setHeader('Cache-Control', 'no-cache')
+        res.setHeader('Cache-Control', path.endsWith('index.html') ? 'no-cache' : 'public, max-age=31536000, immutable')
       },
     })
     app.setNotFoundHandler((req, reply) => {
