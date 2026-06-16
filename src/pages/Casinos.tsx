@@ -277,10 +277,14 @@ const EXPLORER: Record<string, (a: string) => string> = {
 }
 
 // unified row shape so Brand and per-wallet Entity render through one table
+// auto-detected 'Casino-pattern 0x…' / raw-address labels — not a verified brand
+const isUnattributed = (name: string) => /^(casino-pattern|0x[0-9a-f]{4,}|unknown|unnamed|unidentified)/i.test(name.trim())
+
 interface Row {
   rid: string
   name: string
   category: string
+  attributed: boolean
   meta: Entity['meta']
   volume7d: number
   change24h: number
@@ -315,7 +319,7 @@ export default function Casinos() {
   const { data: entityData, loading: el } = usePoll(() => api.casinos('all'), 15_000)
   const { data: brandData, loading: bl } = usePoll(() => api.brands('all'), 15_000)
   const [q, setQ] = useState('')
-  const [sort, setSort] = useState<SortKey>('volume7d')
+  const [sort, setSort] = useState<SortKey>('trust') // trust-first (volume is wash-tradeable)
   const [cat, setCat] = useState('casino')
   const [open, setOpen] = useState<string | null>(null)
   const loading = view === 'brand' ? bl : el
@@ -327,6 +331,7 @@ export default function Casinos() {
             rid: 'b:' + b.category + ':' + b.brand,
             name: b.brand,
             category: b.category,
+            attributed: b.attributed,
             meta: b.meta,
             volume7d: b.volume7d,
             change24h: b.change24h,
@@ -355,6 +360,7 @@ export default function Casinos() {
             rid: 'w:' + e.id,
             name: e.label,
             category: e.category,
+            attributed: !isUnattributed(e.label),
             meta: e.meta,
             volume7d: e.volume7d,
             change24h: e.change24h,
@@ -380,6 +386,7 @@ export default function Casinos() {
             chain: e.chain,
           }))
     return src
+      .filter((c) => c.attributed) // verified brands only — Casino-pattern / unknown wallets excluded
       .filter((c) => c.name.toLowerCase().includes(q.toLowerCase()))
       .filter((c) => cat === 'all' || c.category === cat)
       .sort((a, b) => (b[sort] as number) - (a[sort] as number))
@@ -412,7 +419,7 @@ export default function Casinos() {
       <div className="mb-3 flex flex-wrap items-center gap-2 text-sm text-white/50">
         <SlidersHorizontal size={15} />
         <span>Sort</span>
-        {([['volume7d', 'Volume'], ['trust', 'Trust'], ['reserves', 'Reserves'], ['players', 'Counterparties']] as [SortKey, string][]).map(([k, label]) => (
+        {([['trust', 'Trust'], ['volume7d', 'Volume'], ['reserves', 'Reserves'], ['players', 'Counterparties']] as [SortKey, string][]).map(([k, label]) => (
           <button key={k} onClick={() => setSort(k)} className={`rounded-lg px-2.5 py-1 text-[13px] font-medium transition ${sort === k ? 'bg-gold-500/15 text-gold-400 ring-1 ring-gold-500/30' : 'text-white/50 hover:bg-white/5'}`}>
             {label}
           </button>

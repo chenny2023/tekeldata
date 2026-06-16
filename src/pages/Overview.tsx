@@ -36,7 +36,7 @@ export default function Overview() {
   const [days, setDays] = useState(7)
   const { data: stats } = usePoll(api.stats, 12_000)
   const { data: series } = usePoll(() => api.series(days, 'casino'), 30_000, [days])
-  const { data: entities } = usePoll(api.casinos, 15_000)
+  const { data: brands } = usePoll(() => api.brands('casino'), 15_000)
   const { data: streamersRes } = usePoll(api.streamers, 30_000)
   const feed = useLiveFeed(8, 'casino')
 
@@ -46,7 +46,11 @@ export default function Overview() {
   const animTotal = useCountUp(cs?.totalVolume ?? stats?.totalVolume ?? 0)
   const chainSplit = ((cs?.chainSplit ?? stats?.chainSplit) ?? []).map((c) => ({ ...c, color: CHAIN_COLOR[c.chain] ?? '#888' }))
   const totalChain = chainSplit.reduce((s, c) => s + c.value, 0) || 1
-  const top = (entities ?? []).slice(0, 5)
+  // verified, brand-merged casinos only (Casino-pattern / unattributed excluded)
+  const top = (brands ?? [])
+    .filter((b) => b.attributed)
+    .slice(0, 5)
+    .map((b) => ({ id: b.members[0]?.id ?? 0, label: b.brand, category: b.category, players: b.players, volume7d: b.volume7d, change24h: b.change24h }))
   const liveStreamers = (streamersRes?.streamers ?? []).slice(0, 5)
 
   const chartData = (series ?? []).map((p) => ({
@@ -192,7 +196,7 @@ export default function Overview() {
         <Card className="p-5">
           <h3 className="mb-3 font-display text-lg font-semibold">Top Casinos · Volume</h3>
           <div className="space-y-2.5">
-            {!entities && <Skeleton className="h-40 w-full" />}
+            {!brands && <Skeleton className="h-40 w-full" />}
             {top.map((c, i) => (
               <div key={c.id} className="flex items-center gap-3">
                 <span className="w-4 text-center text-sm font-bold text-white/30">{i + 1}</span>
