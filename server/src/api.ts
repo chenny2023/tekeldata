@@ -91,6 +91,8 @@ export async function registerApi(app: FastifyInstance) {
     () => aggCache.set('ent:casino', { data: aggregateEntities('casino'), at: Date.now(), refreshing: false }),
     () => aggCache.set('ent:all', { data: aggregateEntities('all'), at: Date.now(), refreshing: false }),
     () => aggCache.set('brand:casino', { data: aggregateBrands('casino'), at: Date.now(), refreshing: false }),
+    () => aggCache.set('coverage', { data: computeCoverage(), at: Date.now(), refreshing: false }),
+    () => aggCache.set('flow:casino', { data: computeFlow('casino'), at: Date.now(), refreshing: false }),
     () => void computeStats(), // primes statsCache + the expensive COUNT(DISTINCT) cache
   ]
   const warm = () => {
@@ -310,7 +312,7 @@ export async function registerApi(app: FastifyInstance) {
   })
 
   // public — headline data-coverage counts for the landing page (one cheap call)
-  app.get('/api/coverage', async () => aggCached('coverage', () => {
+  const computeCoverage = () => {
     /* coverage counts change slowly — cache 5 min (see ttl arg below) */
     const one = (sql: string): any => {
       try {
@@ -344,7 +346,8 @@ export async function registerApi(app: FastifyInstance) {
       trustRated: tr.n ?? 0,
       chains: chains.n ?? 0,
     }
-  }, 300_000))
+  }
+  app.get('/api/coverage', async () => aggCached('coverage', computeCoverage, 300_000))
 
   // public — global search across tracked casinos, directory, streamers, wallets
   app.get('/api/search', async (req) => {
@@ -618,40 +621,37 @@ export async function registerApi(app: FastifyInstance) {
   // ── flow intelligence: tx-size distribution (REAL, derived) ──────────────────
   // Casino-only by default so exchange/whale flow doesn't pollute the player
   // segmentation; ?category=all|exchange|… to widen.
+  const computeFlow = (cat: string) => {
+    const d7 = Date.now() - 7 * 86_400_000
+    const meta = [
+      { name: 'Whale', color: '#f5b100' },
+      { name: 'High Roller', color: '#8b3df0' },
+      { name: 'Regular', color: '#2ee6a6' },
+      { name: 'Casual', color: '#5b8cff' },
+    ]
+    const catFilter = cat && cat !== 'all' ? ' AND category = ?' : ''
+    const catArg = catFilter ? [cat] : []
+    // bucket + aggregate in SQL — never pull millions of rows into JS (that
+    // synchronous load froze the event loop for ~10s and ran on every request)
+    const rows = db
+      .prepare(
+        `SELECT CASE WHEN usd >= 100000 THEN 0 WHEN usd >= 10000 THEN 1 WHEN usd >= 500 THEN 2 ELSE 3 END AS b,
+                COUNT(*) cnt, SUM(usd) vol, COUNT(DISTINCT counterparty) players
+         FROM transfers WHERE ts >= ?${catFilter} GROUP BY b`,
+      )
+      .all(d7, ...catArg) as any[]
+    const byB = new Map(rows.map((r) => [r.b, r]))
+    const res = meta.map((m, i) => {
+      const r = byB.get(i)
+      return { name: m.name, color: m.color, count: r?.cnt ?? 0, volume: r?.vol ?? 0, players: r?.players ?? 0 }
+    })
+    const totalVol = res.reduce((s, b) => s + b.volume, 0) || 1
+    return res.map((b) => ({ ...b, share: (b.volume / totalVol) * 100 }))
+  }
   app.get('/api/flow', async (req) => {
     const { category } = req.query as { category?: string }
     const cat = category ?? 'casino'
-    return aggCached(
-      'flow:' + cat,
-      () => {
-        const d7 = Date.now() - 7 * 86_400_000
-        const meta = [
-          { name: 'Whale', color: '#f5b100' },
-          { name: 'High Roller', color: '#8b3df0' },
-          { name: 'Regular', color: '#2ee6a6' },
-          { name: 'Casual', color: '#5b8cff' },
-        ]
-        const catFilter = cat && cat !== 'all' ? ' AND category = ?' : ''
-        const catArg = catFilter ? [cat] : []
-        // bucket + aggregate in SQL — never pull millions of rows into JS (that
-        // synchronous load froze the event loop for ~10s and ran on every request)
-        const rows = db
-          .prepare(
-            `SELECT CASE WHEN usd >= 100000 THEN 0 WHEN usd >= 10000 THEN 1 WHEN usd >= 500 THEN 2 ELSE 3 END AS b,
-                    COUNT(*) cnt, SUM(usd) vol, COUNT(DISTINCT counterparty) players
-             FROM transfers WHERE ts >= ?${catFilter} GROUP BY b`,
-          )
-          .all(d7, ...catArg) as any[]
-        const byB = new Map(rows.map((r) => [r.b, r]))
-        const res = meta.map((m, i) => {
-          const r = byB.get(i)
-          return { name: m.name, color: m.color, count: r?.cnt ?? 0, volume: r?.vol ?? 0, players: r?.players ?? 0 }
-        })
-        const totalVol = res.reduce((s, b) => s + b.volume, 0) || 1
-        return res.map((b) => ({ ...b, share: (b.volume / totalVol) * 100 }))
-      },
-      120_000,
-    )
+    return aggCached('flow:' + cat, () => computeFlow(cat), 120_000)
   })
 
   // public — streamer↔casino sponsorship graph: which casino each streamer reps,
