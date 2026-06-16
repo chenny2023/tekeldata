@@ -118,6 +118,7 @@ export async function registerApi(app: FastifyInstance) {
     async () => aggCache.set('ent:casino', { data: await aggregateEntities('casino'), at: Date.now(), refreshing: false }),
     async () => aggCache.set('ent:all', { data: await aggregateEntities('all'), at: Date.now(), refreshing: false }),
     async () => aggCache.set('brand:casino', { data: await aggregateBrands('casino'), at: Date.now(), refreshing: false }),
+    async () => aggCache.set('brand:all', { data: await aggregateBrands('all'), at: Date.now(), refreshing: false }), // Casinos page (By brand) hits this
     async () => aggCache.set('coverage', { data: await computeCoverage(), at: Date.now(), refreshing: false }),
     async () => aggCache.set('flow:casino', { data: await computeFlow('casino'), at: Date.now(), refreshing: false }),
     async () => aggCache.set('series:7:all', { data: await computeSeries(7, 'all'), at: Date.now(), refreshing: false }),

@@ -278,7 +278,7 @@ const EXPLORER: Record<string, (a: string) => string> = {
 
 // unified row shape so Brand and per-wallet Entity render through one table
 // auto-detected 'Casino-pattern 0x…' / raw-address labels — not a verified brand
-const isUnattributed = (name: string) => /^(casino-pattern|0x[0-9a-f]{4,}|unknown|unnamed|unidentified)/i.test(name.trim())
+const isUnattributed = (name: string) => /^(casino-pattern|0x[0-9a-f]{4,}|unknown|unnamed|unidentified)/i.test(String(name ?? '').trim())
 
 interface Row {
   rid: string
@@ -386,7 +386,7 @@ export default function Casinos() {
             chain: e.chain,
           }))
     return src
-      .filter((c) => c.attributed) // verified brands only — Casino-pattern / unknown wallets excluded
+      .filter((c) => c.attributed !== false) // exclude only KNOWN-unattributed; keep everything else
       .filter((c) => c.name.toLowerCase().includes(q.toLowerCase()))
       .filter((c) => cat === 'all' || c.category === cat)
       .sort((a, b) => (b[sort] as number) - (a[sort] as number))

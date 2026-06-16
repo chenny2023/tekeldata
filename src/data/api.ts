@@ -525,6 +525,7 @@ export function usePoll<T>(fetcher: () => Promise<T>, intervalMs = 15_000, deps:
     let alive = true
     let timer: ReturnType<typeof setTimeout> | undefined
     let fails = 0
+    let loadedOnce = false
     const schedule = (ms: number) => {
       clearTimeout(timer)
       timer = setTimeout(tick, ms)
@@ -545,6 +546,7 @@ export function usePoll<T>(fetcher: () => Promise<T>, intervalMs = 15_000, deps:
           setError(null)
           setLoading(false)
           fails = 0
+          loadedOnce = true
           schedule(intervalMs)
         })
         .catch((e) => {
@@ -552,9 +554,11 @@ export function usePoll<T>(fetcher: () => Promise<T>, intervalMs = 15_000, deps:
           setError(String(e.message ?? e))
           setLoading(false)
           fails++
-          // exponential backoff on consecutive failures (cap 60s) so a backend
-          // freeze/5xx isn't retried at full cadence and amplified
-          schedule(Math.min(intervalMs * 2 ** Math.min(fails, 4), 60_000))
+          // Before the FIRST successful load (e.g. a brief backend warmup window
+          // right after a deploy), retry quickly so the page doesn't sit blank —
+          // a transient must not be amplified into a minute-long empty screen.
+          // Once data has loaded at least once, back off on failures (cap 60s).
+          schedule(loadedOnce ? Math.min(intervalMs * 2 ** Math.min(fails, 4), 60_000) : 3_000)
         })
     }
     const onVis = () => {
