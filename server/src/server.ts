@@ -58,12 +58,22 @@ async function main() {
   await registerAuth(app)
   await registerApi(app)
 
-  // Serve the built SPA in production (single-process deploy)
+  // Serve the built SPA in production (single-process deploy). Vite emits
+  // content-hashed asset filenames, so they're safe to cache hard (immutable);
+  // index.html must stay no-cache so a new deploy's asset hashes are picked up.
   if (config.nodeEnv === 'production' && existsSync(distDir)) {
-    await app.register(fastifyStatic, { root: distDir, wildcard: false })
+    await app.register(fastifyStatic, {
+      root: distDir,
+      wildcard: false,
+      maxAge: '365d',
+      immutable: true,
+      setHeaders: (res, path) => {
+        if (path.endsWith('index.html')) res.setHeader('Cache-Control', 'no-cache')
+      },
+    })
     app.setNotFoundHandler((req, reply) => {
       if (req.url.startsWith('/api')) return reply.code(404).send({ error: 'not found' })
-      return reply.sendFile('index.html')
+      return reply.header('Cache-Control', 'no-cache').sendFile('index.html')
     })
     console.log('[web] serving built SPA from /dist')
   }

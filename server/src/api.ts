@@ -72,6 +72,18 @@ export async function registerApi(app: FastifyInstance) {
   setTimeout(warm, 8_000)
   setInterval(warm, Math.max(5_000, config.aggregateMs))
 
+  // Let browsers (and a CDN, if a matching cache rule is configured) serve the
+  // public, non-user-specific leaderboards from cache for a few seconds —
+  // collapses repeated polls and offloads the origin. Gated/auth endpoints and
+  // anything user-specific (sentiment carries per-user votes) are excluded.
+  const PUBLIC_CACHEABLE = /^\/api\/(stats|casinos|brands|entities|coverage|protocols|predictions|sponsorships|streamers|arkham\/reserves|directory\/overview)$/
+  app.addHook('onSend', async (req, reply, payload) => {
+    if (req.method === 'GET' && !reply.getHeader('Cache-Control') && PUBLIC_CACHEABLE.test(req.url.split('?')[0])) {
+      reply.header('Cache-Control', 'public, max-age=10, stale-while-revalidate=30')
+    }
+    return payload
+  })
+
   // ── global stats (all REAL sums) ─────────────────────────────────────────────
   // COUNT(DISTINCT counterparty) is a full scan over millions of rows — cache
   // the result so polling clients don't recompute it on every request.
@@ -236,7 +248,7 @@ export async function registerApi(app: FastifyInstance) {
   })
 
   // public — headline data-coverage counts for the landing page (one cheap call)
-  app.get('/api/coverage', async () => {
+  app.get('/api/coverage', async () => aggCached('coverage', () => {
     const one = (sql: string): any => {
       try {
         return db.prepare(sql).get()
@@ -267,7 +279,7 @@ export async function registerApi(app: FastifyInstance) {
       trustRated: tr.n ?? 0,
       chains: chains.n ?? 0,
     }
-  })
+  }))
 
   // public — on-chain iGaming protocol landscape (prediction markets, lotteries…)
   app.get('/api/protocols', async (req) => {
