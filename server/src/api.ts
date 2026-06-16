@@ -52,35 +52,71 @@ export async function registerApi(app: FastifyInstance) {
   // event loop and makes the whole API slow/unresponsive. Cache per (fn,category)
   // and refresh at most once per aggregateMs; a background warmer keeps the hot
   // keys fresh so no user request ever pays the full compute cost.
-  const aggCache = new Map<string, { data: unknown; at: number }>()
+  // Stale-while-revalidate cache. The aggregates are heavy synchronous scans and
+  // better-sqlite3 is single-threaded, so the OLD behaviour — recompute on the
+  // request that finds the entry expired — meant whichever unlucky user hit a cold
+  // key paid the full 10–40s compute AND blocked the event loop for everyone. Now a
+  // request NEVER blocks on a recompute: if a cached value exists we return it
+  // immediately (seconds-stale is fine for leaderboards) and refresh in the
+  // background. Only the very first call for a key (cold, no value at all) computes
+  // synchronously — and the warmer below pre-populates the hot keys so even that is
+  // paid off the request path.
+  const aggCache = new Map<string, { data: unknown; at: number; refreshing: boolean }>()
   function aggCached<T>(key: string, fn: () => T, ttl = config.aggregateMs): T {
+    const now = Date.now()
     const c = aggCache.get(key)
-    if (c && Date.now() - c.at < ttl) return c.data as T
-    const data = fn()
-    aggCache.set(key, { data, at: Date.now() })
+    if (c) {
+      if (now - c.at >= ttl && !c.refreshing) {
+        c.refreshing = true
+        setImmediate(() => {
+          try {
+            aggCache.set(key, { data: fn(), at: Date.now(), refreshing: false })
+          } catch {
+            c.refreshing = false // let the next request retry the refresh
+          }
+        })
+      }
+      return c.data as T
+    }
+    const data = fn() // cold: unavoidable one-time compute for this key
+    aggCache.set(key, { data, at: now, refreshing: false })
     return data
   }
-  // proactively warm the most-polled leaderboards so the request path stays instant
+  // Proactively warm the keys the dashboard hits on load so no user request ever
+  // pays the cold compute. Each task runs on its own setImmediate so the warmer
+  // never freezes the loop in one long synchronous block. statsCache/countsCache
+  // get primed here too (computeStats is defined below; warm runs async after
+  // registerApi finishes, so the reference is safe).
+  const warmTasks: (() => void)[] = [
+    () => aggCache.set('ent:casino', { data: aggregateEntities('casino'), at: Date.now(), refreshing: false }),
+    () => aggCache.set('ent:all', { data: aggregateEntities('all'), at: Date.now(), refreshing: false }),
+    () => aggCache.set('brand:casino', { data: aggregateBrands('casino'), at: Date.now(), refreshing: false }),
+    () => void computeStats(), // primes statsCache + the expensive COUNT(DISTINCT) cache
+  ]
   const warm = () => {
-    try {
-      aggCache.set('ent:casino', { data: aggregateEntities('casino'), at: Date.now() })
-      aggCache.set('brand:casino', { data: aggregateBrands('casino'), at: Date.now() })
-      aggCache.set('ent:all', { data: aggregateEntities('all'), at: Date.now() })
-    } catch {
-      /* a transient DB error shouldn't kill the warmer */
+    for (const task of warmTasks) {
+      setImmediate(() => {
+        try {
+          task()
+        } catch {
+          /* a transient DB error shouldn't kill the warmer */
+        }
+      })
     }
   }
   setTimeout(warm, 8_000)
-  setInterval(warm, Math.max(5_000, config.aggregateMs))
+  setInterval(warm, Math.max(15_000, config.aggregateMs))
 
-  // Let browsers (and a CDN, if a matching cache rule is configured) serve the
-  // public, non-user-specific leaderboards from cache for a few seconds —
-  // collapses repeated polls and offloads the origin. Gated/auth endpoints and
-  // anything user-specific (sentiment carries per-user votes) are excluded.
+  // Let browsers and the CDN serve the public, non-user-specific leaderboards from
+  // cache. The data moves slowly (rolling 7d/30d aggregates), so a short fresh
+  // window plus a LONG stale-while-revalidate window means users are served from
+  // the edge almost always and the origin is revalidated in the background — they
+  // effectively never wait on a cold origin. Gated/auth and per-user endpoints
+  // (sentiment carries per-user votes) are excluded.
   const PUBLIC_CACHEABLE = /^\/api\/(stats|casinos|brands|entities|coverage|protocols|predictions|sponsorships|streamers|flow|series|transfers|notifications|arkham\/reserves|directory\/overview)$/
   app.addHook('onSend', async (req, reply, payload) => {
     if (req.method === 'GET' && !reply.getHeader('Cache-Control') && PUBLIC_CACHEABLE.test(req.url.split('?')[0])) {
-      reply.header('Cache-Control', 'public, max-age=10, stale-while-revalidate=30')
+      reply.header('Cache-Control', 'public, max-age=45, stale-while-revalidate=600')
     }
     return payload
   })
@@ -107,8 +143,8 @@ export async function registerApi(app: FastifyInstance) {
     countsCache = { at: Date.now(), totals, cas }
     return countsCache
   }
-  app.get('/api/stats', async () => {
-    if (statsCache && Date.now() - statsCache.at < config.aggregateMs) return statsCache.data
+  let statsRefreshing = false
+  const computeStats = () => {
     const now = Date.now()
     const d7 = now - 7 * 86_400_000
     const { totals, cas } = expensiveCounts(d7)
@@ -153,6 +189,24 @@ export async function registerApi(app: FastifyInstance) {
     }
     statsCache = { data, at: Date.now() }
     return data
+  }
+  app.get('/api/stats', async () => {
+    // stale-while-revalidate: never block the request on the (COUNT-DISTINCT-heavy)
+    // recompute. Serve the last value instantly; refresh in the background when stale.
+    if (statsCache) {
+      if (Date.now() - statsCache.at >= config.aggregateMs && !statsRefreshing) {
+        statsRefreshing = true
+        setImmediate(() => {
+          try {
+            computeStats()
+          } finally {
+            statsRefreshing = false
+          }
+        })
+      }
+      return statsCache.data
+    }
+    return computeStats() // cold: first call only
   })
 
   // ── entities (a.k.a. casinos/exchanges) leaderboard ──────────────────────────
