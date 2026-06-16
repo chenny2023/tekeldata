@@ -1,4 +1,5 @@
 import { db, stateGet, stateSet } from '../db.ts'
+import { workerAll } from '../readpool.ts'
 import { webFetch } from '../net.ts'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -66,17 +67,16 @@ export async function runWaybackAttribution() {
 
   const since = Date.now() - 7 * 86_400_000
   const skipBefore = Date.now() - SKIP_DAYS * 86_400_000
-  const candidates = db
-    .prepare(
-      `SELECT t.counterparty a, COUNT(*) tx, SUM(t.usd) vol
-       FROM transfers t
-       WHERE t.chain='ETH' AND t.ts >= ?
-         AND NOT EXISTS (SELECT 1 FROM watchlist w WHERE w.chain='ETH' AND w.address = t.counterparty)
-       GROUP BY t.counterparty
-       HAVING tx >= ? OR vol >= ?
-       ORDER BY vol DESC LIMIT 200`,
-    )
-    .all(since, MIN_TX_7D, MIN_VOL_7D) as { a: string; tx: number; vol: number }[]
+  const candidates = (await workerAll(
+    `SELECT t.counterparty a, COUNT(*) tx, SUM(t.usd) vol
+     FROM transfers t
+     WHERE t.chain='ETH' AND t.ts >= ?
+       AND NOT EXISTS (SELECT 1 FROM watchlist w WHERE w.chain='ETH' AND w.address = t.counterparty)
+     GROUP BY t.counterparty
+     HAVING tx >= ? OR vol >= ?
+     ORDER BY vol DESC LIMIT 200`,
+    [since, MIN_TX_7D, MIN_VOL_7D],
+  )) as { a: string; tx: number; vol: number }[]
 
   const addWatch = db.prepare(`
     INSERT OR IGNORE INTO watchlist(chain, address, label, category, active, created_at)

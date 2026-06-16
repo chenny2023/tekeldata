@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { db, stmt, stateGet, stateSet } from '../db.ts'
+import { workerAll } from '../readpool.ts'
 import { webFetch } from '../net.ts'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -164,7 +165,7 @@ const DISCOVER_MIN_TX = 150 // observed transfers in window (was 300 — surface
 const DISCOVER_MIN_PEERS = 3 // distinct watched entities touched — the precision guard against random addresses
 const DISCOVER_MAX_PER_CHAIN = 12
 
-export function discoverServices(): number {
+export async function discoverServices(): Promise<number> {
   const since = Date.now() - DISCOVER_WINDOW_DAYS * 86_400_000
   const now = Date.now()
   let added = 0
@@ -173,17 +174,16 @@ export function discoverServices(): number {
       DISCOVER_MAX_PER_CHAIN -
       ((db.prepare("SELECT COUNT(*) n FROM watchlist WHERE active=1 AND chain=? AND label LIKE 'Service %'").get(chain) as any).n as number)
     if (slots <= 0) continue
-    const rows = db
-      .prepare(
-        `SELECT t.counterparty AS addr, COUNT(*) AS tx, COUNT(DISTINCT t.watch_id) AS peers
-         FROM transfers t
-         WHERE t.chain = ? AND t.ts >= ?
-           AND NOT EXISTS (SELECT 1 FROM watchlist w WHERE w.chain = t.chain AND w.address = t.counterparty)
-         GROUP BY t.counterparty
-         HAVING tx >= ? AND peers >= ?
-         ORDER BY tx DESC LIMIT ?`,
-      )
-      .all(chain, since, DISCOVER_MIN_TX, DISCOVER_MIN_PEERS, slots) as { addr: string; tx: number; peers: number }[]
+    const rows = (await workerAll(
+      `SELECT t.counterparty AS addr, COUNT(*) AS tx, COUNT(DISTINCT t.watch_id) AS peers
+       FROM transfers t
+       WHERE t.chain = ? AND t.ts >= ?
+         AND NOT EXISTS (SELECT 1 FROM watchlist w WHERE w.chain = t.chain AND w.address = t.counterparty)
+       GROUP BY t.counterparty
+       HAVING tx >= ? AND peers >= ?
+       ORDER BY tx DESC LIMIT ?`,
+      [chain, since, DISCOVER_MIN_TX, DISCOVER_MIN_PEERS, slots],
+    )) as { addr: string; tx: number; peers: number }[]
     for (const r of rows) {
       const short = `${r.addr.slice(0, 8)}…${r.addr.slice(-6)}`
       const res = stmt.addWatch.run(chain, r.addr, `Service ${short}`, 'other', now)
@@ -210,22 +210,27 @@ const CLASSIFY_REF_MIN_CPS = 3_000 // a reference entity must be at least this m
 const CLASSIFY_MIN_OVERLAP = 0.15 // ≥15% shared users with a reference of that category
 const CLASSIFY_DOMINANCE = 1.5 // the winning category's overlap must beat the other's by this factor
 
-export function classifyServices(): number {
+const yieldLoop = () => new Promise((r) => setImmediate(r))
+
+export async function classifyServices(): Promise<number> {
   // mature reference sets for both categories, from our OWN indexed graph;
-  // exclude already-inferred "*-pattern" entities so refs are ground truth
-  const buildRefs = (category: string) => {
+  // exclude already-inferred "*-pattern" entities so refs are ground truth. The
+  // per-entity DISTINCT counterparty scans run in the read worker (off the main
+  // loop) and we yield between entities so the CPU set-building never blocks.
+  const buildRefs = async (category: string) => {
     const rows = db
       .prepare("SELECT id, label FROM watchlist WHERE active=1 AND category=? AND label NOT LIKE '%-pattern%'")
       .all(category) as { id: number; label: string }[]
     const sets: { label: string; set: Set<string> }[] = []
     for (const r of rows) {
-      const cps = (db.prepare('SELECT DISTINCT counterparty c FROM transfers WHERE watch_id=?').all(r.id) as any[]).map((x) => x.c)
+      const cps = ((await workerAll('SELECT DISTINCT counterparty c FROM transfers WHERE watch_id=?', [r.id])) as any[]).map((x) => x.c)
       if (cps.length >= CLASSIFY_REF_MIN_CPS) sets.push({ label: r.label, set: new Set(cps) })
+      await yieldLoop()
     }
     return sets
   }
-  const casinoRefs = buildRefs('casino')
-  const exchangeRefs = buildRefs('exchange')
+  const casinoRefs = await buildRefs('casino')
+  const exchangeRefs = await buildRefs('exchange')
   if (casinoRefs.length === 0 && exchangeRefs.length === 0) return 0
 
   const maxOverlap = (cps: string[], refs: { label: string; set: Set<string> }[]) => {
@@ -244,7 +249,8 @@ export function classifyServices(): number {
     .all() as { id: number; label: string; chain: string }[]
   let flagged = 0
   for (const s of services) {
-    const cps = (db.prepare('SELECT DISTINCT counterparty c FROM transfers WHERE watch_id=?').all(s.id) as any[]).map((x) => x.c)
+    const cps = ((await workerAll('SELECT DISTINCT counterparty c FROM transfers WHERE watch_id=?', [s.id])) as any[]).map((x) => x.c)
+    await yieldLoop()
     if (cps.length < CLASSIFY_MIN_CPS) continue
     const cas = maxOverlap(cps, casinoRefs)
     const exc = maxOverlap(cps, exchangeRefs)
@@ -287,7 +293,7 @@ export async function runLabelHarvest(force = false) {
   }
   let services = 0
   try {
-    services = discoverServices()
+    services = await discoverServices()
   } catch (e) {
     console.warn('[labels] service discovery failed:', (e as Error).message)
   }
@@ -308,22 +314,12 @@ export function startLabels() {
   setInterval(() => runLabelHarvest().catch(() => {}), 12 * 3600_000)
   // graph-based service discovery is cheap — refresh daily regardless of the
   // explorer-label cadence (delayed past boot so the indexers warm up first)
-  setTimeout(() => {
-    try {
-      discoverServices()
-    } catch {}
-  }, 60_000)
-  setInterval(() => {
-    try {
-      discoverServices()
-      classifyServices()
-    } catch {}
-  }, 24 * 3600_000)
+  setTimeout(() => void discoverServices().catch(() => {}), 60_000)
+  setInterval(
+    () => void discoverServices().then(() => classifyServices()).catch(() => {}),
+    24 * 3600_000,
+  )
   // classification needs accumulated history — run once shortly after boot
   // (the persisted volume already holds the services' counterparty profiles)
-  setTimeout(() => {
-    try {
-      classifyServices()
-    } catch {}
-  }, 5 * 60_000)
+  setTimeout(() => void classifyServices().catch(() => {}), 5 * 60_000)
 }
