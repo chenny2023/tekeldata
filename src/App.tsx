@@ -18,6 +18,7 @@ const Players = lazy(() => import('./pages/Players'))
 const Watchlist = lazy(() => import('./pages/Watchlist'))
 const Alerts = lazy(() => import('./pages/Alerts'))
 const Reports = lazy(() => import('./pages/Reports'))
+const Daily = lazy(() => import('./pages/Daily'))
 
 // Gate the whole dashboard behind a valid login: no token → straight to /login;
 // a token is verified against /auth/me so an expired/invalid one also redirects.
@@ -73,6 +74,14 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
+      <Route
+        path="/daily"
+        element={
+          <Suspense fallback={<div className="grid min-h-screen place-items-center text-sm text-white/40">Loading…</div>}>
+            <Daily />
+          </Suspense>
+        }
+      />
       <Route path="/login" element={<Login />} />
       <Route path="/app/*" element={<RequireAuth><Dashboard /></RequireAuth>} />
       <Route path="*" element={<Landing />} />
