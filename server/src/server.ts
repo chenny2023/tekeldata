@@ -47,6 +47,7 @@ import { startAlerts } from './alerts.ts'
 import { startRetention } from './retention.ts'
 import { startReserveHistory } from './reservehistory.ts'
 import { startSnapshots } from './snapshot.ts'
+import { registerSeo, startSeo } from './seo.ts'
 import { startDirectory } from './directory.ts'
 import { startGuruSpider } from './collectors/guruspider.ts'
 import { startTrustpilotCategory } from './collectors/trustpilotcat.ts'
@@ -78,6 +79,10 @@ async function main() {
   await registerApi(app)
   registerSubscribe(app) // email digest subscription (double opt-in)
   registerDigest(app) // admin digest preview + test send
+  // Phase 2 SEO: stored, server-rendered landing pages + dynamic sitemap. MUST be
+  // registered BEFORE fastifyStatic/notFoundHandler so /casino, /rankings, /chains,
+  // /methodology and /sitemap.xml are served as real HTML, not the SPA shell.
+  registerSeo(app)
 
   // Serve the built SPA in production (single-process deploy). Vite emits
   // content-hashed asset filenames, so they're safe to cache hard (immutable);
@@ -194,6 +199,7 @@ async function main() {
   startReserveHistory() // daily solvency snapshots → reserve-adequacy trend
   startSnapshots() // 1.0 content layer: daily market snapshot (homepage + email source)
   startDigest() // 1.0 daily email digest scheduler (sends at DIGEST_SEND_HOUR_UTC)
+  startSeo() // Phase 2: rebuild stored SEO landing pages from the warm aggregate cache
   startDirectory() // casino directory crawler (site/X/email vetting for outreach)
   startGuruSpider() // casino.guru spider — fans the directory out to thousands of casinos
   startTrustpilotCategory() // Trustpilot casino-category sweep — merges consumer ratings onto the directory

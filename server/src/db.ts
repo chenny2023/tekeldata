@@ -350,6 +350,20 @@ CREATE TABLE IF NOT EXISTS email_digest_log (
   sent_at       INTEGER,
   UNIQUE(digest_id, subscriber_id)
 );
+
+-- Phase 2 SEO: pre-rendered, stored HTML for data-led landing pages
+-- (/casino/{slug}, /rankings/{slug}, /chains/{slug}, /methodology/{topic}).
+-- Served by Fastify ahead of the SPA so crawlers + AI answer engines get real,
+-- indexable content. Regenerated from the warm aggregate cache on a timer — the
+-- request path is a single primary-key read, never a heavy query.
+CREATE TABLE IF NOT EXISTS seo_page (
+  path        TEXT PRIMARY KEY,        -- e.g. /casino/stake
+  kind        TEXT NOT NULL,           -- casino|rankings|chains|methodology
+  title       TEXT,
+  description TEXT,
+  html        TEXT NOT NULL,
+  updated_at  INTEGER NOT NULL
+);
 `)
 
 // additive migrations for DBs created before these columns existed
