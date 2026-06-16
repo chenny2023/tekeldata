@@ -1,5 +1,5 @@
 import { config } from './config.ts'
-import { db, stmt, WatchRow } from './db.ts'
+import { db, stmt, stateGet, stateSet, WatchRow } from './db.ts'
 import { evmBalanceUsd } from './collectors/evm.ts'
 import { tronBalanceUsd } from './collectors/tron.ts'
 import { tronRpcBalanceUsd } from './collectors/tronrpc.ts'
@@ -81,6 +81,17 @@ export function maintainedPlayers(): { all: number; casino: number } {
     all += p
     if (catMap.get(id) === 'casino') casino += p
   }
+  // Cold start: the map is empty until maintenance finishes its first pass (~10 min
+  // after a deploy, since each entity is a yielded COUNT(DISTINCT)). Serve the
+  // last-known persisted total so the headline never shows 0 right after a deploy.
+  if (all === 0) {
+    try {
+      const j = JSON.parse(stateGet('stats:players') || '{}')
+      return { all: Number(j.all) || 0, casino: Number(j.casino) || 0 }
+    } catch {
+      return { all: 0, casino: 0 }
+    }
+  }
   return { all, casino }
 }
 
@@ -104,6 +115,14 @@ export async function startStatsMaintenance(): Promise<void> {
           /* skip a bad row */
         }
         await yield_() // hand the event loop back between every address
+      }
+      // a full pass completed — persist the rolled-up headline so a fresh deploy
+      // serves last-known players instantly (the in-memory map starts empty)
+      try {
+        const { all, casino } = maintainedPlayers()
+        if (all > 0) stateSet('stats:players', JSON.stringify({ all, casino }))
+      } catch {
+        /* non-fatal */
       }
     } catch {
       /* transient */

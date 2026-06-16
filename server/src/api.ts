@@ -133,7 +133,7 @@ export async function registerApi(app: FastifyInstance) {
   const PUBLIC_CACHEABLE = /^\/api\/(stats|casinos|brands|entities|coverage|protocols|predictions|sponsorships|streamers|flow|series|transfers|notifications|arkham\/reserves|directory\/overview)$/
   app.addHook('onSend', async (req, reply, payload) => {
     if (req.method === 'GET' && !reply.getHeader('Cache-Control') && PUBLIC_CACHEABLE.test(req.url.split('?')[0])) {
-      reply.header('Cache-Control', 'public, max-age=45, stale-while-revalidate=600')
+      reply.header('Cache-Control', 'public, max-age=120, stale-while-revalidate=1800')
     }
     return payload
   })
