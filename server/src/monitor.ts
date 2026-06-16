@@ -1,6 +1,5 @@
-import { statfs } from 'node:fs/promises'
-import { statSync } from 'node:fs'
-import { dirname } from 'node:path'
+import { readdir, stat } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { db } from './db.ts'
 import { config } from './config.ts'
 
@@ -13,10 +12,30 @@ import { config } from './config.ts'
 // ─────────────────────────────────────────────────────────────────────────────
 
 const WEBHOOK = process.env.MONITOR_WEBHOOK || ''
-const DISK_WARN = Number(process.env.MONITOR_DISK_WARN ?? 85) // % used
+const DISK_WARN = Number(process.env.MONITOR_DISK_WARN ?? 85) // % of volume quota
 const DISK_CRIT = Number(process.env.MONITOR_DISK_CRIT ?? 92)
 const LAG_WARN_MS = Number(process.env.MONITOR_LAG_WARN_MS ?? 5_000) // event-loop block
+// Railway enforces the volume size as a QUOTA, not at the host-FS level — statfs()
+// sees the (large) host filesystem, so we instead measure the DB files against the
+// configured quota. Bump VOLUME_LIMIT_GB to match after resizing the volume.
+const VOLUME_LIMIT_GB = Number(process.env.VOLUME_LIMIT_GB ?? 10)
 const volumeDir = dirname(config.dbPath)
+
+async function volumeUsedBytes(): Promise<number> {
+  let total = 0
+  try {
+    for (const f of await readdir(volumeDir)) {
+      try {
+        total += (await stat(join(volumeDir, f))).size
+      } catch {
+        /* file may vanish mid-checkpoint */
+      }
+    }
+  } catch {
+    /* dir not ready */
+  }
+  return total
+}
 
 type Level = 'info' | 'warn' | 'crit'
 // collapse repeat alerts so a sustained condition doesn't spam the webhook
@@ -61,21 +80,14 @@ function startLagSampler() {
 
 async function check() {
   try {
-    const fsst = await statfs(volumeDir)
-    const totalB = fsst.blocks * fsst.bsize
-    const usedB = (fsst.blocks - fsst.bfree) * fsst.bsize
-    const usedPct = totalB > 0 ? (usedB / totalB) * 100 : 0
-    let dbGB = 0
-    try {
-      dbGB = +(statSync(config.dbPath).size / 1e9).toFixed(2)
-    } catch {
-      /* file may be mid-checkpoint */
-    }
+    const usedB = await volumeUsedBytes()
+    const usedGB = +(usedB / 1e9).toFixed(2)
+    const usedPct = VOLUME_LIMIT_GB > 0 ? (usedGB / VOLUME_LIMIT_GB) * 100 : 0
     const tx = (db.prepare('SELECT MAX(id) n FROM transfers').get() as any).n ?? 0
-    const stat = { diskPct: +usedPct.toFixed(1), dbGB, totalGB: +(totalB / 1e9).toFixed(1), tx }
-    if (usedPct >= DISK_CRIT) await notify('crit', 'disk', `disk ${stat.diskPct}% of ${stat.totalGB}GB — write failures imminent (DB ${dbGB}GB)`, stat)
-    else if (usedPct >= DISK_WARN) await notify('warn', 'disk', `disk ${stat.diskPct}% of ${stat.totalGB}GB (DB ${dbGB}GB)`, stat)
-    else console.log(`[monitor:info] ok disk=${stat.diskPct}% db=${dbGB}GB tx=${tx}`)
+    const s = { volPct: +usedPct.toFixed(1), usedGB, limitGB: VOLUME_LIMIT_GB, tx }
+    if (usedPct >= DISK_CRIT) await notify('crit', 'disk', `volume ${s.volPct}% (${usedGB}/${VOLUME_LIMIT_GB}GB) — write failures imminent, prune or resize NOW`, s)
+    else if (usedPct >= DISK_WARN) await notify('warn', 'disk', `volume ${s.volPct}% (${usedGB}/${VOLUME_LIMIT_GB}GB)`, s)
+    else console.log(`[monitor:info] ok volume=${s.volPct}% (${usedGB}/${VOLUME_LIMIT_GB}GB) tx=${tx}`)
   } catch (e) {
     console.warn('[monitor] check failed:', (e as Error).message)
   }
