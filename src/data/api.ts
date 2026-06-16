@@ -159,6 +159,25 @@ export interface StreamerRow {
   affiliation: string | null
 }
 
+export interface StreamerProfile {
+  platform: string
+  slug: string
+  name: string
+  followers: number
+  content: string | null
+  language: string | null
+  bio: string | null
+  telegram: string | null
+  discord: string | null
+  twitter: string | null
+  instagram: string | null
+  youtube: string | null
+}
+export interface StreamerDetail {
+  profile: StreamerProfile | null
+  live: StreamerRow | null
+}
+
 export interface SentimentEntity extends Entity {
   mentions7d: number
   mentionsPos: number
@@ -404,6 +423,7 @@ export const api = {
   search: (q: string) => getJson<SearchResults>('/search?q=' + encodeURIComponent(q)),
   notifications: () => getJson<{ items: Notification[] }>('/notifications'),
   sponsorships: () => getJson<SponsorshipsResp>('/sponsorships'),
+  streamer: (platform: string, slug: string) => getJson<StreamerDetail>(`/streamer?platform=${encodeURIComponent(platform)}&slug=${encodeURIComponent(slug)}`),
   protocols: (category?: string) => getJson<ProtocolsResp>('/protocols' + (category ? `?category=${encodeURIComponent(category)}` : '')),
   predictions: () => getJson<PredictionsResp>('/predictions'),
   alertRules: () => getJson<AlertRule[]>('/alerts/rules'),

@@ -7,6 +7,7 @@ import { twitchEnabled } from './collectors/twitch.ts'
 import { redditEnabled } from './collectors/reddit.ts'
 import { probeTier } from './collectors/unlocker.ts'
 import { arkhamFetch } from './net.ts'
+import { getProfile } from './streamerprofiles.ts'
 import { newsEnabled } from './collectors/news.ts'
 import { telegramSubs } from './collectors/telegram.ts'
 import { brandKey } from './casinometa.ts'
@@ -624,6 +625,14 @@ export async function registerApi(app: FastifyInstance) {
       .all()
     const roster = (db.prepare('SELECT COUNT(*) n FROM streamer_roster WHERE active=1').get() as any).n
     return { enabled: true, twitch: twitchEnabled(), roster, streamers: live, offline }
+  })
+
+  // ── streamer detail: curated profile (bio + socials) + live status ───────────
+  app.get('/api/streamer', async (req) => {
+    const { platform, slug } = req.query as { platform?: string; slug?: string }
+    if (!platform || !slug) return { profile: null, live: null }
+    const live = db.prepare('SELECT * FROM streamers WHERE id=?').get(`${platform.toLowerCase()}:${slug.toLowerCase()}`)
+    return { profile: getProfile(platform, slug), live: live ?? null }
   })
 
   // ── streamer roster management (auth required) ───────────────────────────────

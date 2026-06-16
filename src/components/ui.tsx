@@ -1,4 +1,4 @@
-import { ReactNode } from 'react'
+import { ReactNode, HTMLAttributes } from 'react'
 import { ArrowDownRight, ArrowUpRight } from 'lucide-react'
 import { CHAIN_COLOR } from '../data/format'
 
@@ -37,13 +37,14 @@ export function Card({
   children,
   className = '',
   hover = false,
+  ...rest
 }: {
   children: ReactNode
   className?: string
   hover?: boolean
-}) {
+} & HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={`glass ${hover ? 'glass-hover' : ''} rounded-2xl ${className}`}>{children}</div>
+    <div className={`glass ${hover ? 'glass-hover' : ''} rounded-2xl ${className}`} {...rest}>{children}</div>
   )
 }
 

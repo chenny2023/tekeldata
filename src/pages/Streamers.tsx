@@ -1,9 +1,70 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, Users, Radio, ExternalLink, Plus, Loader2 } from 'lucide-react'
+import { Search, Users, Radio, ExternalLink, Plus, Loader2, X, Send, MessageCircle, Youtube, Instagram, Twitter } from 'lucide-react'
 import { Card, PageHead, Bubble, EmptyState, Skeleton } from '../components/ui'
 import { api, usePoll, getToken, StreamerRow } from '../data/api'
 import { fmtNum } from '../data/format'
+
+// streamer detail drawer — curated profile (bio + socials) joined with live status
+function StreamerDetailModal({ platform, slug, onClose }: { platform: string; slug: string; onClose: () => void }) {
+  const { data } = usePoll(() => api.streamer(platform, slug), 30_000, [platform, slug])
+  const p = data?.profile
+  const live = data?.live
+  const name = p?.name ?? live?.handle ?? slug
+  const followers = p?.followers ?? live?.followers ?? 0
+  const url = CHANNEL_URL[platform]?.(slug) ?? '#'
+  const strip = (v: string) => v.replace(/^@/, '').replace(/^https?:\/\//, '')
+  const socials: { label: string; icon: JSX.Element; val: string | null | undefined; href: (v: string) => string }[] = [
+    { label: 'Twitter / X', icon: <Twitter size={14} />, val: p?.twitter, href: (v) => `https://x.com/${strip(v)}` },
+    { label: 'YouTube', icon: <Youtube size={14} />, val: p?.youtube, href: (v) => (v.startsWith('http') ? v : `https://${strip(v)}`) },
+    { label: 'Discord', icon: <MessageCircle size={14} />, val: p?.discord, href: (v) => (v.startsWith('http') ? v : `https://${strip(v)}`) },
+    { label: 'Telegram', icon: <Send size={14} />, val: p?.telegram, href: (v) => `https://t.me/${strip(v)}` },
+    { label: 'Instagram', icon: <Instagram size={14} />, val: p?.instagram, href: (v) => `https://instagram.com/${strip(v)}` },
+  ]
+  const present = socials.filter((s) => s.val)
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-sm" onClick={onClose}>
+      <Card className="w-full max-w-lg p-0" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+        <div className="relative">
+          {live?.live === 1 && live.thumbnail ? (
+            <img src={live.thumbnail} alt={name} className="h-40 w-full rounded-t-2xl object-cover" />
+          ) : (
+            <div className="grid h-28 w-full place-items-center rounded-t-2xl bg-ink-800"><Bubble seed={name} size={56} /></div>
+          )}
+          <button onClick={onClose} className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-lg bg-black/50 text-white/70 hover:text-white"><X size={16} /></button>
+          {live?.live === 1 && <span className="absolute left-3 top-3 rounded-md bg-rose-500/90 px-1.5 py-0.5 text-[11px] font-bold text-white">● LIVE · {fmtNum(live.viewers)}</span>}
+        </div>
+        <div className="p-5">
+          <div className="flex items-center gap-2">
+            <h3 className="font-display text-xl font-bold">{name}</h3>
+            <span className="rounded-md px-1.5 py-0.5 text-[10px] font-bold" style={{ background: `${PLATFORM_COLOR[platform]}22`, color: PLATFORM_COLOR[platform] }}>{platform}</span>
+            <a href={url} target="_blank" rel="noreferrer" className="ml-auto text-white/40 hover:text-gold-400"><ExternalLink size={16} /></a>
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-white/50">
+            <span>{fmtNum(followers)} followers</span>
+            {p?.content && <span>· {p.content}</span>}
+            {p?.language && <span>· {p.language}</span>}
+            {live?.affiliation && <span className="rounded-md bg-gold-500/12 px-1.5 py-0.5 font-semibold text-gold-400">reps {live.affiliation}</span>}
+          </div>
+          {p?.bio && <p className="mt-3 text-[13px] leading-relaxed text-white/65">{p.bio}</p>}
+          {present.length > 0 && (
+            <div className="mt-4">
+              <div className="mb-1.5 text-[11px] uppercase tracking-wider text-white/35">Socials</div>
+              <div className="flex flex-wrap gap-2">
+                {present.map((s) => (
+                  <a key={s.label} href={s.href(s.val as string)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-white/8 bg-white/4 px-2.5 py-1.5 text-[12px] text-white/75 hover:border-white/20 hover:text-white">
+                    {s.icon} {s.val}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+          {!p && <p className="mt-3 text-[12px] text-white/35">No curated profile yet — showing live stats only.</p>}
+        </div>
+      </Card>
+    </div>
+  )
+}
 
 const PLATFORM_COLOR: Record<string, string> = {
   Twitch: '#9146FF',
@@ -16,9 +77,9 @@ const CHANNEL_URL: Record<string, (h: string) => string> = {
   YouTube: (h) => `https://youtube.com/@${h}`,
 }
 
-function StreamerCard({ s }: { s: StreamerRow }) {
+function StreamerCard({ s, onOpen }: { s: StreamerRow; onOpen: () => void }) {
   return (
-    <Card hover className="overflow-hidden p-0">
+    <Card hover onClick={onOpen} className="cursor-pointer overflow-hidden p-0">
       {s.live === 1 && s.thumbnail ? (
         <div className="relative h-36 w-full overflow-hidden bg-ink-800">
           <img src={s.thumbnail} alt={s.handle} className="h-full w-full object-cover" loading="lazy" />
@@ -37,7 +98,7 @@ function StreamerCard({ s }: { s: StreamerRow }) {
           <span className="rounded-md px-1.5 py-0.5 text-[10px] font-bold" style={{ background: `${PLATFORM_COLOR[s.platform]}22`, color: PLATFORM_COLOR[s.platform] }}>
             {s.platform}
           </span>
-          <a href={CHANNEL_URL[s.platform]?.(s.handle)} target="_blank" rel="noreferrer" className="ml-auto text-white/40 hover:text-gold-400"><ExternalLink size={14} /></a>
+          <a href={CHANNEL_URL[s.platform]?.(s.handle)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="ml-auto text-white/40 hover:text-gold-400"><ExternalLink size={14} /></a>
         </div>
         {s.title && <p className="mt-2 line-clamp-2 text-[12px] text-white/45">{s.title}</p>}
         <div className="mt-2 flex items-center justify-between text-[12px]">
@@ -64,6 +125,7 @@ export default function Streamers() {
   const [slug, setSlug] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
+  const [selected, setSelected] = useState<{ platform: string; slug: string } | null>(null)
   const loggedIn = !!getToken()
 
   const live = data?.streamers ?? []
@@ -171,14 +233,15 @@ export default function Streamers() {
           <Card className="p-8"><EmptyState icon={<Radio size={34} />} title="Roster is warming up" hint="The Kick collector polls one channel every 8 seconds — first data lands within a minute of boot." /></Card>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {all.map((s) => <StreamerCard key={s.id} s={s} />)}
+            {all.map((s) => <StreamerCard key={s.id} s={s} onOpen={() => setSelected({ platform: s.platform, slug: s.id.includes(':') ? s.id.split(':')[1] : s.handle })} />)}
           </div>
         )}
       </div>
       <p className="mt-3 text-[12px] text-white/35">
-        Kick data is collected keyless from the public channel API. Add Twitch credentials in .env to also index
-        the Twitch slots category. Affiliations are detected from stream titles/bios against watchlist casino labels.
+        Kick, Twitch & YouTube data is collected keyless from public sources. Click any streamer for their profile,
+        socials and casino affiliation. Affiliations are detected from stream titles/bios against watchlist casino labels.
       </p>
+      {selected && <StreamerDetailModal platform={selected.platform} slug={selected.slug} onClose={() => setSelected(null)} />}
     </div>
   )
 }
