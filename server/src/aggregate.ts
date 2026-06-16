@@ -48,19 +48,6 @@ export interface EntityAgg {
   risk: { hits: number; usd: number; addresses: string[] } | null // OFAC-sanctioned exposure
 }
 
-const aggSql = db.prepare(`
-  SELECT
-    SUM(CASE WHEN ts >= @d1 THEN usd ELSE 0 END)                              AS vol24,
-    SUM(CASE WHEN ts < @d1 AND ts >= @d2 THEN usd ELSE 0 END)                 AS volPrev24,
-    SUM(CASE WHEN ts >= @d7 THEN usd ELSE 0 END)                             AS vol7,
-    SUM(CASE WHEN ts >= @d7 AND direction='in'  THEN usd ELSE 0 END)         AS in7,
-    SUM(CASE WHEN ts >= @d7 AND direction='out' THEN usd ELSE 0 END)         AS out7,
-    COUNT(CASE WHEN ts >= @d7 THEN 1 END)                                    AS tx7,
-    COUNT(DISTINCT CASE WHEN ts >= @d7 THEN counterparty END)               AS players7,
-    MIN(ts)                                                                   AS firstSeen
-  FROM transfers WHERE watch_id = @id
-`)
-
 // The per-entity scan is expensive (90+ entities × COUNT DISTINCT over 7d of
 // rows) and three polled endpoints call this — serve a cached snapshot and
 // recompute at most once per aggregation interval.
@@ -108,12 +95,36 @@ function computeEntities(): EntityAgg[] {
   const tokens = tokenData()
   const risks = riskFlags()
 
+  // Per-address volume/flow stats in ONE grouped scan over the 7d window (was a
+  // per-address query × COUNT(DISTINCT) — O(addresses) full scans that blew up to
+  // 30s+ once Arkham harvesting widened the watchlist). firstSeen + balances are
+  // likewise loaded once into Maps instead of a query per address.
+  const aggRows = db
+    .prepare(
+      `SELECT watch_id,
+         SUM(CASE WHEN ts >= @d1 THEN usd ELSE 0 END)              AS vol24,
+         SUM(CASE WHEN ts < @d1 AND ts >= @d2 THEN usd ELSE 0 END) AS volPrev24,
+         SUM(usd)                                                  AS vol7,
+         SUM(CASE WHEN direction='in'  THEN usd ELSE 0 END)        AS in7,
+         SUM(CASE WHEN direction='out' THEN usd ELSE 0 END)        AS out7,
+         COUNT(*)                                                  AS tx7,
+         COUNT(DISTINCT counterparty)                             AS players7
+       FROM transfers WHERE ts >= @d7 GROUP BY watch_id`,
+    )
+    .all(params) as any[]
+  const aggMap = new Map<number, any>(aggRows.map((r) => [r.watch_id, r]))
+  const firstMap = new Map<number, number>(
+    (db.prepare('SELECT watch_id, MIN(ts) f FROM transfers GROUP BY watch_id').all() as any[]).map((r) => [r.watch_id, r.f]),
+  )
+  const balMap = new Map<number, number>((db.prepare('SELECT watch_id, usd FROM balances').all() as any[]).map((r) => [r.watch_id, r.usd]))
+
   for (const w of rows) {
-    const a = aggSql.get({ id: w.id, ...params }) as any
+    const a = aggMap.get(w.id) ?? {}
+    a.firstSeen = firstMap.get(w.id) ?? null
     const vol24 = a.vol24 ?? 0
     const volPrev = a.volPrev24 ?? 0
     const change24h = volPrev > 0 ? ((vol24 - volPrev) / volPrev) * 100 : vol24 > 0 ? 100 : 0
-    const bal = (db.prepare('SELECT usd FROM balances WHERE watch_id = ?').get(w.id) as any)?.usd ?? 0
+    const bal = balMap.get(w.id) ?? 0
     const v = voteMap.get(w.id)
     const votesUp = v?.up ?? 0
     const votesDown = v?.down ?? 0
