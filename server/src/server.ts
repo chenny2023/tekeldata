@@ -57,7 +57,16 @@ async function main() {
   seedWatchlist()
 
   const app = Fastify({ logger: false })
-  await app.register(cors, { origin: true })
+  // Lock CORS to our own origins in production (auth is a Bearer token, but there's
+  // no reason to reflect arbitrary origins). Dev allows localhost.
+  const allowedOrigins = (process.env.CORS_ORIGINS ||
+    'https://wcoin.casino,https://www.wcoin.casino,https://wcoin-production.up.railway.app')
+    .split(',').map((s) => s.trim()).filter(Boolean)
+  await app.register(cors, {
+    origin: config.nodeEnv === 'production'
+      ? (origin, cb) => cb(null, !origin || allowedOrigins.includes(origin)) // !origin = same-origin/curl
+      : true,
+  })
   await registerAuth(app)
   await registerApi(app)
 
@@ -193,6 +202,16 @@ async function main() {
   setTimeout(() => void startStatsMaintenance(), 180_000)
   }, 45_000)
 }
+
+// Single-process resilience: one unguarded rejection/throw in any of ~40
+// collectors must NOT take down the whole service (there is no second replica).
+// Log and keep running — the failing collector retries on its own loop.
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason instanceof Error ? reason.stack || reason.message : reason)
+})
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err?.stack || err)
+})
 
 main().catch((e) => {
   console.error('fatal:', e)

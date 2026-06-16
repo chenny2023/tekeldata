@@ -474,27 +474,52 @@ export function usePoll<T>(fetcher: () => Promise<T>, intervalMs = 15_000, deps:
 
   useEffect(() => {
     let alive = true
-    const run = () =>
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let fails = 0
+    const schedule = (ms: number) => {
+      clearTimeout(timer)
+      timer = setTimeout(tick, ms)
+    }
+    const tick = () => {
+      // Pause while the tab is hidden — backgrounded tabs hammering the single-
+      // threaded backend is pure waste. We reschedule a light check; the real
+      // refetch happens immediately on visibilitychange.
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        schedule(intervalMs)
+        return
+      }
       fnRef
         .current()
         .then((d) => {
-          if (alive) {
-            setData(d)
-            setError(null)
-            setLoading(false)
-          }
+          if (!alive) return
+          setData(d)
+          setError(null)
+          setLoading(false)
+          fails = 0
+          schedule(intervalMs)
         })
         .catch((e) => {
-          if (alive) {
-            setError(String(e.message ?? e))
-            setLoading(false)
-          }
+          if (!alive) return
+          setError(String(e.message ?? e))
+          setLoading(false)
+          fails++
+          // exponential backoff on consecutive failures (cap 60s) so a backend
+          // freeze/5xx isn't retried at full cadence and amplified
+          schedule(Math.min(intervalMs * 2 ** Math.min(fails, 4), 60_000))
         })
-    run()
-    const t = setInterval(run, intervalMs)
+    }
+    const onVis = () => {
+      if (document.visibilityState === 'visible') {
+        fails = 0
+        schedule(0)
+      }
+    }
+    document.addEventListener('visibilitychange', onVis)
+    tick()
     return () => {
       alive = false
-      clearInterval(t)
+      clearTimeout(timer)
+      document.removeEventListener('visibilitychange', onVis)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps)

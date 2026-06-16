@@ -130,7 +130,7 @@ export async function registerApi(app: FastifyInstance) {
   // the edge almost always and the origin is revalidated in the background — they
   // effectively never wait on a cold origin. Gated/auth and per-user endpoints
   // (sentiment carries per-user votes) are excluded.
-  const PUBLIC_CACHEABLE = /^\/api\/(stats|casinos|brands|entities|coverage|protocols|predictions|sponsorships|streamers|flow|series|transfers|notifications|arkham\/reserves|directory\/overview)$/
+  const PUBLIC_CACHEABLE = /^\/api\/(stats|casinos|brands|entities|coverage|protocols|predictions|sponsorships|streamers|flow|series|transfers|notifications|arkham\/reserves|directory\/overview|entity\/\d+\/(?:series|flow))$/
   app.addHook('onSend', async (req, reply, payload) => {
     if (req.method === 'GET' && !reply.getHeader('Cache-Control') && PUBLIC_CACHEABLE.test(req.url.split('?')[0])) {
       reply.header('Cache-Control', 'public, max-age=120, stale-while-revalidate=1800')
@@ -301,7 +301,10 @@ export async function registerApi(app: FastifyInstance) {
   // one-off unlocker diagnostic: probe a known-good Trustpilot + Reddit URL at
   // each ScraperAPI tier so we can see which tier actually unlocks them (and what
   // it costs) instead of guessing. Costs a few credits per call — use sparingly.
-  app.get('/api/directory/unlockertest', async (req) => {
+  app.get('/api/directory/unlockertest', async (req, reply) => {
+    // gated: spends paid unlocker credits and can proxy an arbitrary ?url= — must
+    // never be public (credit-drain / SSRF surface)
+    if (!userFromRequest(req)) return reply.code(401).send({ error: 'login required' })
     const ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
     const { url, tier, timeout } = req.query as { url?: string; tier?: string; timeout?: string }
     const init = { headers: { 'User-Agent': ua }, signal: AbortSignal.timeout(Number(timeout) || 90_000) }
@@ -316,7 +319,9 @@ export async function registerApi(app: FastifyInstance) {
 
   // flexible Arkham API explorer: ?path=/intelligence/address/0x... — returns the
   // raw status + body snippet so we can learn the API shape before building on it.
-  app.get('/api/directory/arkhamtest', async (req) => {
+  app.get('/api/directory/arkhamtest', async (req, reply) => {
+    // gated: proxies arbitrary ?path= to the Arkham API with our key — keep private
+    if (!userFromRequest(req)) return reply.code(401).send({ error: 'login required' })
     const { path } = req.query as { path?: string }
     const p = arkhamFetch(path || '/intelligence/address/0x28c6c06298d514db089934071355e5743bf21d60', { signal: AbortSignal.timeout(30_000) })
     if (!p) return { error: 'no arkham key configured' }
@@ -585,27 +590,31 @@ export async function registerApi(app: FastifyInstance) {
     const { id } = req.params as { id: string }
     const q = req.query as { days?: string }
     const days = Math.min(90, Math.max(7, Number(q.days ?? 30)))
-    const now = Date.now()
-    const from = now - days * 86_400_000
-    const rows = db
-      .prepare(
-        `SELECT chain, CAST((ts - ?) / 86400000 AS INTEGER) AS b, SUM(usd) v
-         FROM transfers WHERE watch_id = ? AND ts >= ? GROUP BY chain, b`,
-      )
-      .all(from, Number(id), from) as { chain: string; b: number; v: number }[]
-    const chains = [...new Set(rows.map((r) => r.chain))].sort()
-    const byBucket = new Map<number, Record<string, number>>()
-    for (const r of rows) {
-      const o = byBucket.get(r.b) ?? {}
-      o[r.chain] = r.v ?? 0
-      byBucket.set(r.b, o)
-    }
-    const out: ({ t: number } & Record<string, number>)[] = []
-    for (let i = 0; i < days; i++) {
-      const o = byBucket.get(i) ?? {}
-      out.push({ t: from + i * 86_400_000, ...Object.fromEntries(chains.map((c) => [c, o[c] ?? 0])) } as any)
-    }
-    return { chains, series: out }
+    // cache per (id,days): this GROUP BY scans the entity's window and was uncached
+    // on the request path, blocking the single thread per call (see ARCHITECTURE_REVIEW PF-2)
+    return aggCached(`entseries:${id}:${days}`, () => {
+      const now = Date.now()
+      const from = now - days * 86_400_000
+      const rows = db
+        .prepare(
+          `SELECT chain, CAST((ts - ?) / 86400000 AS INTEGER) AS b, SUM(usd) v
+           FROM transfers WHERE watch_id = ? AND ts >= ? GROUP BY chain, b`,
+        )
+        .all(from, Number(id), from) as { chain: string; b: number; v: number }[]
+      const chains = [...new Set(rows.map((r) => r.chain))].sort()
+      const byBucket = new Map<number, Record<string, number>>()
+      for (const r of rows) {
+        const o = byBucket.get(r.b) ?? {}
+        o[r.chain] = r.v ?? 0
+        byBucket.set(r.b, o)
+      }
+      const out: ({ t: number } & Record<string, number>)[] = []
+      for (let i = 0; i < days; i++) {
+        const o = byBucket.get(i) ?? {}
+        out.push({ t: from + i * 86_400_000, ...Object.fromEntries(chains.map((c) => [c, o[c] ?? 0])) } as any)
+      }
+      return { chains, series: out }
+    }, 120_000)
   })
 
   // ── per-entity money-flow graph: sources → entity → destinations ─────────────
@@ -615,6 +624,9 @@ export async function registerApi(app: FastifyInstance) {
     const { id } = req.params as { id: string }
     const q = req.query as { days?: string }
     const days = Math.min(90, Math.max(7, Number(q.days ?? 30)))
+    // cache per (id,days): two GROUP BY + LEFT JOIN scans, previously run on the
+    // request path per call → loop freeze (see ARCHITECTURE_REVIEW PF-2)
+    return aggCached(`entflow:${id}:${days}`, () => {
     const since = Date.now() - days * 86_400_000
     const wid = Number(id)
     const ent = db.prepare('SELECT label FROM watchlist WHERE id=?').get(wid) as any
@@ -642,6 +654,7 @@ export async function registerApi(app: FastifyInstance) {
       return out
     }
     return { entity: ent.label, days, sources: side('in'), sinks: side('out') }
+    }, 120_000)
   })
 
   // ── flow intelligence: tx-size distribution (REAL, derived) ──────────────────
