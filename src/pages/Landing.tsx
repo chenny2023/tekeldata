@@ -51,6 +51,40 @@ function Ticker() {
   )
 }
 
+function CoverageBoard() {
+  const { data: c } = usePoll(api.coverage, 30_000)
+  const fmtBig = (n: number) => (n >= 1e9 ? `$${(n / 1e9).toFixed(1)}B` : n >= 1e6 ? `$${(n / 1e6).toFixed(0)}M` : `$${(n / 1e3).toFixed(0)}K`)
+  const tiles = [
+    { label: 'Casinos catalogued', value: c ? fmtNum(c.casinos) : '—', sub: c ? `${fmtNum(c.sitesLive)} verified live` : '' },
+    { label: 'All-chain reserves', value: c ? fmtBig(c.reservesUsd) : '—', sub: c ? `${c.reservesCount} casinos` : '' },
+    { label: 'Chains indexed', value: c ? `${c.chains}` : '—', sub: 'ETH · Tron · BTC · SOL…' },
+    { label: 'Prediction markets', value: c ? fmtNum(c.predictionMarkets) : '—', sub: c ? `${fmtBig(c.predictionVolume)} vol` : '' },
+    { label: 'On-chain protocols', value: c ? fmtNum(c.protocols) : '—', sub: c ? `${fmtBig(c.protocolTvl)} TVL` : '' },
+    { label: 'Social mentions', value: c ? fmtNum(c.mentions) : '—', sub: '8 sources' },
+    { label: 'Streamers tracked', value: c ? fmtNum(c.streamers) : '—', sub: 'Kick · Twitch · YouTube' },
+    { label: 'Trust-rated', value: c ? fmtNum(c.trustpilotRated) : '—', sub: 'Trustpilot + guru + AG' },
+  ]
+  return (
+    <section className="mx-auto max-w-7xl px-5 py-14">
+      <div className="mx-auto mb-8 max-w-2xl text-center">
+        <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
+          The web's <span className="text-gradient-gold">most complete</span> iGaming dataset
+        </h2>
+        <p className="mt-2 text-sm text-white/55">On-chain truth + reviews + social — one layer, fully verifiable.</p>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {tiles.map((t) => (
+          <Card key={t.label} className="p-5 text-center">
+            <div className="font-display text-2xl font-bold tabular-nums text-gradient-gold sm:text-3xl">{t.value}</div>
+            <div className="mt-1 text-[13px] font-medium text-white/75">{t.label}</div>
+            {t.sub && <div className="mt-0.5 text-[11px] text-white/40">{t.sub}</div>}
+          </Card>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 export default function Landing() {
   const { data: stats } = usePoll(api.stats, 12_000)
   const { data: entities } = usePoll(api.casinos, 15_000)
@@ -131,6 +165,8 @@ export default function Landing() {
       </section>
 
       <Ticker />
+
+      <CoverageBoard />
 
       {/* Live intel preview */}
       <section id="intel" className="mx-auto max-w-7xl px-5 py-16">

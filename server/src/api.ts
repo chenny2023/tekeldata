@@ -205,6 +205,40 @@ export async function registerApi(app: FastifyInstance) {
     }
   })
 
+  // public — headline data-coverage counts for the landing page (one cheap call)
+  app.get('/api/coverage', async () => {
+    const one = (sql: string): any => {
+      try {
+        return db.prepare(sql).get()
+      } catch {
+        return {}
+      }
+    }
+    const dir = one('SELECT COUNT(*) total, COALESCE(SUM(site_ok),0) live, COALESCE(SUM(tp_rating IS NOT NULL),0) rated FROM casino_directory')
+    const ark = one("SELECT COUNT(*) n, COALESCE(SUM(reserves_usd),0) usd FROM arkham_casino WHERE entity_id!='' AND reserves_usd IS NOT NULL")
+    const pm = one('SELECT COUNT(*) n, COALESCE(SUM(volume),0) usd FROM prediction_market')
+    const pr = one('SELECT COUNT(*) n, COALESCE(SUM(tvl),0) usd FROM onchain_protocol WHERE tvl IS NOT NULL')
+    const me = one('SELECT COUNT(*) n FROM mentions')
+    const str = one('SELECT COUNT(*) n FROM streamers')
+    const tr = one("SELECT COUNT(DISTINCT brand_key) n FROM reviews WHERE score>0")
+    const chains = one('SELECT COUNT(DISTINCT chain) n FROM transfers')
+    return {
+      casinos: dir.total ?? 0,
+      sitesLive: dir.live ?? 0,
+      trustpilotRated: dir.rated ?? 0,
+      reservesCount: ark.n ?? 0,
+      reservesUsd: ark.usd ?? 0,
+      predictionMarkets: pm.n ?? 0,
+      predictionVolume: pm.usd ?? 0,
+      protocols: pr.n ?? 0,
+      protocolTvl: pr.usd ?? 0,
+      mentions: me.n ?? 0,
+      streamers: str.n ?? 0,
+      trustRated: tr.n ?? 0,
+      chains: chains.n ?? 0,
+    }
+  })
+
   // public — on-chain iGaming protocol landscape (prediction markets, lotteries…)
   app.get('/api/protocols', async (req) => {
     const { category } = req.query as { category?: string }

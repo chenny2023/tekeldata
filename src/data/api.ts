@@ -274,6 +274,21 @@ export interface SponsorshipsResp {
   count: number
   sponsorships: Sponsorship[]
 }
+export interface Coverage {
+  casinos: number
+  sitesLive: number
+  trustpilotRated: number
+  reservesCount: number
+  reservesUsd: number
+  predictionMarkets: number
+  predictionVolume: number
+  protocols: number
+  protocolTvl: number
+  mentions: number
+  streamers: number
+  trustRated: number
+  chains: number
+}
 export interface ArkhamReserves {
   count: number
   totalUsd: number
@@ -372,6 +387,7 @@ export const api = {
     return getJson<{ stats: DirStats; rows: DirRow[] }>('/directory?' + p.toString())
   },
   arkhamReserves: () => getJson<ArkhamReserves>('/arkham/reserves'),
+  coverage: () => getJson<Coverage>('/coverage'),
   sponsorships: () => getJson<SponsorshipsResp>('/sponsorships'),
   protocols: (category?: string) => getJson<ProtocolsResp>('/protocols' + (category ? `?category=${encodeURIComponent(category)}` : '')),
   predictions: () => getJson<PredictionsResp>('/predictions'),
