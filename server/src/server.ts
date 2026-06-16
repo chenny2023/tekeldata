@@ -44,6 +44,7 @@ import { startAggregation } from './aggregate.ts'
 import { startAlerts } from './alerts.ts'
 import { startRetention } from './retention.ts'
 import { startReserveHistory } from './reservehistory.ts'
+import { startSnapshots } from './snapshot.ts'
 import { startDirectory } from './directory.ts'
 import { startGuruSpider } from './collectors/guruspider.ts'
 import { startTrustpilotCategory } from './collectors/trustpilotcat.ts'
@@ -187,6 +188,7 @@ async function main() {
   startAlerts() // user-defined alert rules: whale stream + net-flow / reserve checks
   startRetention() // periodic prune of transfers past the retention window
   startReserveHistory() // daily solvency snapshots → reserve-adequacy trend
+  startSnapshots() // 1.0 content layer: daily market snapshot (homepage + email source)
   startDirectory() // casino directory crawler (site/X/email vetting for outreach)
   startGuruSpider() // casino.guru spider — fans the directory out to thousands of casinos
   startTrustpilotCategory() // Trustpilot casino-category sweep — merges consumer ratings onto the directory

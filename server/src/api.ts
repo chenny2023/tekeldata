@@ -13,6 +13,7 @@ import { telegramSubs } from './collectors/telegram.ts'
 import { brandKey } from './casinometa.ts'
 import { userFromRequest } from './auth.ts'
 import { readWorkerEnabled, workerGet, workerAll } from './readpool.ts'
+import { latestMarketSnapshot } from './snapshot.ts'
 import { config } from './config.ts'
 
 export async function registerApi(app: FastifyInstance) {
@@ -154,7 +155,7 @@ export async function registerApi(app: FastifyInstance) {
   // the edge almost always and the origin is revalidated in the background — they
   // effectively never wait on a cold origin. Gated/auth and per-user endpoints
   // (sentiment carries per-user votes) are excluded.
-  const PUBLIC_CACHEABLE = /^\/api\/(stats|casinos|brands|entities|coverage|protocols|predictions|sponsorships|streamers|flow|series|transfers|notifications|arkham\/reserves|directory\/overview|entity\/\d+\/(?:series|flow))$/
+  const PUBLIC_CACHEABLE = /^\/api\/(stats|casinos|brands|entities|coverage|protocols|predictions|sponsorships|streamers|flow|series|transfers|notifications|arkham\/reserves|directory\/overview|snapshot\/market|entity\/\d+\/(?:series|flow))$/
   app.addHook('onSend', async (req, reply, payload) => {
     if (req.method === 'GET' && !reply.getHeader('Cache-Control') && PUBLIC_CACHEABLE.test(req.url.split('?')[0])) {
       reply.header('Cache-Control', 'public, max-age=120, stale-while-revalidate=1800')
@@ -403,6 +404,10 @@ export async function registerApi(app: FastifyInstance) {
     }
   }
   app.get('/api/coverage', async () => aggCachedAsync('coverage', computeCoverage, 300_000))
+
+  // 1.0 content layer: precomputed daily market snapshot (homepage + email source).
+  // Reads the snapshot table, never raw transfers — instant, no compute on request.
+  app.get('/api/snapshot/market', async () => latestMarketSnapshot() ?? { error: 'no snapshot yet' })
 
   // public — global search across tracked casinos, directory, streamers, wallets
   app.get('/api/search', async (req) => {

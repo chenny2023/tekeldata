@@ -298,6 +298,24 @@ CREATE TABLE IF NOT EXISTS mentions (
   ts         INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_mentions_label ON mentions(watch_label, ts DESC);
+
+-- 1.0 content layer: precomputed daily market snapshot (homepage + daily email +
+-- SEO data source). Generated in the background off the read worker; the front end
+-- reads THIS, never raw transfers. One row per UTC day, upserted through the day.
+CREATE TABLE IF NOT EXISTS daily_market_snapshot (
+  snapshot_date      TEXT PRIMARY KEY,        -- YYYY-MM-DD (UTC)
+  tracked_volume_24h REAL,
+  net_flow_24h       REAL,                    -- casino inflow - outflow, 24h
+  active_casinos     INTEGER,
+  active_chains      INTEGER,
+  live_streamers     INTEGER,
+  reserves_total     REAL,
+  reserve_change_7d  REAL,                    -- fraction
+  payload_json       TEXT NOT NULL,           -- movers / whales / reserves / chains
+  confidence_level   TEXT NOT NULL DEFAULT 'medium',
+  created_at         INTEGER NOT NULL,
+  updated_at         INTEGER NOT NULL
+);
 `)
 
 // additive migrations for DBs created before these columns existed
