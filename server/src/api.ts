@@ -94,7 +94,7 @@ export async function registerApi(app: FastifyInstance) {
   // slows the WHOLE API. They move slowly, so cache them for 10 min separately.
   let countsCache: { at: number; totals: any; cas: any } | null = null
   const expensiveCounts = (d7: number) => {
-    if (countsCache && Date.now() - countsCache.at < 600_000) return countsCache
+    if (countsCache && Date.now() - countsCache.at < 3600_000) return countsCache
     const totals = db.prepare('SELECT COUNT(*) tx, SUM(usd) vol, COUNT(DISTINCT counterparty) players FROM transfers').get() as any
     const cas = db
       .prepare(

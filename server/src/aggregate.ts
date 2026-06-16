@@ -72,7 +72,7 @@ function getFirstSeen(): Map<number, number> {
 // than paying it on every 30s aggregate refresh.
 let playersCache: { at: number; map: Map<number, number> } | null = null
 function getPlayers(d7: number): Map<number, number> {
-  if (playersCache && Date.now() - playersCache.at < 600_000) return playersCache.map
+  if (playersCache && Date.now() - playersCache.at < 3600_000) return playersCache.map
   const map = new Map<number, number>(
     (db.prepare('SELECT watch_id, COUNT(DISTINCT counterparty) p FROM transfers WHERE ts >= ? GROUP BY watch_id').all(d7) as any[]).map((r) => [
       r.watch_id,
