@@ -3,6 +3,7 @@ import { db, stmt, stateGet } from './db.ts'
 import { bus, TransferEvent } from './bus.ts'
 import { aggregateEntities, aggregateBrands, maintainedPlayers } from './aggregate.ts'
 import { runDataQualityChecks, lastDataQuality } from './dataquality.ts'
+import { brandHistory } from './brandstore.ts'
 import { reserveSeries } from './reservehistory.ts'
 import { twitchEnabled } from './collectors/twitch.ts'
 import { redditEnabled } from './collectors/reddit.ts'
@@ -270,6 +271,15 @@ export async function registerApi(app: FastifyInstance) {
     const { category } = req.query as { category?: string }
     const cat = category ?? 'casino'
     return aggCachedAsync('brand:' + cat, () => aggregateBrands(cat), 120_000)
+  })
+
+  // public brand history (non-sensitive daily metrics) from the persistent layer
+  app.get('/api/brand/:slug/history', async (req, reply) => {
+    const { slug } = req.params as { slug: string }
+    const days = Math.min(Number((req.query as { days?: string })?.days ?? 30) || 30, 180)
+    const h = brandHistory(slug, days)
+    if (!h) return reply.code(404).send({ error: 'brand not found' })
+    return reply.header('Cache-Control', 'public, max-age=300').send(h)
   })
 
   // public, non-sensitive aggregate counts — landing-page social proof + a health

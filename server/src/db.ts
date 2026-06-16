@@ -377,6 +377,74 @@ CREATE TABLE IF NOT EXISTS user_watch (
   UNIQUE(user_id, brand_key)
 );
 CREATE INDEX IF NOT EXISTS idx_user_watch_user ON user_watch(user_id);
+
+-- 1.0 brand layer (persistent / audit / history). Canonical public brand record,
+-- the entity->brand map (traceability), and per-day brand metrics. Populated from
+-- the brand aggregation; the hot read path still uses the cached aggregate, these
+-- give history + a queryable canonical source of truth.
+CREATE TABLE IF NOT EXISTS casino_brand (
+  brand_id          TEXT PRIMARY KEY,   -- brandKey (stable id)
+  canonical_name    TEXT NOT NULL,
+  slug              TEXT NOT NULL,
+  website           TEXT,
+  status            TEXT NOT NULL DEFAULT 'active',
+  category          TEXT NOT NULL DEFAULT 'casino',
+  primary_chain     TEXT,
+  is_public         INTEGER NOT NULL DEFAULT 1,   -- false for unattributed / low-confidence
+  confidence_level  TEXT NOT NULL DEFAULT 'medium',
+  source_entity_count INTEGER NOT NULL DEFAULT 0,
+  created_at        INTEGER NOT NULL,
+  updated_at        INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS casino_entity_map (
+  entity_id        INTEGER NOT NULL,    -- watchlist.id
+  brand_id         TEXT NOT NULL,
+  source_label     TEXT,
+  normalized_label TEXT,
+  chain            TEXT,
+  address          TEXT,
+  mapping_type     TEXT NOT NULL DEFAULT 'auto',  -- auto | alias | manual
+  is_primary       INTEGER NOT NULL DEFAULT 0,
+  updated_at       INTEGER NOT NULL,
+  PRIMARY KEY(entity_id, brand_id)
+);
+CREATE INDEX IF NOT EXISTS idx_entity_map_brand ON casino_entity_map(brand_id);
+CREATE TABLE IF NOT EXISTS brand_daily_metrics (
+  brand_id                 TEXT NOT NULL,
+  date                     TEXT NOT NULL,    -- YYYY-MM-DD (UTC)
+  volume24h                REAL,
+  volume7d                 REAL,
+  inflow7d                 REAL,
+  outflow7d                REAL,
+  net7d                    REAL,
+  tx_count_7d              INTEGER,
+  active_counterparties_7d INTEGER,
+  reserves                 REAL,
+  reserve_coverage         REAL,
+  trust_score              REAL,
+  safety_index             REAL,
+  trustpilot               REAL,
+  reputation               REAL,
+  chain_breakdown_json     TEXT,
+  source_entity_count      INTEGER,
+  confidence_level         TEXT,
+  last_updated_at          INTEGER NOT NULL,
+  PRIMARY KEY(brand_id, date)
+);
+CREATE TABLE IF NOT EXISTS unattributed_entity_daily_metrics (
+  brand_id        TEXT NOT NULL,    -- pattern cluster key
+  label           TEXT NOT NULL,
+  chain           TEXT,
+  date            TEXT NOT NULL,
+  volume24h       REAL,
+  volume7d        REAL,
+  net7d           REAL,
+  reserves        REAL,
+  confidence_level TEXT NOT NULL DEFAULT 'low',
+  reason          TEXT,
+  last_updated_at INTEGER NOT NULL,
+  PRIMARY KEY(brand_id, date)
+);
 `)
 
 // additive migrations for DBs created before these columns existed
