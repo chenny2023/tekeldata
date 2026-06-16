@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify'
 import { db, stmt, stateGet } from './db.ts'
 import { bus, TransferEvent } from './bus.ts'
-import { aggregateEntities, aggregateBrands } from './aggregate.ts'
+import { aggregateEntities, aggregateBrands, maintainedPlayers } from './aggregate.ts'
 import { reserveSeries } from './reservehistory.ts'
 import { twitchEnabled } from './collectors/twitch.ts'
 import { redditEnabled } from './collectors/reddit.ts'
@@ -126,21 +126,23 @@ export async function registerApi(app: FastifyInstance) {
   })
 
   // ── global stats (all REAL sums) ─────────────────────────────────────────────
-  // COUNT(DISTINCT counterparty) is a full scan over millions of rows — cache
-  // the result so polling clients don't recompute it on every request.
   let statsCache: { data: unknown; at: number } | null = null
-  // The two COUNT(DISTINCT counterparty) scans over 24M rows are by far the
-  // costliest queries on the site; at the 30s stats TTL they could run longer than
-  // the TTL itself → permanent recompute that monopolises the single thread and
-  // slows the WHOLE API. They move slowly, so cache them for 10 min separately.
+  // The COUNT(*)/SUM(usd) scans over the 24M-row transfers table are the costly
+  // part of /api/stats. The old query ALSO did COUNT(DISTINCT counterparty) twice —
+  // a ~40s synchronous scan that froze the single event loop on every refresh (the
+  // root cause of the post-deploy / hourly dashboard stalls). Distinct players now
+  // come from the background-maintained map (maintainedPlayers, never blocks); the
+  // remaining COUNT/SUM are cached 6h and refreshed off the request path (the stats
+  // endpoint is stale-while-revalidate), so the scan runs rarely and never on a
+  // user's request.
   let countsCache: { at: number; totals: any; cas: any } | null = null
-  const expensiveCounts = (d7: number) => {
-    if (countsCache && Date.now() - countsCache.at < 3600_000) return countsCache
-    const totals = db.prepare('SELECT COUNT(*) tx, SUM(usd) vol, COUNT(DISTINCT counterparty) players FROM transfers').get() as any
+  const expensiveCounts = () => {
+    if (countsCache && Date.now() - countsCache.at < 6 * 3600_000) return countsCache
+    const d7 = Date.now() - 7 * 86_400_000
+    const totals = db.prepare('SELECT COUNT(*) tx, SUM(usd) vol FROM transfers').get() as any
     const cas = db
       .prepare(
-        `SELECT COUNT(*) tx, SUM(usd) vol, COUNT(DISTINCT counterparty) players,
-                SUM(CASE WHEN ts>=? THEN usd ELSE 0 END) vol7
+        `SELECT COUNT(*) tx, SUM(usd) vol, SUM(CASE WHEN ts>=? THEN usd ELSE 0 END) vol7
          FROM transfers WHERE category='casino'`,
       )
       .get(d7) as any
@@ -151,7 +153,8 @@ export async function registerApi(app: FastifyInstance) {
   const computeStats = () => {
     const now = Date.now()
     const d7 = now - 7 * 86_400_000
-    const { totals, cas } = expensiveCounts(d7)
+    const { totals, cas } = expensiveCounts()
+    const players = maintainedPlayers() // fresh each call; cheap, never scans
     const vol7 = (db.prepare('SELECT SUM(usd) v FROM transfers WHERE ts>=?').get(d7) as any).v ?? 0
     const reserves = (db.prepare('SELECT SUM(usd) v FROM balances').get() as any).v ?? 0
     const wl = (db.prepare('SELECT COUNT(*) n FROM watchlist WHERE active=1').get() as any).n
@@ -176,7 +179,7 @@ export async function registerApi(app: FastifyInstance) {
       totalVolume: totals.vol ?? 0,
       volume7d: vol7,
       totalTransfers: totals.tx ?? 0,
-      uniquePlayers: totals.players ?? 0,
+      uniquePlayers: players.all,
       reserves,
       entities: wl,
       liveStreamers,
@@ -185,7 +188,7 @@ export async function registerApi(app: FastifyInstance) {
         totalVolume: cas.vol ?? 0,
         volume7d: cas.vol7 ?? 0,
         totalTransfers: cas.tx ?? 0,
-        uniquePlayers: cas.players ?? 0,
+        uniquePlayers: players.casino,
         reserves: casReserves,
         entities: casEntities,
         chainSplit: casChains.map((c) => ({ chain: c.chain, value: c.v ?? 0 })),

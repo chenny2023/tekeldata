@@ -65,6 +65,25 @@ const firstSeenMap = new Map<number, number>()
 const getPlayers = (): Map<number, number> => playersMap
 const getFirstSeen = (): Map<number, number> => firstSeenMap
 
+// Headline player counts for /api/stats, summed from the background-maintained
+// per-entity distinct-counterparty map. This replaces the global
+// COUNT(DISTINCT counterparty) over 24M rows — a ~40s SYNCHRONOUS scan that froze
+// the single event loop (the sole cause of the post-deploy / hourly stalls). It's
+// an active-counterparty figure (7d, summed per entity) rather than an all-time
+// global distinct, but it never blocks. Empty until startStatsMaintenance's first
+// pass lands (~3 min after boot), then continuously fresh.
+export function maintainedPlayers(): { all: number; casino: number } {
+  const cats = db.prepare('SELECT id, category FROM watchlist WHERE active=1').all() as { id: number; category: string }[]
+  const catMap = new Map(cats.map((c) => [c.id, c.category]))
+  let all = 0
+  let casino = 0
+  for (const [id, p] of playersMap) {
+    all += p
+    if (catMap.get(id) === 'casino') casino += p
+  }
+  return { all, casino }
+}
+
 let maintaining = false
 export async function startStatsMaintenance(): Promise<void> {
   if (maintaining) return
