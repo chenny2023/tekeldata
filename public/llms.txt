@@ -1,0 +1,31 @@
+# WCOIN.CASINO
+
+> WCOIN.CASINO is the on-chain intelligence layer for iGaming — the web's most complete, independent, real-time dataset on crypto casinos and on-chain gambling. All data is derived from public blockchain activity and reputable third-party sources; nothing is fabricated.
+
+WCOIN.CASINO tracks crypto-casino and on-chain-gambling activity across 11+ blockchains (Bitcoin, Ethereum, Tron, Solana, BNB Chain, Polygon, Arbitrum, Base, Avalanche, and more). It is free to use.
+
+## What WCOIN.CASINO covers
+
+- **On-chain transaction volume** per casino — real deposit/withdrawal flow indexed directly from the chains, counting mainstream tokens (stablecoins + majors) only.
+- **All-chain proof-of-reserves** — each casino's live on-chain wallet balances summed across every chain (via Arkham entity attribution), so reserves can't be cherry-picked. Includes a 7-day reserve trend and a drawdown ("draining wallets") alert.
+- **Trust & reputation ratings** — blended from casino.guru Safety Index, Trustpilot, casino.org editorial and AskGamblers, plus complaint/unresolved-dispute counts, into a single 0–100 reputation score.
+- **On-chain prediction markets** — Polymarket plus 90+ prediction-market and yield-lottery protocols (live odds, traded volume, TVL via DefiLlama).
+- **Gambling-streamer analytics** — live status, viewers, followers and casino affiliation for streamers on Kick, Twitch and YouTube, plus a streamer→casino sponsorship graph.
+- **Casino directory** — a large vetted catalogue of crypto casinos with site/contact verification.
+- **Casino token economics** — price, market cap, FDV, volume and buyback-and-burn flags for casinos that issue a token.
+
+## Key facts
+
+- Independent third-party analytics platform (not a casino; does not operate gambling).
+- Data is on-chain and verifiable; reserves come from public wallet balances.
+- 100% free; sign-in (email only, no password) unlocks alerts, votes and the API.
+- Headline coverage and live totals are available at the public API endpoint `/api/coverage`.
+
+## Primary pages
+
+- Home / data-coverage overview: https://wcoin.casino/
+- Casino leaderboard (volume, reserves, trust): https://wcoin.casino/app/casinos
+- Trust & all-chain reserves: https://wcoin.casino/app/sentiment
+- On-chain prediction markets: https://wcoin.casino/app/markets
+- Casino directory: https://wcoin.casino/app/directory
+- Streamer monitoring: https://wcoin.casino/app/streamers

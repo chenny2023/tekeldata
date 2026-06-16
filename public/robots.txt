@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+
+# AI answer engines (GEO) are welcome — see /llms.txt for a structured summary
+User-agent: GPTBot
+Allow: /
+User-agent: PerplexityBot
+Allow: /
+User-agent: ClaudeBot
+Allow: /
+User-agent: Google-Extended
+Allow: /
+
+Sitemap: https://wcoin.casino/sitemap.xml

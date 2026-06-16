@@ -70,7 +70,12 @@ async function main() {
       // setHeaders): content-hashed assets are immutable for a year, but
       // index.html must revalidate so new deploys' asset hashes are picked up.
       setHeaders: (res, path) => {
-        res.setHeader('Cache-Control', path.endsWith('index.html') ? 'no-cache' : 'public, max-age=31536000, immutable')
+        // hashed build assets are immutable; index.html must revalidate; the
+        // unhashed root files (robots/sitemap/llms/og/favicon) get a moderate TTL
+        // so updates propagate without re-downloading the big JS every visit.
+        if (path.endsWith('index.html')) res.setHeader('Cache-Control', 'no-cache')
+        else if (/[\\/]assets[\\/]/.test(path)) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+        else res.setHeader('Cache-Control', 'public, max-age=3600')
       },
     })
     app.setNotFoundHandler((req, reply) => {

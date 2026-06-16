@@ -166,6 +166,9 @@ export default function Layout({ children }: { children: ReactNode }) {
     navigate('/login')
   }
   const current = NAV.find((n) => (n.end ? loc.pathname === n.to : loc.pathname.startsWith(n.to)))
+  useEffect(() => {
+    document.title = current ? `${current.label} · WCOIN.CASINO — On-Chain iGaming Intelligence` : 'WCOIN.CASINO'
+  }, [current])
 
   return (
     <div className="flex min-h-screen">
