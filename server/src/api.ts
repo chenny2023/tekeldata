@@ -88,22 +88,14 @@ export async function registerApi(app: FastifyInstance) {
   // COUNT(DISTINCT counterparty) is a full scan over millions of rows — cache
   // the result so polling clients don't recompute it on every request.
   let statsCache: { data: unknown; at: number } | null = null
-  app.get('/api/stats', async () => {
-    if (statsCache && Date.now() - statsCache.at < config.aggregateMs) return statsCache.data
-    const now = Date.now()
-    const d7 = now - 7 * 86_400_000
-    const totals = db
-      .prepare('SELECT COUNT(*) tx, SUM(usd) vol, COUNT(DISTINCT counterparty) players FROM transfers')
-      .get() as any
-    const vol7 = (db.prepare('SELECT SUM(usd) v FROM transfers WHERE ts>=?').get(d7) as any).v ?? 0
-    const reserves = (db.prepare('SELECT SUM(usd) v FROM balances').get() as any).v ?? 0
-    const wl = (db.prepare('SELECT COUNT(*) n FROM watchlist WHERE active=1').get() as any).n
-    const chains = db
-      .prepare('SELECT chain, SUM(usd) v FROM transfers WHERE ts>=? GROUP BY chain')
-      .all(d7) as any[]
-    const liveStreamers = (db.prepare('SELECT COUNT(*) n FROM streamers WHERE live=1').get() as any).n
-    // casino-only breakdown — the iGaming headline figures, with exchange &
-    // whale flow excluded (transfers carry their entity's category)
+  // The two COUNT(DISTINCT counterparty) scans over 24M rows are by far the
+  // costliest queries on the site; at the 30s stats TTL they could run longer than
+  // the TTL itself → permanent recompute that monopolises the single thread and
+  // slows the WHOLE API. They move slowly, so cache them for 10 min separately.
+  let countsCache: { at: number; totals: any; cas: any } | null = null
+  const expensiveCounts = (d7: number) => {
+    if (countsCache && Date.now() - countsCache.at < 600_000) return countsCache
+    const totals = db.prepare('SELECT COUNT(*) tx, SUM(usd) vol, COUNT(DISTINCT counterparty) players FROM transfers').get() as any
     const cas = db
       .prepare(
         `SELECT COUNT(*) tx, SUM(usd) vol, COUNT(DISTINCT counterparty) players,
@@ -111,6 +103,21 @@ export async function registerApi(app: FastifyInstance) {
          FROM transfers WHERE category='casino'`,
       )
       .get(d7) as any
+    countsCache = { at: Date.now(), totals, cas }
+    return countsCache
+  }
+  app.get('/api/stats', async () => {
+    if (statsCache && Date.now() - statsCache.at < config.aggregateMs) return statsCache.data
+    const now = Date.now()
+    const d7 = now - 7 * 86_400_000
+    const { totals, cas } = expensiveCounts(d7)
+    const vol7 = (db.prepare('SELECT SUM(usd) v FROM transfers WHERE ts>=?').get(d7) as any).v ?? 0
+    const reserves = (db.prepare('SELECT SUM(usd) v FROM balances').get() as any).v ?? 0
+    const wl = (db.prepare('SELECT COUNT(*) n FROM watchlist WHERE active=1').get() as any).n
+    const chains = db
+      .prepare('SELECT chain, SUM(usd) v FROM transfers WHERE ts>=? GROUP BY chain')
+      .all(d7) as any[]
+    const liveStreamers = (db.prepare('SELECT COUNT(*) n FROM streamers WHERE live=1').get() as any).n
     const casReserves = (
       db
         .prepare(

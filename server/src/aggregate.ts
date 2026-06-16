@@ -66,6 +66,23 @@ function getFirstSeen(): Map<number, number> {
   return map
 }
 
+// unique counterparties (players) per watched address over the 7d window. The
+// COUNT(DISTINCT counterparty) over millions of rows is the single most expensive
+// part of the leaderboard — and it moves slowly, so cache it for ~10 min rather
+// than paying it on every 30s aggregate refresh.
+let playersCache: { at: number; map: Map<number, number> } | null = null
+function getPlayers(d7: number): Map<number, number> {
+  if (playersCache && Date.now() - playersCache.at < 600_000) return playersCache.map
+  const map = new Map<number, number>(
+    (db.prepare('SELECT watch_id, COUNT(DISTINCT counterparty) p FROM transfers WHERE ts >= ? GROUP BY watch_id').all(d7) as any[]).map((r) => [
+      r.watch_id,
+      r.p,
+    ]),
+  )
+  playersCache = { at: Date.now(), map }
+  return map
+}
+
 // Optional `category` filter keeps non-iGaming entities (exchanges, whales,
 // discovered services) out of the casino-facing views. The full list is still
 // computed once and cached; filtering happens on the cached snapshot so callers
@@ -120,13 +137,13 @@ function computeEntities(): EntityAgg[] {
          SUM(usd)                                                  AS vol7,
          SUM(CASE WHEN direction='in'  THEN usd ELSE 0 END)        AS in7,
          SUM(CASE WHEN direction='out' THEN usd ELSE 0 END)        AS out7,
-         COUNT(*)                                                  AS tx7,
-         COUNT(DISTINCT counterparty)                             AS players7
+         COUNT(*)                                                  AS tx7
        FROM transfers WHERE ts >= @d7 GROUP BY watch_id`,
     )
     .all(params) as any[]
   const aggMap = new Map<number, any>(aggRows.map((r) => [r.watch_id, r]))
   const firstMap = getFirstSeen() // first-seen barely changes — cached hourly, off the hot path
+  const playersMap = getPlayers(params.d7) // COUNT(DISTINCT counterparty) is the costly bit — cached, off the hot path
   const balMap = new Map<number, number>((db.prepare('SELECT watch_id, usd FROM balances').all() as any[]).map((r) => [r.watch_id, r.usd]))
 
   for (const w of rows) {
@@ -153,7 +170,7 @@ function computeEntities(): EntityAgg[] {
       net7d: (a.in7 ?? 0) - (a.out7 ?? 0),
       change24h,
       txCount7d: a.tx7 ?? 0,
-      players: a.players7 ?? 0,
+      players: playersMap.get(w.id) ?? 0,
       reserves: bal,
       reserveCoverage: (a.out7 ?? 0) > 0 ? bal / (a.out7 as number) : null, // weeks of withdrawal coverage
       ...blendTrust(
