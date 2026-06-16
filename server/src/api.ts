@@ -45,6 +45,33 @@ export async function registerApi(app: FastifyInstance) {
     }
   })
 
+  // ── aggregate cache ──────────────────────────────────────────────────────────
+  // aggregateEntities/aggregateBrands are heavy synchronous scans; better-sqlite3
+  // is single-threaded, so recomputing them on EVERY polling request blocks the
+  // event loop and makes the whole API slow/unresponsive. Cache per (fn,category)
+  // and refresh at most once per aggregateMs; a background warmer keeps the hot
+  // keys fresh so no user request ever pays the full compute cost.
+  const aggCache = new Map<string, { data: unknown; at: number }>()
+  function aggCached<T>(key: string, fn: () => T): T {
+    const c = aggCache.get(key)
+    if (c && Date.now() - c.at < config.aggregateMs) return c.data as T
+    const data = fn()
+    aggCache.set(key, { data, at: Date.now() })
+    return data
+  }
+  // proactively warm the most-polled leaderboards so the request path stays instant
+  const warm = () => {
+    try {
+      aggCache.set('ent:casino', { data: aggregateEntities('casino'), at: Date.now() })
+      aggCache.set('brand:casino', { data: aggregateBrands('casino'), at: Date.now() })
+      aggCache.set('ent:all', { data: aggregateEntities('all'), at: Date.now() })
+    } catch {
+      /* a transient DB error shouldn't kill the warmer */
+    }
+  }
+  setTimeout(warm, 8_000)
+  setInterval(warm, Math.max(5_000, config.aggregateMs))
+
   // ── global stats (all REAL sums) ─────────────────────────────────────────────
   // COUNT(DISTINCT counterparty) is a full scan over millions of rows — cache
   // the result so polling clients don't recompute it on every request.
@@ -112,21 +139,24 @@ export async function registerApi(app: FastifyInstance) {
   app.get('/api/entities', async (req) => {
     const { category } = req.query as { category?: string }
     // the generic leaderboard intentionally spans every category by default
-    return aggregateEntities(category ?? 'all')
+    const cat = category ?? 'all'
+    return aggCached('ent:' + cat, () => aggregateEntities(cat))
   })
 
   // casino-centric leaderboard — defaults to iGaming only so exchanges/whales
   // never get grouped in with casinos. ?category=all|exchange|whale to override.
   app.get('/api/casinos', async (req) => {
     const { category } = req.query as { category?: string }
-    return aggregateEntities(category ?? 'casino')
+    const cat = category ?? 'casino'
+    return aggCached('ent:' + cat, () => aggregateEntities(cat))
   })
 
   // brand-aggregated leaderboard — wallets clustered by known attribution.
   // Also casino-only by default (exchanges/whales excluded unless requested).
   app.get('/api/brands', async (req) => {
     const { category } = req.query as { category?: string }
-    return aggregateBrands(category ?? 'casino')
+    const cat = category ?? 'casino'
+    return aggCached('brand:' + cat, () => aggregateBrands(cat))
   })
 
   // public, non-sensitive aggregate counts — landing-page social proof + a health
@@ -535,7 +565,8 @@ export async function registerApi(app: FastifyInstance) {
     const { category } = req.query as { category?: string }
     // trust / reviews / social sentiment are casino concepts — default to
     // iGaming only so exchange & whale wallets don't pollute the sentiment board
-    const entities = aggregateEntities(category ?? 'casino')
+    const cat = category ?? 'casino'
+    const entities = aggCached('ent:' + cat, () => aggregateEntities(cat))
     const d7 = Date.now() - 7 * 86_400_000
     const mentionRows = db
       .prepare(
