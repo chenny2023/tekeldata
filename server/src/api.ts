@@ -76,7 +76,7 @@ export async function registerApi(app: FastifyInstance) {
   // public, non-user-specific leaderboards from cache for a few seconds —
   // collapses repeated polls and offloads the origin. Gated/auth endpoints and
   // anything user-specific (sentiment carries per-user votes) are excluded.
-  const PUBLIC_CACHEABLE = /^\/api\/(stats|casinos|brands|entities|coverage|protocols|predictions|sponsorships|streamers|flow|series|transfers|arkham\/reserves|directory\/overview)$/
+  const PUBLIC_CACHEABLE = /^\/api\/(stats|casinos|brands|entities|coverage|protocols|predictions|sponsorships|streamers|flow|series|transfers|notifications|arkham\/reserves|directory\/overview)$/
   app.addHook('onSend', async (req, reply, payload) => {
     if (req.method === 'GET' && !reply.getHeader('Cache-Control') && PUBLIC_CACHEABLE.test(req.url.split('?')[0])) {
       reply.header('Cache-Control', 'public, max-age=10, stale-while-revalidate=30')
@@ -290,6 +290,46 @@ export async function registerApi(app: FastifyInstance) {
       chains: chains.n ?? 0,
     }
   }, 300_000))
+
+  // public — global search across tracked casinos, directory, streamers, wallets
+  app.get('/api/search', async (req) => {
+    const term = ((req.query as { q?: string }).q ?? '').trim()
+    if (term.length < 2) return { casinos: [], directory: [], streamers: [], wallets: [] }
+    const like = `%${term}%`
+    const casinos = (db.prepare("SELECT DISTINCT label FROM watchlist WHERE category='casino' AND active=1 AND label LIKE ? ORDER BY label LIMIT 8").all(like) as any[]).map((c) => ({ name: c.label }))
+    const directory = (db.prepare('SELECT name, domain, tp_rating FROM casino_directory WHERE name LIKE ? ORDER BY site_ok DESC, COALESCE(tp_reviews,0) DESC LIMIT 6').all(like) as any[]).map((d) => ({ name: d.name, domain: d.domain, rating: d.tp_rating }))
+    const streamers = (db.prepare('SELECT DISTINCT handle, platform, followers FROM streamers WHERE handle LIKE ? ORDER BY followers DESC LIMIT 8').all(like) as any[]).map((s) => ({ handle: s.handle, platform: s.platform }))
+    const wallets = (db.prepare('SELECT label, chain, address FROM watchlist WHERE active=1 AND address LIKE ? LIMIT 5').all(like) as any[]).map((w) => ({ label: w.label, chain: w.chain, address: w.address }))
+    return { casinos, directory, streamers, wallets }
+  })
+
+  // public — recent noteworthy on-chain activity (whale deposits/withdrawals),
+  // surfaced as the header notification feed. Real transfers, cached 1 min.
+  app.get('/api/notifications', async () =>
+    aggCached(
+      'notifications',
+      () => {
+        const since = Date.now() - 48 * 3600_000
+        const rows = db
+          .prepare(
+            `SELECT label, chain, direction, usd, ts FROM transfers
+             WHERE ts >= ? AND category='casino' AND usd >= 50000
+             ORDER BY ts DESC LIMIT 25`,
+          )
+          .all(since) as any[]
+        return {
+          items: rows.map((r) => ({
+            type: r.direction === 'in' ? 'deposit' : 'withdrawal',
+            title: `${r.direction === 'in' ? 'Large deposit' : 'Large withdrawal'} · ${r.label}`,
+            detail: `$${Math.round(r.usd).toLocaleString()} on ${r.chain}`,
+            ts: r.ts,
+            href: '/app/blockchain',
+          })),
+        }
+      },
+      60_000,
+    ),
+  )
 
   // public — on-chain iGaming protocol landscape (prediction markets, lotteries…)
   app.get('/api/protocols', async (req) => {

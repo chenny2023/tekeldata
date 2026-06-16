@@ -274,6 +274,19 @@ export interface SponsorshipsResp {
   count: number
   sponsorships: Sponsorship[]
 }
+export interface SearchResults {
+  casinos: { name: string }[]
+  directory: { name: string; domain: string | null; rating: number | null }[]
+  streamers: { handle: string; platform: string }[]
+  wallets: { label: string; chain: string; address: string }[]
+}
+export interface Notification {
+  type: string
+  title: string
+  detail: string
+  ts: number
+  href: string
+}
 export interface Coverage {
   casinos: number
   sitesLive: number
@@ -388,6 +401,8 @@ export const api = {
   },
   arkhamReserves: () => getJson<ArkhamReserves>('/arkham/reserves'),
   coverage: () => getJson<Coverage>('/coverage'),
+  search: (q: string) => getJson<SearchResults>('/search?q=' + encodeURIComponent(q)),
+  notifications: () => getJson<{ items: Notification[] }>('/notifications'),
   sponsorships: () => getJson<SponsorshipsResp>('/sponsorships'),
   protocols: (category?: string) => getJson<ProtocolsResp>('/protocols' + (category ? `?category=${encodeURIComponent(category)}` : '')),
   predictions: () => getJson<PredictionsResp>('/predictions'),
