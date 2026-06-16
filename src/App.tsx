@@ -18,7 +18,6 @@ const Players = lazy(() => import('./pages/Players'))
 const Watchlist = lazy(() => import('./pages/Watchlist'))
 const Alerts = lazy(() => import('./pages/Alerts'))
 const Reports = lazy(() => import('./pages/Reports'))
-const ApiAccess = lazy(() => import('./pages/ApiAccess'))
 
 // Gate the whole dashboard behind a valid login: no token → straight to /login;
 // a token is verified against /auth/me so an expired/invalid one also redirects.
@@ -62,7 +61,8 @@ function Dashboard() {
         <Route path="watchlist" element={<Watchlist />} />
         <Route path="alerts" element={<Alerts />} />
         <Route path="reports" element={<Reports />} />
-        <Route path="api" element={<ApiAccess />} />
+        {/* API Access retired (1.0): not productizing a public API. Redirect old links. */}
+        <Route path="api" element={<Navigate to="/app" replace />} />
         </Routes>
       </Suspense>
     </Layout>

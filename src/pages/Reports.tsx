@@ -97,16 +97,6 @@ export default function Reports() {
         })}
       </div>
 
-      <Card className="mt-4 p-5">
-        <div className="text-[12px] uppercase tracking-wider text-white/45">Programmatic access</div>
-        <p className="mt-2 text-sm text-white/55">
-          Every report maps to a live REST endpoint — automate exports via the
-          {' '}<a href="/app/api" className="text-gold-400 hover:underline">API</a>. Example:
-        </p>
-        <pre className="mt-2 overflow-x-auto rounded-xl border border-white/8 bg-black/50 p-3 text-[13px] text-mint-400">
-          <code>curl http://localhost:8787/api/transfers?min=100000&limit=300</code>
-        </pre>
-      </Card>
     </div>
   )
 }

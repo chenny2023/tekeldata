@@ -6,7 +6,6 @@ import {
   Gauge,
   Users,
   FileBarChart,
-  Code2,
   ArrowDownRight,
   ArrowUpRight,
   ShieldCheck,
@@ -23,7 +22,7 @@ const FEATURES = [
   { icon: Users, title: 'Player Segmentation', desc: 'Cohort analysis and LTV modelling to surface your highest-value segments.', accent: '#2ee6a6' },
   { icon: Gauge, title: 'Real-time Dashboards', desc: 'Live deposits, withdrawals, player activity and market trends — updated by the second.', accent: '#5b8cff' },
   { icon: FileBarChart, title: 'Custom Reports', desc: 'On-demand report generation with flexible filters and CSV / JSON / PDF export.', accent: '#ff8a3d' },
-  { icon: Code2, title: 'API Access', desc: 'Pipe intelligence directly into your stack — REST endpoints & real-time webhooks.', accent: '#c79bff' },
+  { icon: ShieldCheck, title: 'Proof-of-Reserves', desc: 'All-chain casino reserves via on-chain attribution — solvency trends, not promises.', accent: '#c79bff' },
 ]
 
 function Ticker() {

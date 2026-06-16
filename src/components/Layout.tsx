@@ -8,7 +8,6 @@ import {
   Gauge,
   Users,
   FileBarChart,
-  Code2,
   Target,
   Search,
   Bell,
@@ -142,7 +141,6 @@ const NAV = [
   { to: '/app/watchlist', label: 'Watchlist', icon: Target },
   { to: '/app/alerts', label: 'Alerts', icon: Bell },
   { to: '/app/reports', label: 'Reports', icon: FileBarChart },
-  { to: '/app/api', label: 'API Access', icon: Code2 },
 ]
 
 export default function Layout({ children }: { children: ReactNode }) {
