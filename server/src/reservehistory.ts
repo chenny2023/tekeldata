@@ -19,10 +19,10 @@ const upsert = db.prepare(`
     reserves=excluded.reserves, outflow7d=excluded.outflow7d, coverage=excluded.coverage, ts=excluded.ts
 `)
 
-export function snapshotReserves() {
+export async function snapshotReserves() {
   const now = Date.now()
   const day = Math.floor(now / DAY)
-  const brands = aggregateBrands('casino')
+  const brands = await aggregateBrands('casino')
   let n = 0
   const tx = db.transaction(() => {
     for (const b of brands) {
@@ -63,8 +63,9 @@ export function reserveSeries(brand: string, days = 60): { t: number; reserves: 
 export function startReserveHistory() {
   console.log('[reserves] solvency-trend snapshots active (daily)')
   // first snapshot a few minutes after boot (let reserves/aggregates warm up), then daily
+  const run = () => void snapshotReserves().catch((e) => console.warn('[reserves] snapshot failed:', (e as Error).message))
   setTimeout(() => {
-    snapshotReserves()
-    setInterval(snapshotReserves, DAY)
+    run()
+    setInterval(run, DAY)
   }, 5 * 60_000)
 }

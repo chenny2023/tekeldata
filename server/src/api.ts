@@ -84,15 +84,37 @@ export async function registerApi(app: FastifyInstance) {
     aggCache.set(key, { data, at: now, refreshing: false })
     return data
   }
+  // Async sibling of aggCached for computes that now run in the read worker
+  // (aggregateEntities/aggregateBrands). Same SWR semantics + same cache map: serve
+  // the cached value instantly, refresh in the background; only the cold first call
+  // awaits. Shares aggCache so the warmer's writes satisfy these reads too.
+  async function aggCachedAsync<T>(key: string, fn: () => Promise<T>, ttl = config.aggregateMs): Promise<T> {
+    const now = Date.now()
+    const c = aggCache.get(key)
+    if (c) {
+      if (now - c.at >= ttl && !c.refreshing) {
+        c.refreshing = true
+        fn()
+          .then((data) => aggCache.set(key, { data, at: Date.now(), refreshing: false }))
+          .catch(() => {
+            c.refreshing = false
+          })
+      }
+      return c.data as T
+    }
+    const data = await fn() // cold: one-time await for this key
+    aggCache.set(key, { data, at: now, refreshing: false })
+    return data
+  }
   // Proactively warm the keys the dashboard hits on load so no user request ever
   // pays the cold compute. Each task runs on its own setImmediate so the warmer
   // never freezes the loop in one long synchronous block. statsCache/countsCache
   // get primed here too (computeStats is defined below; warm runs async after
   // registerApi finishes, so the reference is safe).
-  const warmTasks: (() => void)[] = [
-    () => aggCache.set('ent:casino', { data: aggregateEntities('casino'), at: Date.now(), refreshing: false }),
-    () => aggCache.set('ent:all', { data: aggregateEntities('all'), at: Date.now(), refreshing: false }),
-    () => aggCache.set('brand:casino', { data: aggregateBrands('casino'), at: Date.now(), refreshing: false }),
+  const warmTasks: (() => void | Promise<void>)[] = [
+    async () => aggCache.set('ent:casino', { data: await aggregateEntities('casino'), at: Date.now(), refreshing: false }),
+    async () => aggCache.set('ent:all', { data: await aggregateEntities('all'), at: Date.now(), refreshing: false }),
+    async () => aggCache.set('brand:casino', { data: await aggregateBrands('casino'), at: Date.now(), refreshing: false }),
     () => aggCache.set('coverage', { data: computeCoverage(), at: Date.now(), refreshing: false }),
     () => aggCache.set('flow:casino', { data: computeFlow('casino'), at: Date.now(), refreshing: false }),
     () => aggCache.set('series:7:all', { data: computeSeries(7, 'all'), at: Date.now(), refreshing: false }),
@@ -113,7 +135,7 @@ export async function registerApi(app: FastifyInstance) {
     try {
       for (const task of warmTasks) {
         try {
-          task()
+          await task()
         } catch {
           /* a transient DB error shouldn't kill the warmer */
         }
@@ -236,7 +258,7 @@ export async function registerApi(app: FastifyInstance) {
     const { category } = req.query as { category?: string }
     // the generic leaderboard intentionally spans every category by default
     const cat = category ?? 'all'
-    return aggCached('ent:' + cat, () => aggregateEntities(cat), 120_000)
+    return aggCachedAsync('ent:' + cat, () => aggregateEntities(cat), 120_000)
   })
 
   // casino-centric leaderboard — defaults to iGaming only so exchanges/whales
@@ -244,7 +266,7 @@ export async function registerApi(app: FastifyInstance) {
   app.get('/api/casinos', async (req) => {
     const { category } = req.query as { category?: string }
     const cat = category ?? 'casino'
-    return aggCached('ent:' + cat, () => aggregateEntities(cat), 120_000)
+    return aggCachedAsync('ent:' + cat, () => aggregateEntities(cat), 120_000)
   })
 
   // brand-aggregated leaderboard — wallets clustered by known attribution.
@@ -252,7 +274,7 @@ export async function registerApi(app: FastifyInstance) {
   app.get('/api/brands', async (req) => {
     const { category } = req.query as { category?: string }
     const cat = category ?? 'casino'
-    return aggCached('brand:' + cat, () => aggregateBrands(cat), 120_000)
+    return aggCachedAsync('brand:' + cat, () => aggregateBrands(cat), 120_000)
   })
 
   // public, non-sensitive aggregate counts — landing-page social proof + a health
@@ -753,7 +775,7 @@ export async function registerApi(app: FastifyInstance) {
     // trust / reviews / social sentiment are casino concepts — default to
     // iGaming only so exchange & whale wallets don't pollute the sentiment board
     const cat = category ?? 'casino'
-    const entities = aggCached('ent:' + cat, () => aggregateEntities(cat), 120_000)
+    const entities = await aggCachedAsync('ent:' + cat, () => aggregateEntities(cat), 120_000)
     const d7 = Date.now() - 7 * 86_400_000
     const mentionRows = db
       .prepare(

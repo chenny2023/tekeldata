@@ -1,6 +1,6 @@
 import { config } from './config.ts'
 import { db, stmt, stateGet, stateSet, WatchRow } from './db.ts'
-import { workerGet } from './readpool.ts'
+import { workerGet, workerAll } from './readpool.ts'
 import { evmBalanceUsd } from './collectors/evm.ts'
 import { tronBalanceUsd } from './collectors/tron.ts'
 import { tronRpcBalanceUsd } from './collectors/tronrpc.ts'
@@ -144,13 +144,13 @@ export async function startStatsMaintenance(): Promise<void> {
 // discovered services) out of the casino-facing views. The full list is still
 // computed once and cached; filtering happens on the cached snapshot so callers
 // can ask for 'casino' (default in the product UI) or 'all' (cross-category).
-export function aggregateEntities(category?: string): EntityAgg[] {
-  const all = computeEntities()
+export async function aggregateEntities(category?: string): Promise<EntityAgg[]> {
+  const all = await computeEntities()
   if (!category || category === 'all') return all
   return all.filter((e) => e.category === category)
 }
 
-function computeEntities(): EntityAgg[] {
+async function computeEntities(): Promise<EntityAgg[]> {
   if (aggCache && Date.now() - aggCache.at < config.aggregateMs) return aggCache.data
   const now = Date.now()
   const params = { d1: now - DAY, d2: now - 2 * DAY, d7: now - 7 * DAY }
@@ -169,9 +169,13 @@ function computeEntities(): EntityAgg[] {
 
   // 7d volume per (entity, chain) in one scan — gives each entity its real
   // multi-chain deposit split (one watch entry accrues flow on every EVM chain)
-  const chainRows = db
-    .prepare('SELECT watch_id, chain, SUM(usd) v FROM transfers WHERE ts >= ? GROUP BY watch_id, chain')
-    .all(params.d7) as { watch_id: number; chain: string; v: number }[]
+  // the two 7d GROUP BY scans over the 24M-row transfers table are the heavy part —
+  // run them in the read worker (off the main event loop). workerAll falls back to
+  // the main thread when READ_WORKER is disabled, so behaviour is unchanged there.
+  const chainRows = (await workerAll(
+    'SELECT watch_id, chain, SUM(usd) v FROM transfers WHERE ts >= ? GROUP BY watch_id, chain',
+    [params.d7],
+  )) as { watch_id: number; chain: string; v: number }[]
   const byChainMap = new Map<number, { chain: string; value: number }[]>()
   for (const r of chainRows) {
     const arr = byChainMap.get(r.watch_id) ?? []
@@ -186,18 +190,17 @@ function computeEntities(): EntityAgg[] {
   // per-address query × COUNT(DISTINCT) — O(addresses) full scans that blew up to
   // 30s+ once Arkham harvesting widened the watchlist). firstSeen + balances are
   // likewise loaded once into Maps instead of a query per address.
-  const aggRows = db
-    .prepare(
-      `SELECT watch_id,
-         SUM(CASE WHEN ts >= @d1 THEN usd ELSE 0 END)              AS vol24,
-         SUM(CASE WHEN ts < @d1 AND ts >= @d2 THEN usd ELSE 0 END) AS volPrev24,
-         SUM(usd)                                                  AS vol7,
-         SUM(CASE WHEN direction='in'  THEN usd ELSE 0 END)        AS in7,
-         SUM(CASE WHEN direction='out' THEN usd ELSE 0 END)        AS out7,
-         COUNT(*)                                                  AS tx7
-       FROM transfers WHERE ts >= @d7 GROUP BY watch_id`,
-    )
-    .all(params) as any[]
+  const aggRows = (await workerAll(
+    `SELECT watch_id,
+       SUM(CASE WHEN ts >= ? THEN usd ELSE 0 END)            AS vol24,
+       SUM(CASE WHEN ts < ? AND ts >= ? THEN usd ELSE 0 END) AS volPrev24,
+       SUM(usd)                                              AS vol7,
+       SUM(CASE WHEN direction='in'  THEN usd ELSE 0 END)    AS in7,
+       SUM(CASE WHEN direction='out' THEN usd ELSE 0 END)    AS out7,
+       COUNT(*)                                              AS tx7
+     FROM transfers WHERE ts >= ? GROUP BY watch_id`,
+    [params.d1, params.d1, params.d2, params.d7],
+  )) as any[]
   const aggMap = new Map<number, any>(aggRows.map((r) => [r.watch_id, r]))
   const firstMap = getFirstSeen() // first-seen barely changes — cached hourly, off the hot path
   const playerCounts = getPlayers() // background-maintained — never blocks the request
@@ -318,8 +321,8 @@ export interface BrandAgg {
 const isDeadLabel = (b: BrandAgg) => b.category === 'casino' && !b.meta && b.volume7d <= 0 && b.reserves <= 0
 
 let brandCache: { at: number; data: BrandAgg[] } | null = null
-export function aggregateBrands(category?: string): BrandAgg[] {
-  const raw = computeBrands()
+export async function aggregateBrands(category?: string): Promise<BrandAgg[]> {
+  const raw = await computeBrands()
   // only prune dead labels once the aggregate is WARM (some brand has volume) — on
   // a cold post-deploy window everything reads 0 and we'd wrongly hide real casinos
   const warm = raw.some((b) => b.volume7d > 0 || b.reserves > 0)
@@ -328,9 +331,9 @@ export function aggregateBrands(category?: string): BrandAgg[] {
   return all.filter((b) => b.category === category)
 }
 
-function computeBrands(): BrandAgg[] {
+async function computeBrands(): Promise<BrandAgg[]> {
   if (brandCache && Date.now() - brandCache.at < config.aggregateMs) return brandCache.data
-  const entities = aggregateEntities()
+  const entities = await aggregateEntities()
   const groups = new Map<string, EntityAgg[]>()
   for (const e of entities) {
     const key = `${e.category}:${brandKey(e.label)}`
