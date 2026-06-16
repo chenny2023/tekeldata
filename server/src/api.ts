@@ -93,6 +93,8 @@ export async function registerApi(app: FastifyInstance) {
     () => aggCache.set('brand:casino', { data: aggregateBrands('casino'), at: Date.now(), refreshing: false }),
     () => aggCache.set('coverage', { data: computeCoverage(), at: Date.now(), refreshing: false }),
     () => aggCache.set('flow:casino', { data: computeFlow('casino'), at: Date.now(), refreshing: false }),
+    () => aggCache.set('series:7:all', { data: computeSeries(7, 'all'), at: Date.now(), refreshing: false }),
+    () => aggCache.set('series:30:all', { data: computeSeries(30, 'all'), at: Date.now(), refreshing: false }),
     () => void computeStats(), // primes statsCache + the expensive COUNT(DISTINCT) cache
   ]
   const warm = () => {
@@ -518,37 +520,34 @@ export async function registerApi(app: FastifyInstance) {
   })
 
   // ── time-series flow chart (REAL) — ?days=7|14|30, bucket scales with window ─
+  const computeSeries = (days: number, cat: string) => {
+    const now = Date.now()
+    const from = now - days * 86_400_000
+    const bucketMs = days <= 7 ? 6 * 3600_000 : 24 * 3600_000 // 6h buckets ≤7d, daily beyond
+    const catFilter = cat !== 'all' ? ' AND category = ?' : ''
+    const catArg = catFilter ? [cat] : []
+    const rows = db
+      .prepare(
+        `SELECT CAST((ts - ?) / ? AS INTEGER) AS b,
+                SUM(CASE WHEN direction='in'  THEN usd ELSE 0 END) deposits,
+                SUM(CASE WHEN direction='out' THEN usd ELSE 0 END) withdrawals
+         FROM transfers WHERE ts >= ?${catFilter} GROUP BY b ORDER BY b`,
+      )
+      .all(from, bucketMs, from, ...catArg) as any[]
+    const map = new Map(rows.map((r) => [r.b, r]))
+    const out: { t: number; deposits: number; withdrawals: number }[] = []
+    const buckets = Math.ceil((now - from) / bucketMs)
+    for (let i = 0; i < buckets; i++) {
+      const r = map.get(i)
+      out.push({ t: from + i * bucketMs, deposits: r?.deposits ?? 0, withdrawals: r?.withdrawals ?? 0 })
+    }
+    return out
+  }
   app.get('/api/series', async (req) => {
     const q = req.query as { days?: string; category?: string }
     const days = Math.min(30, Math.max(1, Number(q.days ?? 7)))
     const cat = q.category ?? 'all'
-    return aggCached(
-      `series:${days}:${cat}`,
-      () => {
-        const now = Date.now()
-        const from = now - days * 86_400_000
-        const bucketMs = days <= 7 ? 6 * 3600_000 : 24 * 3600_000 // 6h buckets ≤7d, daily beyond
-        const catFilter = cat !== 'all' ? ' AND category = ?' : ''
-        const catArg = catFilter ? [cat] : []
-        const rows = db
-          .prepare(
-            `SELECT CAST((ts - ?) / ? AS INTEGER) AS b,
-                    SUM(CASE WHEN direction='in'  THEN usd ELSE 0 END) deposits,
-                    SUM(CASE WHEN direction='out' THEN usd ELSE 0 END) withdrawals
-             FROM transfers WHERE ts >= ?${catFilter} GROUP BY b ORDER BY b`,
-          )
-          .all(from, bucketMs, from, ...catArg) as any[]
-        const map = new Map(rows.map((r) => [r.b, r]))
-        const out: { t: number; deposits: number; withdrawals: number }[] = []
-        const buckets = Math.ceil((now - from) / bucketMs)
-        for (let i = 0; i < buckets; i++) {
-          const r = map.get(i)
-          out.push({ t: from + i * bucketMs, deposits: r?.deposits ?? 0, withdrawals: r?.withdrawals ?? 0 })
-        }
-        return out
-      },
-      120_000,
-    )
+    return aggCached(`series:${days}:${cat}`, () => computeSeries(days, cat), 120_000)
   })
 
   // ── per-entity daily volume series, split by chain (REAL) ───────────────────
