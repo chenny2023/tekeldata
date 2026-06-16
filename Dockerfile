@@ -22,7 +22,8 @@ RUN npm ci
 # app source + build the SPA (server runs the TS directly via tsx)
 COPY . .
 RUN npm run build
-RUN chmod +x docker-entrypoint.sh   # litestream.yml is already at /app via COPY
+# strip any CRLF (Windows checkout) so the shell script runs on Linux, then exec-bit it
+RUN sed -i 's/\r$//' docker-entrypoint.sh && chmod +x docker-entrypoint.sh
 
 # runtime config. Railway injects $PORT; the DB lives on the mounted volume.
 ENV NODE_ENV=production
