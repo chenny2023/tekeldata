@@ -246,7 +246,7 @@ async function fetchCasinoOrg(slug: string): Promise<{ score: number; reviewed: 
 // Parsed from the page's JSON-LD aggregateRating / Review ratingValue.
 async function fetchAskGamblers(slug: string): Promise<{ score: number; reviewed: string } | null> {
   const url = `https://www.askgamblers.com/casino-reviews/${slug}-casino-review`
-  const init = { headers: { 'User-Agent': UA, 'Accept-Encoding': 'gzip, deflate' }, signal: AbortSignal.timeout(120_000) }
+  const init = { headers: { 'User-Agent': UA, 'Accept-Encoding': 'gzip, deflate' }, signal: AbortSignal.timeout(150_000) }
   const p = unlockedFetch('askgamblers', url, init)
   const res = p ? await p : await webFetch(url, init)
   if (res.status === 404) return null
