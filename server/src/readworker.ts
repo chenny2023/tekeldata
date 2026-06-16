@@ -15,9 +15,19 @@ import { config } from './config.ts'
 if (!parentPort) throw new Error('readworker must run as a worker thread')
 const port = parentPort
 
-const db = new Database(config.dbPath, { readonly: true, fileMustExist: true })
-db.pragma('query_only = true')
-db.pragma('busy_timeout = 5000')
+// surface worker-side failures instead of dying silently
+process.on('uncaughtException', (e) => console.error('[readworker:thread] uncaught:', (e as Error)?.stack || e))
+process.on('unhandledRejection', (e) => console.error('[readworker:thread] rejection:', e))
+
+let db: import('better-sqlite3').Database
+try {
+  db = new Database(config.dbPath, { readonly: true, fileMustExist: true })
+  db.pragma('query_only = true')
+  db.pragma('busy_timeout = 5000')
+} catch (e) {
+  console.error('[readworker:thread] failed to open DB:', (e as Error).message)
+  throw e // exit → main respawns
+}
 
 // cache prepared statements — the maintenance loop sends the same SQL per watch_id
 const cache = new Map<string, import('better-sqlite3').Statement>()

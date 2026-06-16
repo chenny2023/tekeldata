@@ -31,6 +31,8 @@ interface PoolWorker {
 
 let pool: PoolWorker[] = []
 let nextId = 1
+let enabled = false // worker mode is on (flag set) — even if the pool is momentarily empty
+let target = 0
 
 export function readWorkerEnabled(): boolean {
   return pool.length > 0
@@ -41,9 +43,10 @@ export function startReadWorker() {
     console.log('[readworker] disabled (set READ_WORKER=1 to offload heavy reads)')
     return
   }
-  const n = Math.max(1, Math.min(Number(process.env.READ_WORKER_POOL ?? 3), 4))
-  for (let i = 0; i < n; i++) spawn(i === 0)
-  console.log(`[readworker] starting pool of ${pool.length} read worker(s)`)
+  enabled = true
+  target = Math.max(1, Math.min(Number(process.env.READ_WORKER_POOL ?? 3), 4))
+  for (let i = 0; i < target; i++) spawn(i === 0)
+  console.log(`[readworker] starting pool of ${pool.length}/${target} read worker(s)`)
 }
 
 function spawn(announce: boolean) {
@@ -87,6 +90,16 @@ function drop(entry: PoolWorker) {
     p.reject(new Error('worker gone'))
   }
   entry.pending.clear()
+  // keep the pool populated — respawn a replacement (a crashed worker must never
+  // leave the pool empty, or queries would fall back to the main thread)
+  if (enabled && pool.length < target) {
+    setTimeout(() => {
+      if (enabled && pool.length < target) {
+        console.warn(`[readworker] respawning (pool ${pool.length}/${target})`)
+        spawn(false)
+      }
+    }, 3_000).unref?.()
+  }
 }
 
 function leastBusy(): PoolWorker | null {
@@ -98,8 +111,12 @@ function leastBusy(): PoolWorker | null {
 
 function send<T>(sql: string, params: unknown[], method: 'get' | 'all'): Promise<T> {
   const entry = leastBusy()
-  // No worker available (flag off / all crashed) → run on the main connection.
   if (!entry) {
+    // Worker mode ON but the pool is momentarily empty (all crashed, respawning):
+    // REJECT rather than run a heavy scan on the main thread (that is the 90s+
+    // freeze). Callers degrade gracefully — SWR serves stale, collectors skip.
+    if (enabled) return Promise.reject(new Error('read worker pool unavailable'))
+    // Worker mode OFF: the main connection is the intended path (pre-worker behaviour).
     const stmt = db.prepare(sql)
     return Promise.resolve((method === 'all' ? stmt.all(...params) : stmt.get(...params)) as T)
   }
