@@ -4,6 +4,7 @@ import { bus, TransferEvent } from './bus.ts'
 import { aggregateEntities, aggregateBrands, maintainedPlayers } from './aggregate.ts'
 import { runDataQualityChecks, lastDataQuality } from './dataquality.ts'
 import { brandHistory } from './brandstore.ts'
+import { previewContent } from './content/pipeline.ts'
 import { reserveSeries } from './reservehistory.ts'
 import { twitchEnabled } from './collectors/twitch.ts'
 import { redditEnabled } from './collectors/reddit.ts'
@@ -965,6 +966,18 @@ export async function registerApi(app: FastifyInstance) {
     if (!userFromRequest(req)) return reply.code(401).send({ error: 'login required' })
     const rows = db.prepare("SELECT brand_key, label, slug, confidence, missing, status, updated_at FROM enrichment_queue WHERE status!='promoted' ORDER BY updated_at DESC LIMIT 500").all()
     return { count: rows.length, items: rows }
+  })
+
+  // automated content pipeline (gated): dry-run preview (generate + QA, never posts)
+  // + recent run log. Lets you verify Grok output + QA before enabling auto-publish.
+  app.get('/api/content/preview', async (req, reply) => {
+    if (!userFromRequest(req)) return reply.code(401).send({ error: 'login required' })
+    const type = (req.query as { type?: string })?.type ?? 'daily_market_thread'
+    return previewContent(type)
+  })
+  app.get('/api/content/log', async (req, reply) => {
+    if (!userFromRequest(req)) return reply.code(401).send({ error: 'login required' })
+    return { items: db.prepare('SELECT date, content_type, status, risk_level, model, published_url, skipped_reason, error, created_at FROM content_log ORDER BY created_at DESC LIMIT 100').all() }
   })
 
   // ── alerts: user-defined rules + fired events ────────────────────────────────

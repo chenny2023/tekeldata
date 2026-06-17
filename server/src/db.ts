@@ -446,6 +446,26 @@ CREATE TABLE IF NOT EXISTS unattributed_entity_daily_metrics (
   PRIMARY KEY(brand_id, date)
 );
 
+-- Automated content pipeline log (OpenRouter Grok → QA → X). One row per
+-- (date, content_type, platform): the generated copy, QA verdict, publish result.
+CREATE TABLE IF NOT EXISTS content_log (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  date           TEXT NOT NULL,        -- YYYY-MM-DD (UTC)
+  content_type   TEXT NOT NULL,        -- daily_market_thread | top_ranking_image_post | rotating_signal_post | weekly_recap | monthly_report
+  platform       TEXT NOT NULL DEFAULT 'x',
+  status         TEXT NOT NULL,        -- generated|qa_pass|qa_fail|risk_high|generation_fail|publish_failed|published|skipped
+  risk_level     TEXT,
+  model          TEXT,
+  generated_json TEXT,                 -- the AI output (tweets / image card copy)
+  qa_json        TEXT,                 -- QA result: failed items, neutralised notes
+  published_url  TEXT,
+  skipped_reason TEXT,
+  error          TEXT,
+  created_at     INTEGER NOT NULL,
+  UNIQUE(date, content_type, platform)
+);
+CREATE INDEX IF NOT EXISTS idx_content_log_created ON content_log(created_at DESC);
+
 -- Enrichment queue: low-confidence brands kept as limited_public_noindex pages,
 -- queued for enrichment (on-chain address / reserves / trust / social / manual
 -- mapping). When enough signal arrives they auto-promote to public_indexable.
