@@ -65,14 +65,30 @@ export async function postTweet(text: string, opts: { replyTo?: string; mediaIds
 }
 
 // Upload an image (v1.1 media/upload, simple). Returns media_id_string.
+// We build the multipart/form-data body BY HAND (fixed boundary + raw bytes) rather
+// than relying on undici's FormData+Blob serialization — that path produced a part
+// X did not recognise as the `media` file field, so X replied 400 code 38
+// ("media parameter is missing"). A hand-built body is deterministic and matches
+// exactly what X expects. The multipart body is NOT part of the OAuth signature.
 export async function uploadMedia(bytes: Buffer, mime = 'image/png'): Promise<string> {
   const url = 'https://upload.twitter.com/1.1/media/upload.json'
-  const form = new FormData()
-  form.append('media', new Blob([bytes], { type: mime }))
+  const boundary = '----wcoinFormBoundary' + crypto.randomBytes(12).toString('hex')
+  const head = Buffer.from(
+    `--${boundary}\r\n` +
+      `Content-Disposition: form-data; name="media"; filename="card.png"\r\n` +
+      `Content-Type: ${mime}\r\n\r\n`,
+    'utf8',
+  )
+  const tail = Buffer.from(`\r\n--${boundary}--\r\n`, 'utf8')
+  const body = Buffer.concat([head, bytes, tail])
   const res = await webFetch(url, {
     method: 'POST',
-    headers: { Authorization: authHeader('POST', url) }, // multipart body is not signed
-    body: form as any,
+    headers: {
+      Authorization: authHeader('POST', url), // multipart body is not signed
+      'Content-Type': `multipart/form-data; boundary=${boundary}`,
+      'Content-Length': String(body.length),
+    },
+    body,
     signal: AbortSignal.timeout(60_000),
   })
   const j = (await res.json()) as any
