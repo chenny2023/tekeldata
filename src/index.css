@@ -255,11 +255,42 @@ body::before {
 }
 .sheen-hover:hover::after { animation: sheen 0.8s ease; }
 
+/* ── Brand loader (in-app page/route loading) — the same flipping WCOIN coin as
+   the boot splash, reused for lazy-route chunks, the auth gate, and any page-level
+   load so the loading moment is consistent site-wide. ──────────────────────────── */
+.brand-loader { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; min-height: 48vh; }
+.brand-loader.bl-full {
+  position: fixed; inset: 0; z-index: 50; min-height: 100vh;
+  background: var(--color-ink-950);
+  background-image:
+    radial-gradient(820px 560px at 50% 32%, rgba(245, 177, 0, 0.12), transparent 60%),
+    radial-gradient(700px 520px at 50% 122%, rgba(139, 61, 240, 0.12), transparent 60%);
+}
+.bl-coin {
+  width: 72px; height: 72px; border-radius: 50%; display: grid; place-items: center;
+  background: radial-gradient(circle at 33% 27%, #ffe98f, #f5b100 52%, #9c6b00);
+  box-shadow: 0 0 0 2px rgba(245, 177, 0, 0.55), 0 0 36px rgba(245, 177, 0, 0.4), inset 0 3px 10px rgba(255, 255, 255, 0.45), inset 0 -6px 12px rgba(0, 0, 0, 0.35);
+  animation: bl-flip 1.6s cubic-bezier(0.55, 0.08, 0.3, 1) infinite;
+}
+.bl-coin b { font-family: var(--font-display); font-weight: 800; font-size: 32px; color: #3a2700; line-height: 1; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4); }
+@keyframes bl-flip { 0% { transform: perspective(440px) rotateY(0); } 100% { transform: perspective(440px) rotateY(1080deg); } }
+.bl-tag { font-size: 12.5px; letter-spacing: 0.02em; color: #8b90a4; }
+.bl-bar { width: 170px; height: 4px; border-radius: 99px; background: rgba(255, 255, 255, 0.08); overflow: hidden; position: relative; }
+.bl-bar::before {
+  content: ''; position: absolute; top: 0; left: 0; height: 100%; width: 42%; border-radius: 99px;
+  background: linear-gradient(90deg, transparent, #f5b100, #ffe27a, #f5b100, transparent);
+  animation: bl-sweep 1.15s ease-in-out infinite;
+}
+@keyframes bl-sweep { 0% { transform: translateX(-130%); } 100% { transform: translateX(360%); } }
+@keyframes bl-pulse { 50% { opacity: 0.5; } }
+
 @media (prefers-reduced-motion: reduce) {
   .reveal { opacity: 1; transform: none; transition: none; }
   .spotlight::before, .shimmer::after { animation: none; }
   .flash-up, .flash-down { animation: none; }
   .wipe-x, .grow-y { animation: none; }
   .sheen-hover::after { display: none; }
+  .bl-coin { animation: bl-pulse 1.5s ease-in-out infinite; }
+  .bl-bar::before { animation: none; width: 100%; }
   body::before { animation: none; }
 }

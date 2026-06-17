@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, useState } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { api, getToken, setToken } from './data/api'
 import Layout from './components/Layout'
+import { BrandLoader } from './components/BrandLoader'
 import Landing from './pages/Landing'
 import Login from './pages/Login'
 
@@ -42,7 +43,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
       alive = false
     }
   }, [])
-  if (ok === null) return <div className="grid min-h-screen place-items-center text-sm text-white/40">Loading…</div>
+  if (ok === null) return <BrandLoader full label="Verifying your session…" />
   if (!ok) return <Navigate to="/login" replace />
   return <>{children}</>
 }
@@ -50,7 +51,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 function Dashboard() {
   return (
     <Layout>
-      <Suspense fallback={<div className="grid h-[60vh] place-items-center text-sm text-white/40">Loading…</div>}>
+      <Suspense fallback={<BrandLoader />}>
         <Routes>
           <Route index element={<Overview />} />
         <Route path="casinos" element={<Casinos />} />
@@ -79,7 +80,7 @@ export default function App() {
       <Route
         path="/daily"
         element={
-          <Suspense fallback={<div className="grid min-h-screen place-items-center text-sm text-white/40">Loading…</div>}>
+          <Suspense fallback={<BrandLoader full />}>
             <Daily />
           </Suspense>
         }
