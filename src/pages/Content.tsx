@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Sparkles, Loader2, CheckCircle2, AlertTriangle, ShieldX, FileText } from 'lucide-react'
+import { Sparkles, Loader2, CheckCircle2, AlertTriangle, ShieldX, FileText, Send } from 'lucide-react'
 import { Card, PageHead, Skeleton } from '../components/ui'
 import { api, usePoll, type ContentPreview } from '../data/api'
 import { timeAgo } from '../data/format'
@@ -80,7 +80,23 @@ export default function Content() {
   const [res, setRes] = useState<ContentPreview | null>(null)
   const [cardUrl, setCardUrl] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [publishing, setPublishing] = useState(false)
+  const [publishNote, setPublishNote] = useState<string | null>(null)
   const { data: logData } = usePoll(api.contentLog, 20_000)
+
+  async function publish() {
+    if (!window.confirm('确认发布到 X？这是不可撤销的公开发帖。\n发布会用最新快照重新跑一遍 Grok + QA（榜单数字始终取自精确快照）。')) return
+    setPublishing(true)
+    setPublishNote(null)
+    try {
+      const r = await api.contentPublish(type)
+      setPublishNote(r.error ? `失败：${r.error}` : '已触发发布 — 几秒后看下方「Recent runs」里的结果与帖子链接。')
+    } catch (e) {
+      setPublishNote(`失败：${String((e as Error).message)}`)
+    } finally {
+      setPublishing(false)
+    }
+  }
 
   async function run(t: string) {
     setType(t)
@@ -135,6 +151,15 @@ export default function Content() {
               <div>
                 <div className="mb-1.5 text-[12px] text-white/45">Attached image card (rendered from exact snapshot data):</div>
                 <img src={cardUrl} alt="ranking card" className="w-full max-w-[420px] rounded-xl border border-white/10" />
+              </div>
+            )}
+            {res.status.startsWith('qa_pass') && (
+              <div className="flex flex-wrap items-center gap-3 border-t border-white/8 pt-3">
+                <button onClick={publish} disabled={publishing} className="inline-flex items-center gap-1.5 rounded-lg bg-mint-400/15 px-3.5 py-2 text-[13px] font-semibold text-mint-400 hover:bg-mint-400/25 disabled:opacity-60">
+                  {publishing ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} 立即发布到 X
+                </button>
+                <span className="text-[12px] text-white/45">不可撤销的公开发帖。发布时会重新跑一遍 Grok + QA；榜单数字始终取自精确快照。</span>
+                {publishNote && <span className="w-full text-[13px] text-gold-300">{publishNote}</span>}
               </div>
             )}
           </div>

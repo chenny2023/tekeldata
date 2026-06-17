@@ -440,6 +440,8 @@ export const api = {
     if (!res.ok) throw new Error('card unavailable')
     return URL.createObjectURL(await res.blob())
   },
+  contentPublish: (type: string) =>
+    sendJson<{ started?: boolean; type?: string; note?: string; error?: string }>('/content/publish', 'POST', { type }),
   entitySeries: (id: number, days = 30) =>
     getJson<{ chains: string[]; series: ({ t: number } & Record<string, number>)[] }>(`/entity/${id}/series?days=${days}`),
   entityFlow: (id: number, days = 30) =>

@@ -4,7 +4,8 @@ import { bus, TransferEvent } from './bus.ts'
 import { aggregateEntities, aggregateBrands, maintainedPlayers } from './aggregate.ts'
 import { runDataQualityChecks, lastDataQuality } from './dataquality.ts'
 import { brandHistory } from './brandstore.ts'
-import { previewContent, previewRankingCard } from './content/pipeline.ts'
+import { previewContent, previewRankingCard, runContent } from './content/pipeline.ts'
+import { xEnabled } from './content/xclient.ts'
 import { reserveSeries } from './reservehistory.ts'
 import { twitchEnabled } from './collectors/twitch.ts'
 import { redditEnabled } from './collectors/reddit.ts'
@@ -985,6 +986,19 @@ export async function registerApi(app: FastifyInstance) {
     const png = await previewRankingCard()
     if (!png) return reply.code(503).send({ error: 'no snapshot or renderer unavailable' })
     return reply.header('Content-Type', 'image/png').header('Cache-Control', 'no-store').send(png)
+  })
+  // gated: publish ONE content item to X right now (manual trigger from the Social
+  // admin page). This is an irreversible PUBLIC post — login-gated, explicit type.
+  // Fire-and-forget: publishing retries with backoff (up to ~16min) on X errors, so
+  // we never hang the request. Poll /api/content/log for the result + published_url.
+  const PUBLISHABLE = new Set(['top_ranking_image_post', 'daily_market_thread', 'rotating_signal_post'])
+  app.post('/api/content/publish', async (req, reply) => {
+    if (!userFromRequest(req)) return reply.code(401).send({ error: 'login required' })
+    const type = (req.body as { type?: string })?.type ?? 'top_ranking_image_post'
+    if (!PUBLISHABLE.has(type)) return reply.code(400).send({ error: 'invalid content type' })
+    if (!xEnabled()) return reply.code(503).send({ error: 'X keys not configured — cannot publish' })
+    void runContent(type, true).catch((e) => console.error('[content] manual publish error:', e))
+    return { started: true, type, note: 'publishing to X — poll /api/content/log (Recent runs) for the result + post link' }
   })
 
   // ── alerts: user-defined rules + fired events ────────────────────────────────
