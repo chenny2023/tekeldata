@@ -17,6 +17,7 @@ import {
   X,
   ChevronLeft,
   LogOut,
+  Sparkles,
 } from 'lucide-react'
 import { Logo, LiveBadge } from './ui'
 import { api, usePoll, getToken, setToken, AuthUser, SearchResults } from '../data/api'
@@ -141,6 +142,7 @@ const NAV = [
   { to: '/app/watchlist', label: 'Watchlist', icon: Target },
   { to: '/app/alerts', label: 'Alerts', icon: Bell },
   { to: '/app/reports', label: 'Reports', icon: FileBarChart },
+  { to: '/app/content', label: 'Social', icon: Sparkles },
 ]
 
 export default function Layout({ children }: { children: ReactNode }) {

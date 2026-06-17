@@ -181,6 +181,31 @@ export interface StreamerDetail {
   live: StreamerRow | null
 }
 
+export interface ContentPreview {
+  status: string // qa_pass | risk_high | qa_fail | generation_fail | disabled | qa_pass_no_x_keys
+  risk?: string
+  error?: string
+  data?: {
+    content_type?: string
+    tweets?: { text: string }[]
+    post_text?: string
+    image?: { title?: string; subtitle?: string; rows?: { rank: number; brand: string; value: string }[]; footer?: string }
+    data_notes?: string[]
+  }
+  qa?: { pass: boolean; riskLevel: string; failures: string[] }
+}
+export interface ContentLogRow {
+  date: string
+  content_type: string
+  status: string
+  risk_level: string | null
+  model: string | null
+  published_url: string | null
+  skipped_reason: string | null
+  error: string | null
+  created_at: number
+}
+
 export interface FavoriteItem {
   brandKey: string
   label: string
@@ -407,6 +432,9 @@ export const api = {
   },
   series: (days = 7, category = 'casino') =>
     getJson<SeriesPoint[]>(`/series?days=${days}` + (category && category !== 'all' ? `&category=${category}` : '')),
+  // automated X content pipeline — dry-run preview (generate + QA, never posts) + run log
+  contentPreview: (type: string) => getJson<ContentPreview>(`/content/preview?type=${encodeURIComponent(type)}`),
+  contentLog: () => getJson<{ items: ContentLogRow[] }>('/content/log'),
   entitySeries: (id: number, days = 30) =>
     getJson<{ chains: string[]; series: ({ t: number } & Record<string, number>)[] }>(`/entity/${id}/series?days=${days}`),
   entityFlow: (id: number, days = 30) =>
