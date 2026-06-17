@@ -42,47 +42,54 @@ export async function persistBrandLayer(): Promise<void> {
   const brands = (await aggregateBrands('casino')).filter((b) => b.volume7d > 0 || b.reserves > 0)
   const now = Date.now()
   const date = utcDay(now)
-  const tx = db.transaction(() => {
-    for (const b of brands) {
-      const id = brandKey(b.brand)
-      if (b.attributed) {
-        const al = resolveAlias(b.brand)
-        upsertBrand.run({
-          brand_id: id,
-          canonical_name: al?.canonical ?? b.brand,
-          slug: al?.slug ?? slugify(b.brand),
-          website: null,
-          category: b.category,
-          primary_chain: b.chains?.[0] ?? null,
-          is_public: b.confidence === 'low' ? 0 : 1,
-          confidence_level: b.confidence,
-          source_entity_count: b.wallets,
-          now,
+  // Chunked + yielded: persisting all brands (each with member-map upserts) in ONE
+  // synchronous transaction held the single write-lock long enough to freeze Node's
+  // event loop and starve the read-worker pool. Write in small chunks, handing the
+  // loop back between each, so health + heavy reads keep getting time.
+  const persistOne = (b: (typeof brands)[number]) => {
+    const id = brandKey(b.brand)
+    if (b.attributed) {
+      const al = resolveAlias(b.brand)
+      upsertBrand.run({
+        brand_id: id,
+        canonical_name: al?.canonical ?? b.brand,
+        slug: al?.slug ?? slugify(b.brand),
+        website: null,
+        category: b.category,
+        primary_chain: b.chains?.[0] ?? null,
+        is_public: b.confidence === 'low' ? 0 : 1,
+        confidence_level: b.confidence,
+        source_entity_count: b.wallets,
+        now,
+      })
+      upsertMetrics.run({
+        brand_id: id, date,
+        volume24h: b.volume24h, volume7d: b.volume7d, inflow7d: b.inflow7d, outflow7d: b.outflow7d, net7d: b.net7d,
+        tx: b.txCount7d, acp: b.players, reserves: b.reserves, cov: b.reserveCoverage, trust: b.trust,
+        safety: b.safetyIndex, tp: b.trustpilot, rep: b.reputation, cb: JSON.stringify(b.byChain ?? []),
+        sec: b.wallets, conf: b.confidence, now,
+      })
+      const head = (b.members ?? []).slice().sort((x, y) => y.volume7d - x.volume7d)[0]
+      for (const m of b.members ?? [])
+        upsertMap.run({
+          entity_id: m.id, brand_id: id, source_label: m.label, normalized_label: brandKey(m.label),
+          chain: m.chain, address: m.address, mapping_type: resolveAlias(m.label) ? 'alias' : 'auto',
+          is_primary: m.id === head?.id ? 1 : 0, now,
         })
-        upsertMetrics.run({
-          brand_id: id, date,
-          volume24h: b.volume24h, volume7d: b.volume7d, inflow7d: b.inflow7d, outflow7d: b.outflow7d, net7d: b.net7d,
-          tx: b.txCount7d, acp: b.players, reserves: b.reserves, cov: b.reserveCoverage, trust: b.trust,
-          safety: b.safetyIndex, tp: b.trustpilot, rep: b.reputation, cb: JSON.stringify(b.byChain ?? []),
-          sec: b.wallets, conf: b.confidence, now,
-        })
-        const head = (b.members ?? []).slice().sort((x, y) => y.volume7d - x.volume7d)[0]
-        for (const m of b.members ?? [])
-          upsertMap.run({
-            entity_id: m.id, brand_id: id, source_label: m.label, normalized_label: brandKey(m.label),
-            chain: m.chain, address: m.address, mapping_type: resolveAlias(m.label) ? 'alias' : 'auto',
-            is_primary: m.id === head?.id ? 1 : 0, now,
-          })
-      } else {
-        upsertUnattr.run({
-          brand_id: id, label: b.brand, chain: b.chains?.[0] ?? null, date,
-          volume24h: b.volume24h, volume7d: b.volume7d, net7d: b.net7d, reserves: b.reserves,
-          reason: 'pattern-detected, not attributed to a verified brand', now,
-        })
-      }
+    } else {
+      upsertUnattr.run({
+        brand_id: id, label: b.brand, chain: b.chains?.[0] ?? null, date,
+        volume24h: b.volume24h, volume7d: b.volume7d, net7d: b.net7d, reserves: b.reserves,
+        reason: 'pattern-detected, not attributed to a verified brand', now,
+      })
     }
-  })
-  tx()
+  }
+  const CHUNK = 25
+  for (let i = 0; i < brands.length; i += CHUNK) {
+    const slice = brands.slice(i, i + CHUNK)
+    db.transaction(() => slice.forEach(persistOne))()
+    await new Promise<void>((r) => setImmediate(r))
+  }
   const vc = brands.filter((b) => b.attributed).length
   console.log(`[brandstore] persisted ${vc} verified brands + ${brands.length - vc} unattributed for ${date}`)
 }

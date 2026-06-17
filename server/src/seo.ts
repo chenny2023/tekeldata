@@ -868,12 +868,7 @@ export async function generateSeoPages(): Promise<void> {
 
   const now = Date.now()
   const written = new Set<string>()
-  let n = 0
-  const put = (path: string, kind: string, pg: { title: string; description: string; html: string }, lifecycle = 'public_indexable') => {
-    upsert.run({ path, kind, title: pg.title, description: pg.description, html: pg.html, now, lifecycle })
-    written.add(path)
-    n++
-  }
+  const yieldLoop = () => new Promise<void>((r) => setImmediate(r))
 
   // page lifecycle: high-confidence on-chain brand → featured_core; low confidence →
   // limited_public_noindex (generated, accessible, noindex, NOT in sitemap, queued
@@ -885,50 +880,88 @@ export async function generateSeoPages(): Promise<void> {
     return 'public_indexable'
   }
 
-  const writeAll = db.transaction(() => {
-    // ALL verified brands get a profile (10-year build: noindex thin ones, never
-    // delete). Low-confidence pages are limited_public_noindex + queued to enrich.
-    const cap = ranked.slice(0, MAX_CASINOS)
-    cap.forEach((v, idx) => {
-      const peers = [cap[idx - 2], cap[idx - 1], cap[idx + 1], cap[idx + 2]].filter(Boolean).map((x) => ({ slug: slugOfView(x), label: x.name }))
-      const fallback = cap.filter((x) => x.key !== v.key).slice(0, 4).map((x) => ({ slug: slugOfView(x), label: x.name }))
-      const lc = lifecycleOf(v)
-      const noindex = lc === 'limited_public_noindex'
-      put(`/casino/${slugOfView(v)}`, 'casino', casinoPage(v, slugOfView(v), peers.length ? peers : fallback, noindex), lc)
-      if (noindex) {
-        const r = ratingsOf(v)
-        const missing = [!v.onchain && 'onchain', !(v.onchain && v.onchain.reserves > 0) && 'reserves', trustSources(v).length < 2 && 'trust-sources']
-          .filter(Boolean)
-          .join(',')
-        enqueueEnrich.run({ brand_key: v.key, label: v.name, slug: slugOfView(v), confidence: 'low', missing, now })
-      }
-    })
-    // rankings: metric leaderboards + trust board + index
-    for (const key of Object.keys(METRICS)) {
-      const pg = metricRankingPage(key, onchainBrands, slugOfBrand)
-      if (pg) put(`/rankings/${key}`, 'rankings', pg)
-    }
-    put('/rankings/trust', 'rankings', trustRankingPage(ranked, slugOfView))
-    put('/rankings', 'rankings', rankingsIndexPage([...chainSet], unattributed.length > 0))
-    if (unattributed.length) put('/rankings/unattributed-flow', 'rankings', unattributedFlowPage(unattributed))
-    // chains
-    for (const cs of chainSet) if (cs) put(`/chains/${cs}`, 'chains', chainPage(cs, onchainBrands, slugOfBrand))
-    // daily report archive (prev = older, next = newer)
-    snaps.forEach((s, i) => {
-      const next = i > 0 ? snaps[i - 1].snapshot_date : null // newer
-      const prev = i < snaps.length - 1 ? snaps[i + 1].snapshot_date : null // older
-      put(`/reports/daily/${s.snapshot_date}`, 'report', reportPage(s, prev, next))
-    })
-    // methodology
-    for (const topic of Object.keys(METHODOLOGY)) put(`/methodology/${topic}`, 'methodology', methodologyPage(topic)!)
-  })
-  writeAll()
+  // ── Phase 1: BUILD every page off the write path ───────────────────────────
+  // Building ~400 HTML pages AND upserting them inside ONE synchronous
+  // db.transaction() froze Node's single event loop for the whole run (health
+  // checks + the read-worker pool got no loop time → the post-deploy / every-30min
+  // hard freeze). We now build into an array, yielding to the loop every chunk, then
+  // write in small chunked transactions (below) — the loop stays responsive throughout.
+  type Built = { path: string; kind: string; pg: { title: string; description: string; html: string }; lifecycle: string }
+  const built: Built[] = []
+  const enrich: { brand_key: string; label: string; slug: string; confidence: string; missing: string; now: number }[] = []
+  const add = (path: string, kind: string, pg: { title: string; description: string; html: string }, lifecycle = 'public_indexable') => {
+    built.push({ path, kind, pg, lifecycle })
+    written.add(path)
+  }
 
-  // GC: drop any stored page not regenerated this run (stale casino slugs, etc.)
+  // ALL verified brands get a profile (10-year build: noindex thin ones, never
+  // delete). Low-confidence pages are limited_public_noindex + queued to enrich.
+  const cap = ranked.slice(0, MAX_CASINOS)
+  for (let idx = 0; idx < cap.length; idx++) {
+    const v = cap[idx]
+    const peers = [cap[idx - 2], cap[idx - 1], cap[idx + 1], cap[idx + 2]].filter(Boolean).map((x) => ({ slug: slugOfView(x), label: x.name }))
+    const fallback = cap.filter((x) => x.key !== v.key).slice(0, 4).map((x) => ({ slug: slugOfView(x), label: x.name }))
+    const lc = lifecycleOf(v)
+    const noindex = lc === 'limited_public_noindex'
+    add(`/casino/${slugOfView(v)}`, 'casino', casinoPage(v, slugOfView(v), peers.length ? peers : fallback, noindex), lc)
+    if (noindex) {
+      const missing = [!v.onchain && 'onchain', !(v.onchain && v.onchain.reserves > 0) && 'reserves', trustSources(v).length < 2 && 'trust-sources']
+        .filter(Boolean)
+        .join(',')
+      enrich.push({ brand_key: v.key, label: v.name, slug: slugOfView(v), confidence: 'low', missing, now })
+    }
+    if (idx % 25 === 24) await yieldLoop() // hand the loop back every 25 page-builds
+  }
+  // rankings: metric leaderboards + trust board + index
+  for (const key of Object.keys(METRICS)) {
+    const pg = metricRankingPage(key, onchainBrands, slugOfBrand)
+    if (pg) add(`/rankings/${key}`, 'rankings', pg)
+  }
+  add('/rankings/trust', 'rankings', trustRankingPage(ranked, slugOfView))
+  add('/rankings', 'rankings', rankingsIndexPage([...chainSet], unattributed.length > 0))
+  if (unattributed.length) add('/rankings/unattributed-flow', 'rankings', unattributedFlowPage(unattributed))
+  await yieldLoop()
+  // chains
+  for (const cs of chainSet) if (cs) add(`/chains/${cs}`, 'chains', chainPage(cs, onchainBrands, slugOfBrand))
+  await yieldLoop()
+  // daily report archive (prev = older, next = newer)
+  snaps.forEach((s, i) => {
+    const next = i > 0 ? snaps[i - 1].snapshot_date : null // newer
+    const prev = i < snaps.length - 1 ? snaps[i + 1].snapshot_date : null // older
+    add(`/reports/daily/${s.snapshot_date}`, 'report', reportPage(s, prev, next))
+  })
+  // methodology
+  for (const topic of Object.keys(METHODOLOGY)) add(`/methodology/${topic}`, 'methodology', methodologyPage(topic)!)
+  await yieldLoop()
+
+  // ── Phase 2: WRITE in small chunked transactions, yielding between chunks ───
+  const CHUNK = 50
+  for (let i = 0; i < built.length; i += CHUNK) {
+    const slice = built.slice(i, i + CHUNK)
+    db.transaction(() => {
+      for (const b of slice) upsert.run({ path: b.path, kind: b.kind, title: b.pg.title, description: b.pg.description, html: b.pg.html, now, lifecycle: b.lifecycle })
+    })()
+    await yieldLoop()
+  }
+  for (let i = 0; i < enrich.length; i += CHUNK) {
+    const slice = enrich.slice(i, i + CHUNK)
+    db.transaction(() => {
+      for (const e of slice) enqueueEnrich.run(e)
+    })()
+    await yieldLoop()
+  }
+  const n = built.length
+
+  // GC: drop any stored page not regenerated this run (stale casino slugs, etc.) —
+  // chunked + yielded too, so a large prune can't freeze the loop either.
   const stale = (db.prepare('SELECT path FROM seo_page').all() as { path: string }[]).filter((r) => !written.has(r.path))
   if (stale.length) {
     const del = db.prepare('DELETE FROM seo_page WHERE path=?')
-    db.transaction(() => stale.forEach((r) => del.run(r.path)))()
+    for (let i = 0; i < stale.length; i += CHUNK) {
+      const slice = stale.slice(i, i + CHUNK)
+      db.transaction(() => slice.forEach((r) => del.run(r.path)))()
+      await yieldLoop()
+    }
   }
   console.log(`[seo] rebuilt ${n} pages (${cap_count(ranked)} casinos, ${snaps.length} reports, ${stale.length} pruned)`)
 
