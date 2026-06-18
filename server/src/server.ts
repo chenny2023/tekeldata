@@ -61,6 +61,8 @@ import { startDefiLlama } from './collectors/defillama.ts'
 import { startPolymarket } from './collectors/polymarket.ts'
 import { startYouTube } from './collectors/youtube.ts'
 import { startStatsMaintenance } from './aggregate.ts'
+import { registerSocialIntel } from './internal/api.ts'
+import { startSocialIntel } from './internal/socialintel.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const distDir = join(__dirname, '../../dist')
@@ -90,6 +92,7 @@ async function main() {
   // registered BEFORE fastifyStatic/notFoundHandler so /casino, /rankings, /chains,
   // /methodology and /sitemap.xml are served as real HTML, not the SPA shell.
   registerSeo(app)
+  registerSocialIntel(app) // 内部社媒情报面板 /internal/social + 管理员 API（注册在 SPA 兜底前）
 
   // Serve the built SPA in production (single-process deploy). Vite emits
   // content-hashed asset filenames, so they're safe to cache hard (immutable);
@@ -218,6 +221,7 @@ async function main() {
   startArkham() // Arkham on-chain attribution — all-chain reserves/volume per casino entity
   startDefiLlama() // DefiLlama — on-chain prediction markets / lotteries / betting protocols
   startPolymarket() // Polymarket — top prediction markets (live odds + volume)
+  startSocialIntel() // 内部社媒情报：竞品/用户需求监听（Reddit 关键词 + X 账号），复用住宅代理
 
   // Second wave (+90s): the HEAVY deep-backfill indexers. Their synchronous bulk
   // inserts are what saturate the single Node loop on boot and make the API
