@@ -52,6 +52,13 @@ export function qaCheck(output: any, input: QaInput): QaResult {
   push(output?.image?.footer)
   for (const r of output?.image?.rows ?? []) push(r?.value)
   for (const n of output?.data_notes ?? []) push(n)
+  // daily-report insight schema (Today's Market Read + Notable Signals)
+  if (output?.market_read) {
+    push(output.market_read.what_changed)
+    push(output.market_read.why_it_matters)
+    push(output.market_read.what_to_watch)
+  }
+  for (const sig of output?.notable_signals ?? []) push(sig)
   if (!texts.length) {
     failures.push('empty: no usable text produced')
     return { pass: false, riskLevel: 'high', failures }

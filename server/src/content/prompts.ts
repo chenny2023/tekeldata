@@ -59,6 +59,13 @@ function snapshotInput(): { input: any; brands: string[]; values: string[]; repo
     brands.add(g.label)
     return { brand: g.label, chain: g.chain, direction: g.direction === 'in' ? 'inflow' : 'outflow', events: g.count, total: v(fmtUsd(g.total)) }
   })
+  // concentration shares — registered as allowed values so the insight may cite e.g.
+  // "ETH = 96.0% of chain volume" and still pass the number-consistency QA check.
+  const pctPlain = (f: number) => `${((f ?? 0) * 100).toFixed(1)}%`
+  const c = p.concentration
+  const concentration = c
+    ? { top3_verified_brand_share: v(pctPlain(c.top3Share)), top5_verified_brand_share: v(pctPlain(c.top5Share)), top_chain: c.topChain, top_chain_share: v(pctPlain(c.topChainShare)) }
+    : null
   const u = p.unattributed || { count: 0 }
   const reportUrl = `${SITE}/reports/daily/${snap.snapshot_date}`
   const input = {
@@ -73,6 +80,7 @@ function snapshotInput(): { input: any; brands: string[]; values: string[]; repo
       reserve_change_7d: snap.reserve_change_7d != null ? v(fmtPct(snap.reserve_change_7d)) : null,
       data_confidence: snap.confidence_level || 'medium',
     },
+    market_concentration: concentration,
     top_verified_casino_flow_24h: movers,
     reserve_watch: reserves,
     chain_breakdown_24h: chains,
