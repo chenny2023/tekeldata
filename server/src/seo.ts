@@ -5,6 +5,7 @@ import { runDataQualityChecks } from './dataquality.ts'
 import { brandKey, brandName, matchCasinoMeta, type CasinoMeta } from './casinometa.ts'
 import { reviewScores, type ReviewScore } from './collectors/reviews.ts'
 import { reserveSeries } from './reservehistory.ts'
+import { brandRiskEvents, recentRiskEvents, type RiskEvent } from './riskevents.ts'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Phase 2 — data-led SEO pages. We pre-render REAL, indexable HTML for high-value
@@ -129,7 +130,7 @@ footer{border-top:1px solid var(--line);margin-top:30px}footer .wrap{display:fle
 </style></head><body>
 <header class="nav"><div class="wrap">
 <a class="brand" href="/">WCOIN.CASINO</a>
-<nav class="navlinks"><a href="/">Home</a><a href="/rankings">Rankings</a><a href="/daily">Daily report</a><a href="/methodology/address-attribution">Methodology</a><a class="cta" href="/app">Live dashboard →</a></nav>
+<nav class="navlinks"><a href="/">Home</a><a href="/rankings">Rankings</a><a href="/risk">Risk</a><a href="/daily">Daily report</a><a href="/methodology/address-attribution">Methodology</a><a class="cta" href="/app">Live dashboard →</a></nav>
 </div></header>
 <main class="wrap">
 <div class="crumb">${crumbHtml}</div>
@@ -439,7 +440,21 @@ function casinoPage(
         `</form>`
       : ''
 
-  const body = `${limitedNote}${suspectNote}${sub}${trustLine}${stats}${solvency}${chainTable}${ratingsTable}${refTable}${website}${rel}${compareLinks}${chainBestLinks}${faqHtml}${alertForm}${cta}`
+  // risk registry — observed on-chain signals + any sourced incidents for this brand
+  const riskEvts = brandRiskEvents(v.key)
+  const riskSection = riskEvts.length
+    ? `<h2>Risk signals &amp; events</h2><p class="prose" style="font-size:13px">Observed on-chain risk signals${riskEvts.some((e) => e.kind === 'incident') ? ' and sourced public incidents' : ''} for ${esc(v.name)}. Signals are our own observed data; incidents link their source. Neutral — these are not a verdict on the operator.</p>${riskEvts
+        .map((e) => {
+          const col = e.severity === 'elevated' ? '#ff6b8a' : e.severity === 'watch' ? '#f5b100' : '#9aa0b4'
+          const src = e.source_url ? ` · <a href="${esc(e.source_url)}" rel="nofollow noopener" target="_blank">source →</a>` : ''
+          const tag = `<span class="pill">${e.kind === 'incident' ? 'incident' : 'on-chain signal'}</span>`
+          const resp = e.operator_response ? `<div class="prose" style="font-size:12px;margin-top:3px"><strong>Operator response:</strong> ${esc(e.operator_response)}</div>` : ''
+          return `<div style="border-left:3px solid ${col};padding:4px 0 4px 12px;margin:10px 0"><div style="font-weight:600">${esc(e.title)} ${tag}</div>${e.detail ? `<div class="prose" style="font-size:13px;margin-top:2px">${esc(e.detail)}${src}</div>` : src ? `<div class="prose" style="font-size:13px">${src}</div>` : ''}${resp}</div>`
+        })
+        .join('')}<p class="prose" style="font-size:12px"><a href="/risk">Full risk registry →</a></p>`
+    : ''
+
+  const body = `${limitedNote}${suspectNote}${sub}${trustLine}${stats}${solvency}${riskSection}${chainTable}${ratingsTable}${refTable}${website}${rel}${compareLinks}${chainBestLinks}${faqHtml}${alertForm}${cta}`
 
   const jsonLd: object[] = [
     ...(oc
@@ -1031,6 +1046,45 @@ ${pager}`
   }
 }
 
+// ── risk registry index — neutral, sourced; on-chain signals + curated incidents ─
+function riskIndexPage(events: RiskEvent[]): { title: string; description: string; html: string } {
+  const url = `${SITE}/risk`
+  const title = `Crypto Casino Risk Registry — On-Chain Signals & Incidents | WCOIN.CASINO`
+  const description = `A neutral, sourced registry of crypto-casino risk signals: observed on-chain reserve drops and coverage anomalies, plus publicly-reported incidents shown with their source. Not a verdict — do your own research.`
+  const sevCol = (s: string) => (s === 'elevated' ? 'rose' : s === 'watch' ? 'gold' : 'mut')
+  const rows = events
+    .map((e) => {
+      const brand = e.brand_label ? `<a href="/casino/${slugify(e.brand_label)}">${esc(e.brand_label)}</a>` : esc(e.brand_key)
+      const src = e.source_url ? `<a href="${esc(e.source_url)}" rel="nofollow noopener" target="_blank">source →</a>` : '<span class="pill">on-chain</span>'
+      return `<tr><td>${brand}</td><td><span class="${sevCol(e.severity)}">${esc(e.title)}</span></td><td><span class="pill">${e.kind === 'incident' ? 'incident' : 'signal'}</span></td><td class="n">${src}</td></tr>`
+    })
+    .join('')
+  const body =
+    `<p class="sub">A neutral, sourced registry of observed crypto-casino risk signals and publicly-reported incidents. <strong>On-chain signals</strong> are our own observed wallet data; <strong>incidents</strong> are shown with their source and the operator's response where available.</p>` +
+    `<p class="upd">Updated continuously. This is <em>not</em> a statement on any operator's solvency, safety or legality.</p>` +
+    (events.length
+      ? `<table><thead><tr><th>Operator</th><th>Signal / event</th><th>Type</th><th style="text-align:right">Source</th></tr></thead><tbody>${rows}</tbody></table>`
+      : `<p class="prose">No open risk signals or incidents right now. On-chain signals appear automatically when observed (e.g. a material reserve drop); incidents are added when publicly reported with a source.</p>`) +
+    `<p class="prose" style="margin-top:18px;font-size:13px">On-chain signals are derived from observed wallet data with partial coverage and may be benign. Incidents are publicly-reported events linked to their source; inclusion is not an endorsement of the claim. Nothing here is a verdict. Spotted something we should track? <a href="/daily">Submit evidence or a correction →</a> See the <a href="/methodology/data-confidence">data-confidence methodology</a>.</p>`
+  return {
+    title,
+    description,
+    html: layout({
+      title,
+      description,
+      canonical: url,
+      jsonLd: [],
+      breadcrumb: [
+        { name: 'Home', url: SITE + '/' },
+        { name: 'Risk registry', url },
+      ],
+      h1: 'Crypto casino risk registry',
+      updated: Date.now(),
+      body,
+    }),
+  }
+}
+
 // Unattributed Casino Flow — pattern-detected wallet clusters we can't yet tie to a
 // verified brand. Listed transparently, kept OUT of verified rankings, no profiles.
 function unattributedFlowPage(brands: BrandAgg[]): { title: string; description: string; html: string } {
@@ -1286,6 +1340,7 @@ export async function generateSeoPages(): Promise<void> {
   }
   add('/rankings/trust', 'rankings', trustRankingPage(ranked, slugOfView))
   add('/rankings', 'rankings', rankingsIndexPage([...chainSet], unattributed.length > 0))
+  add('/risk', 'risk', riskIndexPage(recentRiskEvents(80)), 'featured_core') // neutral risk registry
   if (unattributed.length) add('/rankings/unattributed-flow', 'rankings', unattributedFlowPage(unattributed))
   await yieldLoop()
   // chains
@@ -1416,6 +1471,7 @@ export function registerSeo(app: FastifyInstance) {
   app.get('/casino/:slug', serve('casino'))
   app.get('/compare/:slug', serve('compare'))
   app.get('/rankings', serve('rankings'))
+  app.get('/risk', serve('risk'))
   app.get('/rankings/:slug', serve('rankings'))
   app.get('/chains/:slug', serve('chains'))
   app.get('/reports/daily/:date', serve('report'))

@@ -502,6 +502,31 @@ CREATE TABLE IF NOT EXISTS data_quality_issue (
 );
 CREATE INDEX IF NOT EXISTS idx_dq_date ON data_quality_issue(date, issue_type);
 
+-- Risk-event registry. Two layers, both NEUTRAL + sourced:
+--   • kind='onchain_signal' — auto-derived from OUR observed data (reserve drops, coverage
+--     under review, anomalous volume). 100% defensible; no third-party claim.
+--   • kind='incident' — admin-CURATED public events (hack / non-payment / insolvency). Each
+--     MUST carry a source_url; framing is neutral; the operator's response has a slot.
+-- Never an unsourced accusation; never a safety/legality verdict.
+CREATE TABLE IF NOT EXISTS risk_event (
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  brand_key         TEXT NOT NULL,
+  brand_label       TEXT,
+  kind              TEXT NOT NULL,                 -- onchain_signal | incident
+  category          TEXT NOT NULL,                 -- reserve_drop | coverage_under_review | anomalous_volume | large_outflow | hack | non_payment | insolvency | other
+  severity          TEXT NOT NULL DEFAULT 'info',  -- info | watch | elevated
+  title             TEXT NOT NULL,
+  detail            TEXT,
+  source_url        TEXT,                          -- REQUIRED for incidents
+  operator_response TEXT,
+  status            TEXT NOT NULL DEFAULT 'open',  -- open | resolved | disputed | dismissed
+  observed_at       INTEGER NOT NULL,
+  created_at        INTEGER NOT NULL,
+  updated_at        INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_risk_brand ON risk_event(brand_key, status);
+CREATE INDEX IF NOT EXISTS idx_risk_recent ON risk_event(observed_at);
+
 -- Per-casino public alert subscription (no login): a visitor on a /casino page asks to
 -- be emailed when that brand's tracked reserves drop or a large net outflow is observed.
 -- Double opt-in (confirm_token) + non-enumerable unsubscribe_token; one row per (email,brand).

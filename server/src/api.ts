@@ -1053,6 +1053,32 @@ export async function registerApi(app: FastifyInstance) {
     return { count: rows.length, items: rows }
   })
 
+  // risk registry — add/edit a CURATED public incident (admin). A source_url is mandatory;
+  // framing stays neutral (on-chain signals are auto-generated separately). List for review.
+  app.post('/api/risk-event', async (req, reply) => {
+    if (!requireAdmin(req, reply)) return
+    const b = (req.body ?? {}) as { id?: number; brand?: string; category?: string; severity?: string; title?: string; detail?: string; sourceUrl?: string; operatorResponse?: string; status?: string }
+    if (!['hack', 'non_payment', 'insolvency', 'other'].includes(String(b.category))) return reply.code(400).send({ error: 'invalid category' })
+    const source = String(b.sourceUrl ?? '').trim()
+    if (!/^https?:\/\/.+/.test(source)) return reply.code(400).send({ error: 'a valid source_url is required for an incident' })
+    const title = String(b.title ?? '').trim()
+    if (title.length < 4) return reply.code(400).send({ error: 'title required' })
+    const sev = ['info', 'watch', 'elevated'].includes(String(b.severity)) ? b.severity : 'watch'
+    const status = ['open', 'resolved', 'disputed', 'dismissed'].includes(String(b.status)) ? b.status : 'open'
+    const now = Date.now()
+    if (b.id) {
+      db.prepare("UPDATE risk_event SET category=?, severity=?, title=?, detail=?, source_url=?, operator_response=?, status=?, updated_at=? WHERE id=? AND kind='incident'").run(b.category, sev, title, String(b.detail ?? '') || null, source, String(b.operatorResponse ?? '') || null, status, now, b.id)
+      return { ok: true, id: b.id }
+    }
+    const brand = String(b.brand ?? '').trim()
+    const info = db.prepare("INSERT INTO risk_event(brand_key, brand_label, kind, category, severity, title, detail, source_url, operator_response, status, observed_at, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)").run(brandKey(brand), brand || null, 'incident', b.category, sev, title, String(b.detail ?? '') || null, source, String(b.operatorResponse ?? '') || null, status, now, now, now)
+    return { ok: true, id: Number(info.lastInsertRowid) }
+  })
+  app.get('/api/diag/risk-events', async (req, reply) => {
+    if (!requireAdmin(req, reply)) return
+    return { items: db.prepare('SELECT * FROM risk_event ORDER BY observed_at DESC LIMIT 300').all() }
+  })
+
   // automated content pipeline (gated): dry-run preview (generate + QA, never posts)
   // + recent run log. Lets you verify Grok output + QA before enabling auto-publish.
   app.get('/api/content/preview', async (req, reply) => {

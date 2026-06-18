@@ -14,6 +14,7 @@ import { registerApi } from './api.ts'
 import { registerAuth, reconcileAdmins } from './auth.ts'
 import { registerSubscribe } from './subscribe.ts'
 import { registerCasinoAlert, startCasinoAlerts } from './casinoalert.ts'
+import { startRiskEvents } from './riskevents.ts'
 import { startDigest, registerDigest } from './digest.ts'
 import { startEvm } from './collectors/evm.ts'
 import { startBackfill } from './collectors/backfill.ts'
@@ -204,6 +205,7 @@ async function main() {
   startRetention() // periodic prune of transfers past the retention window
   startReserveHistory() // daily solvency snapshots → reserve-adequacy trend
   startCasinoAlerts() // per-casino reserve-drop alert emails to public subscribers
+  startRiskEvents() // risk-event registry: auto on-chain signals + curated incidents
   startSnapshots() // 1.0 content layer: daily market snapshot (homepage + email source)
   startDailyInsight() // LLM "Today's Market Read" + Notable Signals for the daily report (QA-gated)
   startDigest() // 1.0 daily email digest scheduler (sends at DIGEST_SEND_HOUR_UTC)
