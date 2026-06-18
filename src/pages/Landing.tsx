@@ -91,11 +91,11 @@ function CoverageBoard() {
   )
 }
 
-// Email capture → double opt-in. The lead CTA for the data-media pivot.
+// Email capture → double opt-in via a one-click confirmation LINK (unified with the
+// /daily subscribe box — no on-page 6-digit code step).
 function EmailCapture() {
   const [email, setEmail] = useState('')
-  const [code, setCode] = useState('')
-  const [stage, setStage] = useState<'idle' | 'sending' | 'code' | 'done'>('idle')
+  const [stage, setStage] = useState<'idle' | 'sending' | 'done'>('idle')
   const [msg, setMsg] = useState('')
 
   const request = async (e: FormEvent) => {
@@ -105,22 +105,11 @@ function EmailCapture() {
     setMsg('')
     try {
       const r = await api.subscribe(email)
-      if (r.alreadyActive) return (setStage('done'), setMsg("You're already subscribed ✓"))
-      setStage('code')
-      setMsg(r.devCode ? `Dev code: ${r.devCode}` : 'Check your inbox for a 6-digit code.')
+      setStage('done')
+      setMsg(r.alreadyActive ? "You're already subscribed ✓" : 'Check your inbox and click the confirmation link to start the Daily Report.')
     } catch {
       setStage('idle')
       setMsg('Something went wrong — try again.')
-    }
-  }
-  const verify = async (e: FormEvent) => {
-    e.preventDefault()
-    try {
-      const r = await api.subscribeVerify(email, code.trim())
-      if (r.active) return (setStage('done'), setMsg("You're in — the first Daily Report arrives tomorrow ✓"))
-      setMsg('Invalid code.')
-    } catch {
-      setMsg('Invalid or expired code.')
     }
   }
 
@@ -128,17 +117,6 @@ function EmailCapture() {
     <div className="mx-auto mt-7 max-w-md">
       {stage === 'done' ? (
         <div className="rounded-xl border border-mint-400/30 bg-mint-400/10 px-4 py-3 text-sm font-medium text-mint-300">{msg}</div>
-      ) : stage === 'code' ? (
-        <form onSubmit={verify} className="flex gap-2">
-          <input
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            inputMode="numeric"
-            placeholder="6-digit code"
-            className="min-w-0 flex-1 rounded-xl border border-white/12 bg-white/5 px-4 py-3 text-sm tracking-[0.3em] text-white placeholder:tracking-normal placeholder:text-white/35 focus:border-gold-500/50 focus:outline-none"
-          />
-          <button className="rounded-xl bg-gradient-to-r from-gold-400 to-gold-600 px-5 py-3 text-sm font-semibold text-ink-950 hover:brightness-110">Confirm</button>
-        </form>
       ) : (
         <form onSubmit={request} className="flex gap-2">
           <input
@@ -157,7 +135,7 @@ function EmailCapture() {
         </form>
       )}
       {msg && stage !== 'done' && <p className="mt-2 text-[13px] text-white/45">{msg}</p>}
-      {stage === 'idle' && <p className="mt-2 text-[12px] text-white/35">Free daily on-chain crypto-casino market report. Unsubscribe anytime.</p>}
+      {stage === 'idle' && <p className="mt-2 text-[12px] text-white/35">Free daily on-chain crypto-casino market report — confirm with a one-click link. Unsubscribe anytime.</p>}
     </div>
   )
 }
