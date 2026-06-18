@@ -1,38 +1,111 @@
 // 内部社媒情报面板 — 单文件 HTML（同源，复用 wcoin_token；支持内置邮箱验证码登录）。
-// 纯原生 JS，无构建步骤。数据接口均走管理员 token。
+// 纯原生 JS + 事件委托（data-act），无构建步骤。数据接口均走管理员 token。
 export const PANEL_HTML = `<!doctype html>
 <html lang="zh"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>社媒情报 · 内部</title>
 <style>
-  :root{--bg:#0b0e14;--panel:#141925;--line:#222a3a;--fg:#e6edf3;--mut:#8b97a8;--acc:#4f8cff;--good:#2ecc71;--warn:#f1c40f}
-  *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif}
-  header{display:flex;align-items:center;gap:16px;padding:12px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:5}
-  h1{font-size:16px;margin:0}.mut{color:var(--mut)}
-  .tabs{display:flex;gap:6px;margin-left:auto}
-  .tab,.btn{background:var(--panel);border:1px solid var(--line);color:var(--fg);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:13px}
-  .tab.on{background:var(--acc);border-color:var(--acc)}
-  .btn:hover{border-color:var(--acc)}.btn.sm{padding:3px 8px;font-size:12px}
-  .btn.good{background:#16351f;border-color:#1f5c33}.btn.bad{background:#3a1820;border-color:#5c1f2c}
-  main{padding:16px 18px;max-width:1100px;margin:0 auto}
-  .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
-  select,input{background:var(--panel);border:1px solid var(--line);color:var(--fg);padding:6px 8px;border-radius:8px;font-size:13px}
-  .stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
-  .stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 14px}
-  .stat b{font-size:18px}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px}
-  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .pill{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--mut)}
-  .pill.demand{color:#ffd479;border-color:#5c4a1f}.pill.competitor{color:#ff9c7a;border-color:#5c2f1f}.pill.brand{color:#7ab8ff;border-color:#1f3a5c}
-  .title{font-weight:600;margin:6px 0}.body{color:var(--mut);font-size:13px;max-height:5.2em;overflow:hidden}
-  .intent{font-variant-numeric:tabular-nums}
+  :root{
+    --bg:#070a10;--panel:#121826;--panel2:#161d2e;--line:#222c40;
+    --fg:#e8eef6;--mut:#8a98ad;--dim:#5b6b86;
+    --acc:#5b8cff;--acc2:#7c5bff;--good:#23c882;--bad:#ff5b6e;--warn:#ffb24a;
+    --grad:linear-gradient(135deg,#5b8cff,#7c5bff);
+  }
+  *{box-sizing:border-box}
+  ::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:#1f2940;border-radius:8px}
+  body{margin:0;background:radial-gradient(1200px 600px at 80% -10%,#10203f33,transparent),var(--bg);
+    color:var(--fg);font:14px/1.55 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
   a{color:var(--acc);text-decoration:none}a:hover{text-decoration:underline}
-  textarea{width:100%;min-height:80px;background:#0e1320;border:1px solid var(--line);color:var(--fg);border-radius:8px;padding:8px;font:13px/1.5 inherit;resize:vertical}
-  .login{max-width:340px;margin:60px auto;text-align:center}.login input{width:100%;margin:6px 0}
-  .toast{position:fixed;bottom:18px;right:18px;background:var(--panel);border:1px solid var(--acc);padding:10px 14px;border-radius:8px;opacity:0;transition:.2s}
-  .toast.show{opacity:1}
-  .empty{color:var(--mut);text-align:center;padding:40px}
+  .mut{color:var(--mut)}.dim{color:var(--dim)}.tabnum{font-variant-numeric:tabular-nums}.right{margin-left:auto}
+
+  header{display:flex;align-items:center;gap:14px;padding:12px 22px;border-bottom:1px solid var(--line);
+    position:sticky;top:0;z-index:20;background:rgba(7,10,16,.82);backdrop-filter:blur(12px)}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:15px;letter-spacing:.2px}
+  .logo{width:26px;height:26px;border-radius:8px;background:var(--grad);display:grid;place-items:center;font-size:14px;box-shadow:0 4px 14px #5b8cff44}
+  .nav{display:flex;gap:4px;margin-left:8px;background:var(--panel);border:1px solid var(--line);padding:4px;border-radius:12px}
+  .nav button{background:transparent;border:0;color:var(--mut);padding:7px 14px;border-radius:9px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s}
+  .nav button:hover{color:var(--fg)}
+  .nav button.on{color:#fff;background:var(--grad);box-shadow:0 4px 12px #5b8cff33}
+  .spacer{margin-left:auto}
+  .btn{background:var(--panel2);border:1px solid var(--line);color:var(--fg);padding:8px 13px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;display:inline-flex;align-items:center;gap:6px}
+  .btn:hover{border-color:var(--acc);box-shadow:0 0 0 3px #5b8cff1f}
+  .btn:disabled{opacity:.5;cursor:default;box-shadow:none}
+  .btn.sm{padding:5px 10px;font-size:12px;border-radius:8px}
+  .btn.pri{background:var(--grad);border-color:transparent;box-shadow:0 4px 14px #5b8cff33}
+  .btn.good{background:#0f3326;border-color:#1c6e4d;color:#5ff0b0}
+  .btn.bad{background:#3a1620;border-color:#7a2435;color:#ff9aa8}
+  .btn.ghost{background:transparent}
+
+  main{padding:20px 22px 60px;max-width:1180px;margin:0 auto}
+  .lead{color:var(--mut);font-size:13px;margin:0 0 16px}
+
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px;margin-bottom:18px}
+  .kpi{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:14px;padding:14px 16px;position:relative;overflow:hidden}
+  .kpi .k-ic{position:absolute;right:12px;top:12px;font-size:18px;opacity:.5}
+  .kpi .k-lbl{color:var(--mut);font-size:12px;font-weight:600}
+  .kpi .k-val{font-size:26px;font-weight:800;margin-top:4px;letter-spacing:-.5px}
+  .kpi .k-sub{font-size:11px;color:var(--dim);margin-top:2px}
+  .kpi.accent{border-color:#2a3a63;background:linear-gradient(180deg,#16213d,var(--panel))}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:820px){.grid2{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:14px}
+  .panel h3{margin:0 0 12px;font-size:13px;font-weight:700;color:var(--fg);display:flex;align-items:center;gap:8px}
+  .panel h3 .tag{font-size:11px;color:var(--dim);font-weight:600;margin-left:auto}
+
+  .barrow{display:flex;align-items:center;gap:10px;margin:7px 0;font-size:12px}
+  .barrow .lab{width:108px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 0 auto}
+  .bartrack{flex:1;height:8px;background:#0c1220;border-radius:6px;overflow:hidden}
+  .barfill{height:100%;border-radius:6px;background:var(--grad)}
+  .barrow .num{width:40px;text-align:right;color:var(--fg);font-weight:700}
+
+  .spark{display:flex;align-items:flex-end;gap:4px;height:96px;padding-top:6px}
+  .spark .col{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;justify-content:flex-end}
+  .spark .col i{width:72%;min-height:3px;background:var(--grad);border-radius:4px 4px 0 0;display:block}
+  .spark .col span{font-size:10px;color:var(--dim)}
+
+  .tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+  .tbl th{text-align:left;color:var(--dim);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--line);font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+  .tbl td{padding:8px;border-bottom:1px solid #1a2336;vertical-align:middle}
+  .tbl tr:last-child td{border-bottom:0}
+  .tbl tr:hover td{background:#0e1626}
+
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px;background:var(--panel);border:1px solid var(--line);padding:10px 12px;border-radius:12px;position:sticky;top:62px;z-index:10}
+  select,input,textarea{background:#0c1220;border:1px solid var(--line);color:var(--fg);padding:8px 10px;border-radius:9px;font-size:13px;font-family:inherit;outline:none}
+  select:focus,input:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0 3px #5b8cff1f}
+  input.search{flex:1;min-width:160px}
+  label.fld{display:flex;flex-direction:column;gap:5px;font-size:11px;color:var(--mut);font-weight:600}
+
+  .card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:12px;transition:.15s}
+  .card:hover{border-color:#2c3a5a}
+  .crow{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+  .pill{font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--mut);font-weight:600;white-space:nowrap}
+  .pill.demand{color:#ffd479;border-color:#5c4a1f;background:#21190a}
+  .pill.competitor{color:#ff9c7a;border-color:#5c2f1f;background:#22120c}
+  .pill.brand{color:#7ab8ff;border-color:#1f3a5c;background:#0c1726}
+  .pill.plat{color:#b9a7ff;border-color:#352a5c;background:#150f26}
+  .pill.prod{color:#9fe7c6;border-color:#1c5240;background:#0c2018}
+  .sent{font-weight:700}.sent.pos{color:var(--good)}.sent.neg{color:var(--bad)}.sent.neu{color:var(--dim)}
+  .title{font-weight:700;margin:9px 0 4px;font-size:14.5px;line-height:1.4}
+  .body{color:var(--mut);font-size:13px;max-height:4.6em;overflow:hidden}
+  .meter{display:inline-flex;align-items:center;gap:7px}
+  .meter .mt{width:64px;height:7px;background:#0c1220;border-radius:5px;overflow:hidden}
+  .meter .mf{height:100%;border-radius:5px}
+  .meter b{font-size:11px;font-variant-numeric:tabular-nums}
+  textarea.draft{width:100%;min-height:92px;margin-top:10px;line-height:1.5;resize:vertical}
+  .rationale{font-size:12px;color:var(--warn);background:#1c1708;border:1px solid #463615;border-radius:8px;padding:6px 9px;margin-top:8px}
+
+  .login{max-width:360px;margin:9vh auto;text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:34px 30px}
+  .login .logo{width:46px;height:46px;font-size:22px;margin:0 auto 14px;border-radius:13px}
+  .login h1{font-size:19px;margin:0 0 4px}.login input{width:100%;margin:8px 0;text-align:center;font-size:15px;letter-spacing:1px}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--panel2);border:1px solid var(--acc);
+    padding:11px 18px;border-radius:11px;opacity:0;transition:.25s;z-index:50;box-shadow:0 10px 30px #0008;font-weight:600;font-size:13px}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .empty{color:var(--mut);text-align:center;padding:54px 20px;border:1px dashed var(--line);border-radius:14px;background:var(--panel)}
+  .empty .big{font-size:30px;margin-bottom:8px}
+  .skel{height:120px;border-radius:14px;background:linear-gradient(90deg,#0e1422,#141d30,#0e1422);background-size:200% 100%;animation:sh 1.2s infinite;margin-bottom:12px}
+  @keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
 </style></head>
 <body>
 <div id="app"></div>
@@ -40,149 +113,223 @@ export const PANEL_HTML = `<!doctype html>
 <script>
 const TOKEN_KEY='wcoin_token'
 let token=localStorage.getItem(TOKEN_KEY)||''
-let tab='signals', products=[], filters={product:'',kind:'',platform:'',minIntent:'0',sort:'ts',q:''}
+let tab='overview', products=[]
+let filters={product:'',kind:'',platform:'',minIntent:'0',sort:'intent',status:'',q:''}
+let aDays=7
 const $=s=>document.querySelector(s)
-function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600)}
+const esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
+const ago=ts=>{if(!ts)return '';const m=(Date.now()-ts)/60000;if(m<1)return '刚刚';if(m<60)return Math.round(m)+'分钟前';if(m<1440)return Math.round(m/60)+'小时前';return Math.round(m/1440)+'天前'}
+const pname=k=>(products.find(p=>p.key===k)||{}).name||k
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(window._tt);window._tt=setTimeout(()=>t.classList.remove('show'),2600)}
+
 async function api(path,opts={}){
   const r=await fetch(path,{...opts,headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,...(opts.headers||{})}})
   if(r.status===403){token='';localStorage.removeItem(TOKEN_KEY);render();throw new Error('需要管理员登录')}
   return r.json()
 }
-const esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
-const ago=ts=>{if(!ts)return '';const m=(Date.now()-ts)/60000;if(m<60)return Math.round(m)+'m';if(m<1440)return Math.round(m/60)+'h';return Math.round(m/1440)+'d'}
+const intColor=v=>v>=0.7?'#ff5c5c':v>=0.45?'#ffb24a':v>=0.25?'#ffd479':'#5b6b86'
+function meter(v){v=v||0;return '<span class="meter"><span class="mt"><span class="mf" style="width:'+Math.round(v*100)+'%;background:'+intColor(v)+'"></span></span><b style="color:'+intColor(v)+'">'+v.toFixed(2)+'</b></span>'}
+function sentChip(v){v=v||0;const c=v>0.15?'pos':v<-0.15?'neg':'neu';const lab=v>0.15?'正面':v<-0.15?'负面':'中性';return '<span class="sent '+c+'">'+lab+' '+v.toFixed(2)+'</span>'}
+function kindPill(k){const m={demand:'需求',competitor:'竞品',brand:'品牌'};return '<span class="pill '+k+'">'+(m[k]||k)+'</span>'}
 
-// ── login（内置邮箱验证码，复用 /api/auth）──
+// ── 事件委托 ───────────────────────────────────────────────────────────────
+const H={}
+document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act;if(H[a]){e.preventDefault();H[a](el.dataset.id,el)}})
+H.go=k=>{tab=k;render()}
+H.logout=()=>{token='';localStorage.removeItem(TOKEN_KEY);render()}
+H.run=async()=>{toast('已触发采集…结果稍后刷新可见');await api('/api/internal/social/run',{method:'POST'})}
+
+// ── 登录 ───────────────────────────────────────────────────────────────────
 let loginEmail=''
-async function reqCode(){loginEmail=$('#email').value.trim();const r=await fetch('/api/auth/request-code',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:loginEmail})});const j=await r.json();if(j.devCode)toast('开发验证码: '+j.devCode);else toast('验证码已发送');render(true)}
-async function verify(){const code=$('#code').value.trim();const r=await fetch('/api/auth/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:loginEmail,code})});const j=await r.json();if(j.token){token=j.token;localStorage.setItem(TOKEN_KEY,token);render()}else toast(j.error||'验证失败')}
-
+H.reqcode=async()=>{loginEmail=$('#email').value.trim();const r=await fetch('/api/auth/request-code',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:loginEmail})});const j=await r.json();if(j.devCode)toast('开发验证码: '+j.devCode);else toast('验证码已发送至邮箱');render(true)}
+H.verify=async()=>{const code=$('#code').value.trim();const r=await fetch('/api/auth/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:loginEmail,code})});const j=await r.json();if(j.token){token=j.token;localStorage.setItem(TOKEN_KEY,token);render()}else toast(j.error||'验证失败')}
 function loginView(step){
-  $('#app').innerHTML='<div class="login"><h1>社媒情报 · 内部</h1><p class="mut">仅限管理员</p>'+
-   (step?'<input id="code" placeholder="6 位验证码"><button class="btn" onclick="verify()">登录</button>':
-         '<input id="email" placeholder="管理员邮箱" value="'+esc(loginEmail)+'"><button class="btn" onclick="reqCode()">获取验证码</button>')+'</div>'
+  $('#app').innerHTML='<div class="login"><div class="logo">📡</div><h1>社媒情报</h1><p class="mut">团队内部 · 仅限管理员</p>'+
+   (step
+     ?'<input id="code" placeholder="6 位验证码" autofocus><button class="btn pri" data-act="verify" style="width:100%;justify-content:center">登录</button>'
+     :'<input id="email" placeholder="管理员邮箱" value="'+esc(loginEmail)+'" autofocus><button class="btn pri" data-act="reqcode" style="width:100%;justify-content:center">获取验证码</button>')+'</div>'
 }
 
 function shell(inner){
-  return '<header><h1>社媒情报</h1><span class="mut">竞品 / 用户需求 / 推荐机会</span>'+
-   '<div class="tabs">'+
-   ['signals|信号','drafts|草稿队列','custom|自定义采集'].map(t=>{const[k,n]=t.split('|');return '<button class="tab '+(tab===k?'on':'')+'" onclick="go(\\''+k+'\\')">'+n+'</button>'}).join('')+
-   '<button class="btn" onclick="runNow()">手动采集一轮</button>'+
-   '<button class="btn" onclick="logout()">退出</button></div></header><main>'+inner+'</main>'
+  const nav=[['overview','概览'],['signals','信号'],['drafts','草稿'],['custom','自定义采集']]
+    .map(t=>'<button class="'+(tab===t[0]?'on':'')+'" data-act="go" data-id="'+t[0]+'">'+t[1]+'</button>').join('')
+  return '<header><div class="brand"><div class="logo">📡</div>社媒情报</div>'+
+    '<div class="nav">'+nav+'</div><div class="spacer"></div>'+
+    '<button class="btn ghost sm" data-act="run">⟳ 手动采集</button>'+
+    '<button class="btn ghost sm" data-act="logout">退出</button></header><main>'+inner+'</main>'
 }
-function go(t){tab=t;render()}
-function logout(){token='';localStorage.removeItem(TOKEN_KEY);render()}
-async function runNow(){await api('/api/internal/social/run',{method:'POST'});toast('已触发采集（结果稍后刷新可见）')}
+function skeleton(){$('#app').innerHTML=shell('<div class="skel"></div><div class="skel"></div><div class="skel"></div>')}
 
 async function render(loginStep){
   if(!token){loginView(loginStep);return}
   if(!products.length){try{const p=await api('/api/internal/social/products');products=p.products||[]}catch(e){return}}
-  if(tab==='signals')await renderSignals();else if(tab==='drafts')await renderDrafts();else await renderCustom()
+  skeleton()
+  try{
+    if(tab==='overview')await renderOverview()
+    else if(tab==='signals')await renderSignals()
+    else if(tab==='drafts')await renderDrafts()
+    else await renderCustom()
+  }catch(e){$('#app').innerHTML=shell('<div class="empty"><div class="big">⚠️</div>'+esc(e.message||'加载失败')+'</div>')}
 }
 
-function filterBar(){
-  const opt=(val,label,sel)=>'<option value="'+val+'"'+(sel===val?' selected':'')+'>'+label+'</option>'
-  return '<div class="filters">'+
-   '<select id="f-product" onchange="setF()">'+opt('','全部产品',filters.product)+products.map(p=>opt(p.key,p.name,filters.product)).join('')+'</select>'+
-   '<select id="f-kind" onchange="setF()">'+['|全部类别','demand|需求/机会','competitor|竞品','brand|品牌'].map(o=>{const[v,l]=o.split('|');return opt(v,l,filters.kind)}).join('')+'</select>'+
-   '<select id="f-platform" onchange="setF()">'+['|全部平台','reddit|Reddit','x|X','threads|Threads'].map(o=>{const[v,l]=o.split('|');return opt(v,l,filters.platform)}).join('')+'</select>'+
-   '<select id="f-intent" onchange="setF()">'+['0|意图≥0','0.3|意图≥0.3','0.5|意图≥0.5','0.7|意图≥0.7'].map(o=>{const[v,l]=o.split('|');return opt(v,l,filters.minIntent)}).join('')+'</select>'+
-   '<select id="f-sort" onchange="setF()">'+['ts|最新优先','intent|意图优先'].map(o=>{const[v,l]=o.split('|');return opt(v,l,filters.sort)}).join('')+'</select>'+
-   '<input id="f-q" placeholder="关键词搜索…" value="'+esc(filters.q)+'" onkeydown="if(event.key===\\'Enter\\')setF()" style="min-width:160px">'+
-   '</div>'
-}
-function setF(){filters={product:$('#f-product').value,kind:$('#f-kind').value,platform:$('#f-platform').value,minIntent:$('#f-intent').value,sort:$('#f-sort').value,q:$('#f-q').value.trim()};renderSignals()}
+// ── 概览 / 分析 ─────────────────────────────────────────────────────────────
+function bars(rows,labFn){const max=Math.max(1,...rows.map(r=>r.n));return rows.map(r=>
+  '<div class="barrow"><span class="lab" title="'+esc(labFn(r))+'">'+esc(labFn(r))+'</span>'+
+  '<span class="bartrack"><span class="barfill" style="width:'+Math.round(r.n/max*100)+'%"></span></span>'+
+  '<span class="num tabnum">'+r.n+'</span></div>').join('')||'<div class="dim" style="font-size:12px">暂无数据</div>'}
 
-async function renderSignals(){
+async function renderOverview(){
+  const a=await api('/api/internal/social/analytics?days='+aDays)
   const st=await api('/api/internal/social/stats')
-  const qs=new URLSearchParams({product:filters.product,kind:filters.kind,platform:filters.platform,minIntent:filters.minIntent,sort:filters.sort,q:filters.q,limit:'80'}).toString()
-  const {signals}=await api('/api/internal/social/signals?'+qs)
-  const stats='<div class="stats"><div class="stat"><div class="mut">总信号</div><b>'+st.total+'</b></div>'+
-    '<div class="stat"><div class="mut">近24h</div><b>'+st.collected24h+'</b></div>'+
-    '<div class="stat"><div class="mut">待审草稿</div><b>'+st.pendingDrafts+'</b></div></div>'
-  const cards=signals.length?signals.map(s=>{
-    const pname=(products.find(p=>p.key===s.product)||{}).name||s.product
-    return '<div class="card"><div class="row"><span class="pill '+s.kind+'">'+s.kind+'</span>'+
-      '<span class="pill">'+s.platform+'</span><span class="pill">'+esc(pname)+'</span>'+
-      '<span class="pill intent">意图 '+(s.intent||0).toFixed(2)+'</span>'+
-      '<span class="pill">情绪 '+(s.sentiment||0).toFixed(2)+'</span>'+
-      '<span class="mut" style="margin-left:auto">'+ago(s.ts)+' · '+esc(s.author||'')+'</span></div>'+
-      '<div class="title">'+esc(s.title)+'</div>'+
-      '<div class="body">'+esc((s.body||'').slice(0,360))+'</div>'+
-      '<div class="row" style="margin-top:8px"><a href="'+esc(s.url)+'" target="_blank">查看原贴 ↗</a>'+
-      '<button class="btn sm" style="margin-left:auto" onclick="mkDraft(\\''+s.id+'\\',this)">生成推荐草稿</button>'+
-      '<button class="btn sm" onclick="sigIgnore(\\''+s.id+'\\')">忽略</button></div></div>'
-  }).join(''):'<div class="empty">暂无信号（采集器每 ~2min 抓一条查询，刚部署需等几分钟；或点"手动采集一轮"）</div>'
-  $('#app').innerHTML=shell(filterBar()+stats+cards)
-}
-async function mkDraft(id,btn){btn.textContent='生成中…';btn.disabled=true;const r=await api('/api/internal/social/draft',{method:'POST',body:JSON.stringify({signalId:id})});toast(r.message||'完成');if(r.ok&&r.draftId){tab='drafts';render()}else{btn.textContent='生成推荐草稿';btn.disabled=false}}
-async function sigIgnore(id){await api('/api/internal/social/signal/'+id+'/status',{method:'POST',body:JSON.stringify({status:'ignored'})});renderSignals()}
+  const s=a.sentiment||{pos:0,neg:0,neu:0};const stot=(s.pos||0)+(s.neg||0)+(s.neu||0)||1
+  const demandN=(a.byKind.find(k=>k.kind==='demand')||{}).n||0
+  const compN=(a.byKind.find(k=>k.kind==='competitor')||{}).n||0
+  const kpis='<div class="kpis">'+
+    '<div class="kpi accent"><span class="k-ic">📈</span><div class="k-lbl">总信号</div><div class="k-val tabnum">'+st.total+'</div><div class="k-sub">全部历史</div></div>'+
+    '<div class="kpi"><span class="k-ic">🕐</span><div class="k-lbl">近 '+aDays+' 天</div><div class="k-val tabnum">'+a.byProduct.reduce((x,r)=>x+r.n,0)+'</div><div class="k-sub">新采集信号</div></div>'+
+    '<div class="kpi"><span class="k-ic">🎯</span><div class="k-lbl">需求/机会</div><div class="k-val tabnum">'+demandN+'</div><div class="k-sub">可推荐自有产品</div></div>'+
+    '<div class="kpi"><span class="k-ic">⚔️</span><div class="k-lbl">竞品讨论</div><div class="k-val tabnum">'+compN+'</div><div class="k-sub">竞品相关贴</div></div>'+
+    '<div class="kpi"><span class="k-ic">✍️</span><div class="k-lbl">待审草稿</div><div class="k-val tabnum">'+st.pendingDrafts+'</div><div class="k-sub">等待人工发布</div></div></div>'
 
+  const tmax=Math.max(1,...a.trend.map(t=>t.n))
+  const spark='<div class="panel"><h3>📅 采集趋势<span class="tag">近 '+aDays+' 天</span></h3><div class="spark">'+
+    (a.trend.length?a.trend.map(t=>'<div class="col"><i style="height:'+Math.round(t.n/tmax*72)+'px" title="'+t.n+'"></i><span>'+t.d.slice(5)+'</span></div>').join(''):'<div class="dim">暂无</div>')+'</div></div>'
+
+  const pct=n=>Math.round(n/stot*100)
+  const sentBar='<div class="panel"><h3>😊 情绪分布</h3>'+
+    '<div style="display:flex;height:14px;border-radius:7px;overflow:hidden;margin-bottom:8px">'+
+    '<span style="width:'+pct(s.pos)+'%;background:var(--good)"></span>'+
+    '<span style="width:'+pct(s.neu)+'%;background:#33405c"></span>'+
+    '<span style="width:'+pct(s.neg)+'%;background:var(--bad)"></span></div>'+
+    '<div class="crow" style="font-size:12px"><span class="sent pos">● 正面 '+(s.pos||0)+'</span>'+
+    '<span class="dim">● 中性 '+(s.neu||0)+'</span><span class="sent neg right">● 负面 '+(s.neg||0)+'</span></div></div>'
+
+  const prodBars='<div class="panel"><h3>📦 各产品信号量</h3>'+bars(a.byProduct,r=>pname(r.product))+'</div>'
+  const platBars='<div class="panel"><h3>🌐 平台分布</h3>'+bars(a.byPlatform,r=>r.platform)+'</div>'
+
+  const demandTbl='<div class="panel"><h3>🎯 高意图机会词<span class="tag">按平均意图</span></h3><table class="tbl"><tr><th>关键词</th><th>意图</th><th>条数</th><th>情绪</th></tr>'+
+    (a.topDemand.length?a.topDemand.map(d=>'<tr><td>'+esc(d.query)+'</td><td>'+meter(d.avg_intent)+'</td><td class="tabnum">'+d.n+'</td><td>'+sentChip(d.avg_sent)+'</td></tr>').join(''):'<tr><td colspan="4" class="dim">暂无</td></tr>')+'</table></div>'
+
+  const compTbl='<div class="panel"><h3>⚔️ 竞品讨论热度<span class="tag">按条数</span></h3><table class="tbl"><tr><th>竞品词</th><th>条数</th><th>平均情绪</th></tr>'+
+    (a.topCompetitor.length?a.topCompetitor.map(d=>'<tr><td>'+esc(d.query)+'</td><td class="tabnum">'+d.n+'</td><td>'+sentChip(d.avg_sent)+'</td></tr>').join(''):'<tr><td colspan="3" class="dim">暂无</td></tr>')+'</table></div>'
+
+  const opp='<div class="panel"><h3>🔥 最高意图机会贴<span class="tag">未处理 · 一键生成草稿</span></h3>'+
+    (a.topOpportunities.length?a.topOpportunities.map(o=>
+      '<div class="crow" style="padding:8px 0;border-bottom:1px solid #1a2336">'+meter(o.intent)+
+      '<span class="pill plat">'+o.platform+'</span><span class="pill prod">'+esc(pname(o.product))+'</span>'+
+      '<a href="'+esc(o.url)+'" target="_blank" style="flex:1;min-width:200px;color:var(--fg)">'+esc((o.title||'').slice(0,90))+'</a>'+
+      '<button class="btn sm pri" data-act="mkdraft" data-id="'+o.id+'">生成草稿</button></div>').join(''):'<div class="dim" style="font-size:12px">暂无未处理的高意图机会</div>')+'</div>'
+
+  const head='<div class="crow" style="margin-bottom:14px"><p class="lead" style="margin:0">竞品动向 · 用户需求 · 推荐机会，一屏掌握。</p>'+
+    '<select class="right" id="a-days"><option value="7"'+(aDays===7?' selected':'')+'>近 7 天</option><option value="14"'+(aDays===14?' selected':'')+'>近 14 天</option><option value="30"'+(aDays===30?' selected':'')+'>近 30 天</option></select></div>'
+
+  $('#app').innerHTML=shell(head+kpis+'<div class="grid2">'+spark+sentBar+'</div><div class="grid2">'+prodBars+platBars+'</div>'+opp+'<div class="grid2">'+demandTbl+compTbl+'</div>')
+  $('#a-days').onchange=e=>{aDays=Number(e.target.value);render()}
+}
+
+// ── 信号 ────────────────────────────────────────────────────────────────────
+function toolbar(){
+  const opt=(v,l,sel)=>'<option value="'+v+'"'+(sel===v?' selected':'')+'>'+l+'</option>'
+  return '<div class="toolbar">'+
+   '<input class="search" id="f-q" placeholder="🔎 搜索标题/正文/作者…" value="'+esc(filters.q)+'">'+
+   '<select id="f-product">'+opt('','全部产品',filters.product)+products.map(p=>opt(p.key,p.name,filters.product)).join('')+'</select>'+
+   '<select id="f-kind">'+['|全部类别','demand|需求/机会','competitor|竞品','brand|品牌'].map(o=>{const[v,l]=o.split('|');return opt(v,l,filters.kind)}).join('')+'</select>'+
+   '<select id="f-platform">'+['|全部平台','reddit|Reddit','x|X','threads|Threads'].map(o=>{const[v,l]=o.split('|');return opt(v,l,filters.platform)}).join('')+'</select>'+
+   '<select id="f-intent">'+['0|意图≥0','0.25|意图≥0.25','0.45|意图≥0.45','0.7|意图≥0.7'].map(o=>{const[v,l]=o.split('|');return opt(v,l,filters.minIntent)}).join('')+'</select>'+
+   '<select id="f-status">'+['|全部状态','new|未处理','reviewed|已生成草稿','ignored|已忽略'].map(o=>{const[v,l]=o.split('|');return opt(v,l,filters.status)}).join('')+'</select>'+
+   '<select id="f-sort">'+['intent|意图优先','ts|最新优先'].map(o=>{const[v,l]=o.split('|');return opt(v,l,filters.sort)}).join('')+'</select>'+
+   '<button class="btn sm pri" id="f-apply">应用</button></div>'
+}
+function bindToolbar(){
+  const sync=()=>{filters={product:$('#f-product').value,kind:$('#f-kind').value,platform:$('#f-platform').value,minIntent:$('#f-intent').value,status:$('#f-status').value,sort:$('#f-sort').value,q:$('#f-q').value};renderSignals()}
+  ;['f-product','f-kind','f-platform','f-intent','f-status','f-sort'].forEach(id=>$('#'+id).onchange=sync)
+  $('#f-apply').onclick=sync
+  $('#f-q').onkeydown=e=>{if(e.key==='Enter')sync()}
+}
+async function renderSignals(){
+  const qs=new URLSearchParams({product:filters.product,kind:filters.kind,platform:filters.platform,minIntent:filters.minIntent,status:filters.status,sort:filters.sort,q:filters.q,limit:'100'}).toString()
+  const {signals}=await api('/api/internal/social/signals?'+qs)
+  const cards=signals.length?signals.map(s=>
+    '<div class="card"><div class="crow">'+kindPill(s.kind)+'<span class="pill plat">'+s.platform+'</span>'+
+    '<span class="pill prod">'+esc(pname(s.product))+'</span>'+meter(s.intent)+sentChip(s.sentiment)+
+    (s.status==='reviewed'?'<span class="pill" style="color:var(--good);border-color:#1c5240">已生成草稿</span>':'')+
+    '<span class="right dim" style="font-size:12px">'+ago(s.ts)+' · '+esc(s.author||'')+' · "'+esc(s.query||'')+'"</span></div>'+
+    '<div class="title">'+esc(s.title)+'</div>'+
+    '<div class="body">'+esc((s.body||'').slice(0,360))+'</div>'+
+    '<div class="crow" style="margin-top:10px"><a href="'+esc(s.url)+'" target="_blank">查看原贴 ↗</a>'+
+    '<button class="btn sm pri right" data-act="mkdraft" data-id="'+s.id+'">生成推荐草稿</button>'+
+    '<button class="btn sm ghost" data-act="ignore" data-id="'+s.id+'">忽略</button></div></div>').join('')
+    :'<div class="empty"><div class="big">🛰️</div>暂无符合条件的信号。<br><span class="mut">采集器每 ~2 分钟抓一条查询，刚部署需等几分钟；也可点右上角"手动采集"，或放宽筛选条件。</span></div>'
+  $('#app').innerHTML=shell(toolbar()+cards)
+  bindToolbar()
+}
+H.mkdraft=async(id,btn)=>{if(btn){btn.textContent='生成中…';btn.disabled=true}const r=await api('/api/internal/social/draft',{method:'POST',body:JSON.stringify({signalId:id})});toast(r.message||'完成');if(r.ok&&r.draftId){tab='drafts';render()}else if(btn){btn.textContent='生成推荐草稿';btn.disabled=false}}
+H.ignore=async id=>{await api('/api/internal/social/signal/'+id+'/status',{method:'POST',body:JSON.stringify({status:'ignored'})});toast('已忽略');renderSignals()}
+
+// ── 草稿 ────────────────────────────────────────────────────────────────────
 async function renderDrafts(){
   const {drafts}=await api('/api/internal/social/drafts?status=pending')
-  const cards=drafts.length?drafts.map(d=>{
-    const pname=(products.find(p=>p.key===d.product)||{}).name||d.product
-    return '<div class="card"><div class="row"><span class="pill '+d.kind+'">'+d.kind+'</span>'+
-      '<span class="pill">'+d.platform+'</span><span class="pill">'+esc(pname)+'</span>'+
-      '<span class="pill intent">意图 '+(d.intent||0).toFixed(2)+'</span>'+
-      '<span class="mut" style="margin-left:auto">'+esc(d.model||'')+'</span></div>'+
-      '<div class="title">'+esc(d.post_title)+'</div>'+
-      (d.rationale?'<div class="mut" style="font-size:12px">AI: '+esc(d.rationale)+'</div>':'')+
-      '<textarea id="dft-'+d.id+'">'+esc(d.draft)+'</textarea>'+
-      '<div class="row" style="margin-top:8px"><a href="'+esc(d.post_url)+'" target="_blank">去原贴回复 ↗</a>'+
-      '<button class="btn sm" style="margin-left:auto" onclick="copyDraft('+d.id+')">复制</button>'+
-      '<button class="btn sm good" onclick="setDraft('+d.id+',\\'posted\\')">已发布</button>'+
-      '<button class="btn sm" onclick="setDraft('+d.id+',\\'approved\\')">通过</button>'+
-      '<button class="btn sm bad" onclick="setDraft('+d.id+',\\'dismissed\\')">弃用</button></div></div>'
-  }).join(''):'<div class="empty">没有待审核草稿。去"信号"页对高意图的需求贴点"生成推荐草稿"。</div>'
-  $('#app').innerHTML=shell('<p class="mut">审核 AI 生成的推荐评论 → 复制 → 自己用真实账号去原贴发布（不自动发）。</p>'+cards)
+  const cards=drafts.length?drafts.map(d=>
+    '<div class="card"><div class="crow">'+kindPill(d.kind)+'<span class="pill plat">'+d.platform+'</span>'+
+    '<span class="pill prod">'+esc(pname(d.product))+'</span>'+meter(d.intent)+
+    '<span class="right dim" style="font-size:11px">'+esc(d.model||'')+'</span></div>'+
+    '<div class="title">'+esc(d.post_title)+'</div>'+
+    (d.rationale?'<div class="rationale">💡 '+esc(d.rationale)+'</div>':'')+
+    '<textarea class="draft" id="dft-'+d.id+'">'+esc(d.draft)+'</textarea>'+
+    '<div class="crow" style="margin-top:10px"><a href="'+esc(d.post_url)+'" target="_blank">去原贴回复 ↗</a>'+
+    '<button class="btn sm right" data-act="copy" data-id="'+d.id+'">📋 复制</button>'+
+    '<button class="btn sm good" data-act="dstat" data-id="'+d.id+':posted">✓ 已发布</button>'+
+    '<button class="btn sm" data-act="dstat" data-id="'+d.id+':approved">通过</button>'+
+    '<button class="btn sm bad" data-act="dstat" data-id="'+d.id+':dismissed">弃用</button></div></div>').join('')
+    :'<div class="empty"><div class="big">✍️</div>没有待审核草稿。<br><span class="mut">去"信号"或"概览"页对高意图需求贴点"生成推荐草稿"。</span></div>'
+  $('#app').innerHTML=shell('<p class="lead">审核 AI 生成的推荐评论 → 复制 → 用真实账号到原贴发布（不自动发）。可直接在框内编辑后再复制。</p>'+cards)
 }
-function copyDraft(id){const t=$('#dft-'+id);t.select();navigator.clipboard.writeText(t.value);toast('已复制')}
-async function setDraft(id,status){const draft=$('#dft-'+id).value;await api('/api/internal/social/draft/'+id+'/status',{method:'POST',body:JSON.stringify({status,draft})});toast('已'+({posted:'标记发布',approved:'通过',dismissed:'弃用'}[status]));renderDrafts()}
+H.copy=id=>{const t=$('#dft-'+id);t.select();navigator.clipboard.writeText(t.value);toast('已复制到剪贴板')}
+H.dstat=async raw=>{const i=raw.indexOf(':');const id=raw.slice(0,i),status=raw.slice(i+1);const draft=$('#dft-'+id).value;await api('/api/internal/social/draft/'+id+'/status',{method:'POST',body:JSON.stringify({status,draft})});toast({posted:'已标记发布',approved:'已通过',dismissed:'已弃用'}[status]);renderDrafts()}
 
-// ── 自定义采集：为公司其他产品手动输入需求(关键词/账号)去抓 Reddit/X ──────────
+// ── 自定义采集 ──────────────────────────────────────────────────────────────
 async function renderCustom(){
   const {items}=await api('/api/internal/social/custom')
-  const opt=(v,l,sel)=>'<option value="'+v+'"'+(sel===v?' selected':'')+'>'+l+'</option>'
-  const form='<div class="card">'+
-    '<div class="row" style="flex-wrap:wrap;gap:8px">'+
-      '<input id="c-query" placeholder="关键词 或 X账号(如 hiring tool / @某账号)" style="min-width:280px;flex:1">'+
-      '<select id="c-platform">'+opt('reddit','Reddit','reddit')+opt('x','X','')+'</select>'+
-      '<select id="c-kind">'+['demand|需求/机会','competitor|竞品','brand|品牌'].map(o=>{const[v,l]=o.split('|');return opt(v,l,'demand')}).join('')+'</select>'+
-      '<input id="c-product" placeholder="产品标签(如 wonix/hirecx)" style="width:160px">'+
+  const opt=(v,l)=>'<option value="'+v+'">'+l+'</option>'
+  const form='<div class="panel"><h3>➕ 新建采集需求</h3>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">'+
+    '<label class="fld">备注名<input id="c-label" placeholder="例如：AI招聘选型"></label>'+
+    '<label class="fld">归属产品<select id="c-product"><option value="custom">通用 / 自定义</option>'+products.map(p=>opt(p.key,p.name)).join('')+'</select></label>'+
+    '<label class="fld">类别<select id="c-kind">'+opt('demand','需求/机会')+opt('competitor','竞品')+opt('brand','品牌')+'</select></label>'+
+    '<label class="fld">平台<select id="c-platform">'+opt('reddit','Reddit（关键词搜索）')+opt('x','X（账号时间线）')+'</select></label>'+
+    '<label class="fld" style="grid-column:span 2">查询词 / X账号<input id="c-query" placeholder="Reddit填关键词；X填账号名(不带@)"></label>'+
+    '<label class="fld" style="grid-column:span 3">限定子版块（可选，逗号分隔，仅Reddit）<input id="c-subs" placeholder="recruiting, humanresources"></label>'+
     '</div>'+
-    '<div class="row" style="margin-top:8px;flex-wrap:wrap;gap:8px">'+
-      '<input id="c-subs" placeholder="限定 subreddit(逗号分隔，仅 Reddit，可留空)" style="min-width:280px;flex:1">'+
-      '<button class="btn" onclick="runCustom(false)">立即采集一次</button>'+
-      '<button class="btn good" onclick="runCustom(true)">保存并定时采集</button>'+
-    '</div>'+
-    '<div class="mut" style="font-size:12px;margin-top:6px">「立即」只跑一次不保存；「保存」后会随主调度定时轮询，结果进入"信号"页(按产品标签过滤)。</div></div>'
-  const rows=items.length?items.map(c=>{
-    const last=c.last_run_ts?new Date(c.last_run_ts).toLocaleString():'—'
-    return '<div class="card"><div class="row"><span class="pill '+esc(c.kind)+'">'+esc(c.kind)+'</span>'+
-      '<span class="pill">'+esc(c.platform)+'</span><span class="pill">'+esc(c.product)+'</span>'+
-      '<span class="pill '+(c.active?'good':'')+'">'+(c.active?'启用中':'已停用')+'</span>'+
-      '<span class="mut" style="margin-left:auto;font-size:12px">上次: '+esc(last)+'</span></div>'+
-      '<div class="title">'+esc(c.query)+(c.subreddits?' <span class="mut">@ '+esc(c.subreddits)+'</span>':'')+'</div>'+
-      '<div class="row" style="margin-top:8px">'+
-        '<button class="btn sm" onclick="runSavedCustom('+c.id+')">立即重跑</button>'+
-        '<button class="btn sm" onclick="toggleCustom('+c.id+')">'+(c.active?'停用':'启用')+'</button>'+
-        '<button class="btn sm bad" style="margin-left:auto" onclick="delCustom('+c.id+')">删除</button></div></div>'
-  }).join(''):'<div class="empty">还没有保存的自定义采集需求。</div>'
-  $('#app').innerHTML=shell('<p class="mut">为公司其他产品自定义采集需求：输入关键词或 X 账号 → Reddit/X 抓取 → 结果进"信号"页。</p>'+form+'<h3 class="mut" style="margin:14px 0 8px">已保存需求</h3>'+rows)
+    '<div class="crow" style="margin-top:12px"><label class="crow" style="font-size:13px;gap:6px;cursor:pointer"><input type="checkbox" id="c-save" checked style="width:auto"> 保存为定时需求（随调度持续轮询）</label>'+
+    '<button class="btn pri right" id="c-go">🚀 立即采集</button></div></div>'
+
+  const rows=items.length?items.map(it=>
+    '<tr><td>'+(it.active?'<span class="sent pos">●</span>':'<span class="dim">○</span>')+'</td>'+
+    '<td><b>'+esc(it.label||it.query)+'</b><div class="dim" style="font-size:11px">'+esc(it.query)+(it.subreddits?' · r/'+esc(it.subreddits):'')+'</div></td>'+
+    '<td>'+kindPill(it.kind)+'</td><td><span class="pill plat">'+it.platform+'</span></td>'+
+    '<td><span class="pill prod">'+esc(pname(it.product))+'</span></td>'+
+    '<td class="dim" style="font-size:11px">'+(it.last_run_ts?ago(it.last_run_ts):'未跑')+'</td>'+
+    '<td class="right" style="white-space:nowrap"><button class="btn sm" data-act="crun" data-id="'+it.id+'">▶ 跑</button> '+
+    '<button class="btn sm ghost" data-act="ctoggle" data-id="'+it.id+'">'+(it.active?'停用':'启用')+'</button> '+
+    '<button class="btn sm bad" data-act="cdel" data-id="'+it.id+'">删</button></td></tr>').join('')
+    :'<tr><td colspan="7" class="dim" style="text-align:center;padding:24px">还没有自定义需求。用上面的表单新建。</td></tr>'
+  const list='<div class="panel"><h3>📌 已保存的采集需求<span class="tag">启用中的随主调度轮询</span></h3>'+
+    '<table class="tbl"><tr><th></th><th>需求</th><th>类别</th><th>平台</th><th>产品</th><th>上次</th><th></th></tr>'+rows+'</table></div>'
+
+  $('#app').innerHTML=shell('<p class="lead">临时有新的情报方向？在这里填关键词即时采集，勾选保存后会被纳入定时轮询。结果进入"信号"页（按产品标签过滤）。</p>'+form+list)
+  $('#c-go').onclick=customGo
 }
-async function runCustom(save){
-  const query=$('#c-query').value.trim()
-  if(query.length<2){toast('请输入至少 2 个字符的查询');return}
-  const body={query,platform:$('#c-platform').value,kind:$('#c-kind').value,product:$('#c-product').value.trim(),subreddits:$('#c-subs').value.trim(),save}
-  toast('采集中…')
+async function customGo(){
+  const body={label:$('#c-label').value,product:$('#c-product').value,kind:$('#c-kind').value,platform:$('#c-platform').value,query:$('#c-query').value,subreddits:$('#c-subs').value,save:$('#c-save').checked}
+  if((body.query||'').trim().length<2){toast('请填写查询词（至少2字符）');return}
+  const b=$('#c-go');b.textContent='采集中…';b.disabled=true
   const r=await api('/api/internal/social/custom',{method:'POST',body:JSON.stringify(body)})
-  if(r.error)toast('出错: '+r.error)
-  else toast('新增 '+(r.added||0)+' 条'+(save?'，已保存':''))
-  if(save)renderCustom()
+  toast(r.ok?('采集完成，新增 '+(r.added||0)+' 条'+(r.savedId?'（已保存）':'')):('失败：'+(r.error||'未知')))
+  if(r.ok&&r.added>0){tab='signals';filters.q=body.query;render()}else renderCustom()
 }
-async function runSavedCustom(id){toast('采集中…');const r=await api('/api/internal/social/custom/'+id+'/run',{method:'POST'});toast(r.error?('出错: '+r.error):('新增 '+(r.added||0)+' 条'));renderCustom()}
-async function toggleCustom(id){await api('/api/internal/social/custom/'+id+'/toggle',{method:'POST'});renderCustom()}
-async function delCustom(id){if(!confirm('删除该自定义需求？'))return;await api('/api/internal/social/custom/'+id,{method:'DELETE'});renderCustom()}
+H.crun=async id=>{toast('采集中…');const r=await api('/api/internal/social/custom/'+id+'/run',{method:'POST'});toast(r.ok?('新增 '+(r.added||0)+' 条'):'失败');renderCustom()}
+H.ctoggle=async id=>{await api('/api/internal/social/custom/'+id+'/toggle',{method:'POST'});renderCustom()}
+H.cdel=async id=>{await api('/api/internal/social/custom/'+id,{method:'DELETE'});toast('已删除');renderCustom()}
 
 render()
 </script>
