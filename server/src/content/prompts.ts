@@ -104,6 +104,14 @@ export function buildPrompt(contentType: string): BuiltPrompt | null {
       `Generate one X post plus image-card copy for the top verified crypto-casino flows. Use only the verified brand-level data provided.\n${RULES}\n- Do not include unattributed entities.\n- Provide a short image title and subtitle and up to 6 ranked rows.\n- Include the ranking URL: ${s.input.rankings_url}\n- No affiliate language (no "best casino", "play now", "bonus", "promo").\nOutput JSON schema: {"content_type":"top_ranking_image_post","post_text":"...","image":{"title":"...","subtitle":"...","rows":[{"rank":1,"brand":"...","value":"..."}],"footer":"No paid rankings — public, verifiable data"},"target_url":"...","risk_level":"low|medium|high"}`
     return { contentType, system, user: JSON.stringify(s.input), qa }
   }
+  if (contentType === 'daily_insight') {
+    // page/email insight — no tweet, no URL requirement
+    const insightQa: QaInput = { allowedBrands: s.brands, allowedValues: s.values }
+    const system =
+      base +
+      `Generate the daily "Market Read" and notable signals for the report PAGE (not social media). Use ONLY the structured data provided.\n${RULES}\n- "market_read" has exactly three fields: what_changed, why_it_matters, what_to_watch. Each is 1-2 sentences, neutral, derived only from the data. If a section lacks data, write a brief neutral note.\n- "notable_signals" is 3-5 short factual one-line signals drawn ONLY from the data (e.g. chain dominance, top brand by verified volume, reserve concentration, unattributed flow exclusion).\n- Never describe causes you cannot see; describe observed structure, not motive.\nOutput JSON schema: {"market_read":{"what_changed":"...","why_it_matters":"...","what_to_watch":"..."},"notable_signals":["...","..."]}`
+    return { contentType, system, user: JSON.stringify(s.input), qa: insightQa }
+  }
   if (contentType === 'rotating_signal_post') {
     const system =
       base +

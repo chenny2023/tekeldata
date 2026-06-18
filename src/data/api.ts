@@ -509,6 +509,8 @@ export interface MarketSnapshot {
   reserves_total: number
   reserve_change_7d: number | null
   confidence_level: string
+  aiMarketRead?: { what_changed?: string; why_it_matters?: string; what_to_watch?: string } | null
+  aiNotableSignals?: string[]
   payload: {
     concentration?: { top3Share: number; top5Share: number; topChain: string | null; topChainShare: number }
     sourceHealth?: { source: string; status: string; lagMin: number | null }[]

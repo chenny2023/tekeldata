@@ -748,6 +748,27 @@ function reportPage(snap: any, prev: string | null, next: string | null): { titl
     stat('Tracked reserves', fmtUsd(snap.reserves_total ?? 0), 'mint') +
     `</div>`
 
+  // AI "Today's Market Read" (QA-gated prose; numbers are program-injected) — unique
+  // editorial per day, strong for SEO. Only present once generated for that date.
+  let read: any = null
+  try {
+    read = snap.ai_market_read ? JSON.parse(snap.ai_market_read) : null
+  } catch {
+    read = null
+  }
+  const readT =
+    read && (read.what_changed || read.why_it_matters || read.what_to_watch)
+      ? `<h2>Today's market read</h2>` +
+        [
+          ['What changed', read.what_changed],
+          ['Why it matters', read.why_it_matters],
+          ['What to watch next', read.what_to_watch],
+        ]
+          .filter(([, v]) => v)
+          .map(([k, v]) => `<p class="prose"><strong style="color:var(--gold)">${k}.</strong> ${esc(String(v))}</p>`)
+          .join('')
+      : ''
+
   const movers = (p.topMovers ?? []).slice(0, 8)
   const moversT = movers.length
     ? `<h2>Verified casino flow — biggest movers (24h)</h2><table><thead><tr><th>Operator</th><th style="text-align:right">24h volume</th><th style="text-align:right">7d volume</th></tr></thead><tbody>${movers
@@ -806,6 +827,7 @@ function reportPage(snap: any, prev: string | null, next: string | null): { titl
 <p class="upd">Archived daily report · <a href="/daily">today's live report</a></p>
 ${pager}
 ${stats}
+${readT}
 ${moversT}
 ${chainsT}
 ${whalesT}

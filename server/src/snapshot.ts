@@ -202,7 +202,19 @@ export async function generateMarketSnapshot(): Promise<void> {
 export function latestMarketSnapshot(): any | null {
   const row = db.prepare('SELECT * FROM daily_market_snapshot ORDER BY snapshot_date DESC LIMIT 1').get() as any
   if (!row) return null
-  return { ...row, payload: JSON.parse(row.payload_json || '{}') }
+  const parse = (s: any, fb: any) => {
+    try {
+      return s ? JSON.parse(s) : fb
+    } catch {
+      return fb
+    }
+  }
+  return {
+    ...row,
+    payload: parse(row.payload_json, {}),
+    aiMarketRead: parse(row.ai_market_read, null),
+    aiNotableSignals: parse(row.ai_notable_signals, []),
+  }
 }
 
 export function startSnapshots() {

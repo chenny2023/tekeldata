@@ -62,6 +62,16 @@ function buildDigestBodies(snap: any): { subject: string; html: string; text: st
     <div style="max-width:560px;margin:0 auto;background:#11141c;border:1px solid #1e2230;border-radius:16px;padding:28px">
       <div style="font-weight:700;font-size:18px;letter-spacing:.04em;color:#f5b100">WCOIN.CASINO</div>
       <div style="color:#6b7080;font-size:12px;margin-top:2px">Crypto Casino Market Daily · ${esc(date)} (UTC)</div>
+      ${
+        snap.aiMarketRead && (snap.aiMarketRead.what_changed || snap.aiMarketRead.why_it_matters)
+          ? `<div style="margin:22px 0 4px;background:#0e1320;border:1px solid #1e2230;border-radius:12px;padding:16px"><div style="font-size:13px;font-weight:700;color:#f5b100;margin-bottom:8px">Today's Market Read</div>` +
+            [['What changed', snap.aiMarketRead.what_changed], ['Why it matters', snap.aiMarketRead.why_it_matters], ['What to watch', snap.aiMarketRead.what_to_watch]]
+              .filter(([, v]) => v)
+              .map(([k, v]) => `<div style="margin-bottom:8px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#9aa0b4">${k}</div><div style="font-size:13.5px;color:#cdd2e0;line-height:1.5">${esc(String(v))}</div></div>`)
+              .join('') +
+            `</div>`
+          : ''
+      }
       ${section('Verified market snapshot', stats)}
       ${section('Biggest movers — verified 24h volume', movers)}
       ${section('Whale activity — aggregated (24h)', whales)}

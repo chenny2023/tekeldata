@@ -502,6 +502,9 @@ CREATE INDEX IF NOT EXISTS idx_dq_date ON data_quality_issue(date, issue_type);
 for (const ddl of [
   // one-click email-confirmation token (magic link) for digest double-opt-in
   'ALTER TABLE email_subscriber ADD COLUMN confirm_token TEXT',
+  // LLM "Today's Market Read" + Notable Signals for the daily report (QA-gated)
+  'ALTER TABLE daily_market_snapshot ADD COLUMN ai_market_read TEXT',
+  'ALTER TABLE daily_market_snapshot ADD COLUMN ai_notable_signals TEXT',
   'ALTER TABLE streamers ADD COLUMN followers INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE streamers ADD COLUMN affiliation TEXT',
   // Trustpilot consumer signal merged onto each directory casino (per-domain /review/ enricher)

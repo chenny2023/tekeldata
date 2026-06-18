@@ -50,6 +50,7 @@ import { startSnapshots } from './snapshot.ts'
 import { registerSeo, startSeo } from './seo.ts'
 import { startBrandStore } from './brandstore.ts'
 import { startContent } from './content/pipeline.ts'
+import { startDailyInsight } from './content/dailyinsight.ts'
 import { startDirectory } from './directory.ts'
 import { startGuruSpider } from './collectors/guruspider.ts'
 import { startTrustpilotCategory } from './collectors/trustpilotcat.ts'
@@ -201,6 +202,7 @@ async function main() {
   startRetention() // periodic prune of transfers past the retention window
   startReserveHistory() // daily solvency snapshots → reserve-adequacy trend
   startSnapshots() // 1.0 content layer: daily market snapshot (homepage + email source)
+  startDailyInsight() // LLM "Today's Market Read" + Notable Signals for the daily report (QA-gated)
   startDigest() // 1.0 daily email digest scheduler (sends at DIGEST_SEND_HOUR_UTC)
   startSeo() // Phase 2: rebuild stored SEO landing pages from the warm aggregate cache
   startBrandStore() // 1.0: materialise the persistent brand layer (history / audit)

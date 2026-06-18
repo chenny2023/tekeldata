@@ -1,6 +1,6 @@
 import { useState, FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, ArrowDownRight, ArrowUpRight, ShieldCheck, TrendingUp } from 'lucide-react'
+import { ArrowRight, ArrowDownRight, ArrowUpRight, ShieldCheck, TrendingUp, Sparkles } from 'lucide-react'
 import { Logo, Card, ChainPill } from '../components/ui'
 import { CountUp } from '../components/motion'
 import { api, usePoll } from '../data/api'
@@ -277,6 +277,51 @@ function SourceHealth({ rows }: { rows: any[] }) {
   )
 }
 
+// Executive Insight — AI-written "Today's Market Read" (What changed / Why it matters /
+// What to watch). The model only expresses; every number is program-injected + QA-gated.
+function MarketRead({ read }: { read: any }) {
+  if (!read || !(read.what_changed || read.why_it_matters || read.what_to_watch)) return null
+  const secs = [
+    { k: 'What changed', v: read.what_changed },
+    { k: 'Why it matters', v: read.why_it_matters },
+    { k: 'What to watch next', v: read.what_to_watch },
+  ].filter((s) => s.v)
+  return (
+    <Card spotlight className="p-6">
+      <div className="mb-3 flex items-center gap-2">
+        <Sparkles size={16} className="text-gold-400" />
+        <h3 className="font-display text-lg font-semibold">Today’s Market Read</h3>
+      </div>
+      <div className="space-y-3">
+        {secs.map((s) => (
+          <div key={s.k}>
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-gold-400/80">{s.k}</div>
+            <p className="mt-0.5 text-[14px] leading-relaxed text-white/75">{s.v}</p>
+          </div>
+        ))}
+      </div>
+      <p className="mt-3 text-[11px] text-white/30">AI-written summary of the verified data above. Figures are program-injected; the model does not generate numbers, rankings or names.</p>
+    </Card>
+  )
+}
+
+function NotableSignals({ signals }: { signals: string[] }) {
+  if (!signals?.length) return null
+  return (
+    <Card className="p-5">
+      <h3 className="mb-3 font-display text-base font-semibold">Notable Signals</h3>
+      <ol className="space-y-2 text-[13.5px] text-white/70">
+        {signals.map((s, i) => (
+          <li key={i} className="flex gap-2.5">
+            <span className="font-bold text-gold-400">{i + 1}</span>
+            <span>{s}</span>
+          </li>
+        ))}
+      </ol>
+    </Card>
+  )
+}
+
 function CoverageNotes() {
   const notes = [
     'Verified flow includes only mapped casino brands with medium or higher confidence.',
@@ -439,7 +484,12 @@ export default function Daily() {
           <div className="space-y-6">
             <StatGrid data={data} />
 
-            <MarketConcentration c={p?.concentration} />
+            <MarketRead read={data.aiMarketRead} />
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              <MarketConcentration c={p?.concentration} />
+              <NotableSignals signals={data.aiNotableSignals ?? []} />
+            </div>
 
             <div className="grid gap-6 lg:grid-cols-2">
               <MoversTable rows={p?.topMovers ?? []} />
