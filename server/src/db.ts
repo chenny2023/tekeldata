@@ -8,6 +8,11 @@ mkdirSync(dirname(config.dbPath), { recursive: true })
 export const db = new Database(config.dbPath)
 db.pragma('journal_mode = WAL')
 db.pragma('synchronous = NORMAL')
+// Wait (retry) up to 5s for a held write lock instead of failing immediately with
+// SQLITE_BUSY. Under boot-window contention (collectors + SEO regen + a litestream
+// checkpoint) a small write — e.g. a public /api/submit INSERT — was 500ing with
+// "database is locked"; with a busy timeout it transparently waits for the lock.
+db.pragma('busy_timeout = 5000')
 // Cap the WAL so checkpoints truncate it back to ≤64MB instead of letting it
 // balloon and devour free disk (a bloated WAL was compounding disk-I/O errors
 // on the size-limited volume). Checkpoint aggressively too.
