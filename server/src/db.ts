@@ -479,6 +479,23 @@ CREATE TABLE IF NOT EXISTS enrichment_queue (
   created_at  INTEGER NOT NULL,
   updated_at  INTEGER NOT NULL
 );
+
+-- Daily-report data-quality issues: reserve-coverage anomalies (the ">100% mapped"
+-- class), duplicate whale events, low-confidence public display, etc. Auditable
+-- instead of silently rendered. Written by the snapshot generator.
+CREATE TABLE IF NOT EXISTS data_quality_issue (
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  date              TEXT NOT NULL,
+  issue_type        TEXT NOT NULL,   -- reserve_coverage_under_review | duplicate_whale_event | …
+  severity          TEXT NOT NULL DEFAULT 'warn',  -- info | warn | error
+  related_brand_id  TEXT,
+  related_entity_id TEXT,
+  details_json      TEXT,
+  status            TEXT NOT NULL DEFAULT 'open',   -- open | resolved | ignored
+  created_at        INTEGER NOT NULL,
+  updated_at        INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_dq_date ON data_quality_issue(date, issue_type);
 `)
 
 // additive migrations for DBs created before these columns existed

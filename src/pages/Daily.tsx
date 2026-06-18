@@ -14,17 +14,41 @@ import { fmtUsd, fmtNum } from '../data/format'
 // the methodology note keeps us out of solvency/legality claims.
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ConfidencePill({ level }: { level: string }) {
-  const map: Record<string, string> = {
-    high: 'border-mint-500/30 bg-mint-500/10 text-mint-400',
-    medium: 'border-gold-500/30 bg-gold-500/10 text-gold-400',
-    low: 'border-white/15 bg-white/5 text-white/50',
-  }
+// Top badge no longer claims a single whole-page confidence (the page mixes verified
+// flow, low-confidence unattributed flow and partial reserve coverage). It states the
+// LENS instead; confidence/coverage is shown per module.
+function VerifiedBadge() {
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${map[level] ?? map.low}`}>
-      <span className="h-1.5 w-1.5 rounded-full bg-current" /> {level} confidence
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-mint-500/30 bg-mint-500/10 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-mint-400">
+      <ShieldCheck size={12} /> Verified Flow View
     </span>
   )
+}
+
+// hover-explainer (native title — accessible, zero-dep). Use on easily-misread fields.
+function Tip({ text }: { text: string }) {
+  return (
+    <span title={text} className="ml-1 inline-grid h-3.5 w-3.5 cursor-help place-items-center rounded-full border border-white/20 align-middle text-[9px] font-bold text-white/45">
+      i
+    </span>
+  )
+}
+
+// per-module coverage/confidence note (small, muted, below a module header)
+function ModuleNote({ children }: { children: React.ReactNode }) {
+  return <div className="px-5 pb-3 pt-0 text-[11px] leading-relaxed text-white/35">{children}</div>
+}
+
+const COVERAGE: Record<string, [string, string]> = {
+  high: ['Coverage: High', 'text-mint-400 bg-mint-400/12'],
+  medium: ['Coverage: Medium', 'text-gold-400 bg-gold-400/12'],
+  partial: ['Coverage: Partial', 'text-white/55 bg-white/8'],
+  under_review: ['Coverage: Under review', 'text-rose-300 bg-rose-400/12'],
+  unknown: ['Coverage: Unknown', 'text-white/45 bg-white/6'],
+}
+function CoverageChip({ level }: { level: string }) {
+  const [label, cls] = COVERAGE[level] ?? COVERAGE.unknown
+  return <span className={`hidden rounded px-1.5 py-0.5 text-[11px] font-medium sm:inline ${cls}`}>{label}</span>
 }
 
 // Compact email capture (double opt-in) — mirrors the homepage lead CTA.
@@ -72,25 +96,29 @@ function SubscribeBox() {
 function StatGrid({ data }: { data: any }) {
   const net = data.net_flow_24h ?? 0
   const rc = data.reserve_change_7d
-  const cells: { label: string; value: string; raw?: number; fmt?: (n: number) => string; tone?: string; sub?: string }[] = [
-    { label: '24h Tracked Volume', value: fmtUsd(data.tracked_volume_24h ?? 0), raw: data.tracked_volume_24h ?? 0, fmt: fmtUsd },
-    { label: 'Net Flow (24h)', value: (net >= 0 ? '+' : '−') + fmtUsd(Math.abs(net)), raw: Math.abs(net), fmt: (n) => (net >= 0 ? '+' : '−') + fmtUsd(n), tone: net >= 0 ? 'text-mint-400' : 'text-rose-400' },
-    { label: 'Active Casinos', value: fmtNum(data.active_casinos ?? 0), raw: data.active_casinos ?? 0, fmt: fmtNum },
-    { label: 'Chains', value: String(data.active_chains ?? 0) },
-    { label: 'Live Streamers', value: String(data.live_streamers ?? 0) },
+  const cells: { label: string; value: string; raw?: number; fmt?: (n: number) => string; tone?: string; sub?: string; tip?: string }[] = [
+    { label: '24H Verified Tracked Volume', value: fmtUsd(data.tracked_volume_24h ?? 0), raw: data.tracked_volume_24h ?? 0, fmt: fmtUsd, tip: 'Tracked volume from verified casino brands only. Unattributed casino-related flow is excluded from this figure.' },
+    { label: 'Net Flow (24h)', value: (net >= 0 ? '+' : '−') + fmtUsd(Math.abs(net)), raw: Math.abs(net), fmt: (n) => (net >= 0 ? '+' : '−') + fmtUsd(n), tone: net >= 0 ? 'text-mint-400' : 'text-rose-400', tip: 'Verified inflow minus outflow over the last 24h. Positive = net deposits into tracked casino wallets.' },
+    { label: 'Active Verified Brands', value: fmtNum(data.active_casinos ?? 0), raw: data.active_casinos ?? 0, fmt: fmtNum, tip: 'Verified casino brands with observed tracked on-chain flow during the selected time window (24h).' },
+    { label: 'Active Chains', value: String(data.active_chains ?? 0), tip: 'Blockchains with verified casino settlement observed in the window.' },
+    { label: 'Live Streamers', value: String(data.live_streamers ?? 0), tip: 'Gambling streamers detected live across Kick, Twitch and YouTube. Coverage varies by platform.' },
     {
       label: 'Tracked Reserves',
       value: fmtUsd(data.reserves_total ?? 0),
       raw: data.reserves_total ?? 0,
       fmt: fmtUsd,
       sub: rc != null ? `${rc >= 0 ? '+' : ''}${(rc * 100).toFixed(1)}% 7d` : undefined,
+      tip: 'All-chain best-effort estimate of reserves from mapped wallets. Coverage is partial by brand — not a complete financial statement.',
     },
   ]
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
       {cells.map((c) => (
-        <Card key={c.label} className="p-4">
-          <div className="text-[11px] uppercase tracking-wider text-white/40">{c.label}</div>
+        <Card key={c.label} spotlight className="p-4">
+          <div className="text-[11px] uppercase tracking-wider text-white/40">
+            {c.label}
+            {c.tip && <Tip text={c.tip} />}
+          </div>
           <div className={`mt-1.5 font-display text-xl font-bold tabular-nums ${c.tone ?? ''}`}>
             {c.raw != null && c.fmt ? <CountUp value={c.raw} format={c.fmt} /> : c.value}
           </div>
@@ -107,19 +135,27 @@ function MoversTable({ rows }: { rows: any[] }) {
     <Card spotlight className="overflow-hidden p-0">
       <div className="flex items-center gap-2 border-b border-white/8 px-5 py-3.5">
         <TrendingUp size={16} className="text-gold-400" />
-        <h3 className="font-display text-base font-semibold">Biggest movers — 24h volume</h3>
+        <h3 className="font-display text-base font-semibold">Biggest movers — 24h verified volume</h3>
       </div>
       <div className="divide-y divide-white/5">
-        {rows.map((m, i) => (
-          <div key={m.label} className="flex items-center gap-3 px-5 py-3 text-sm">
-            <span className="w-5 text-center font-bold text-white/30">{i + 1}</span>
-            <span className="flex-1 truncate font-medium">{m.label}</span>
-            {m.trust != null && <span className="hidden text-xs text-white/40 sm:inline">trust {Math.round(m.trust)}</span>}
-            <span className="w-24 text-right tabular-nums text-white/45">7d {fmtUsd(m.vol7d)}</span>
-            <span className="w-24 text-right font-semibold tabular-nums text-gold-400">{fmtUsd(m.vol24h)}</span>
-          </div>
-        ))}
+        {rows.map((m, i) => {
+          const rep = m.repSignal ?? m.trust
+          return (
+            <div key={m.label} className="flex items-center gap-3 px-5 py-3 text-sm">
+              <span className="w-5 text-center font-bold text-white/30">{i + 1}</span>
+              <span className="flex-1 truncate font-medium">{m.label}</span>
+              {rep != null && (
+                <span title="Composite reputation indicator from available third-party and on-chain signals. Not a recommendation, safety rating, or endorsement." className="hidden cursor-help text-xs text-white/40 sm:inline">
+                  Rep. {Math.round(rep)}
+                </span>
+              )}
+              <span className="w-24 text-right tabular-nums text-white/45">7d {fmtUsd(m.vol7d)}</span>
+              <span className="w-24 text-right font-semibold tabular-nums text-gold-400">{fmtUsd(m.vol24h)}</span>
+            </div>
+          )
+        })}
       </div>
+      <ModuleNote>Verified casino brands only · ranked by 24h tracked volume. “Rep.” is a composite reputation signal, not a safety rating.</ModuleNote>
     </Card>
   )
 }
@@ -147,28 +183,61 @@ function ChainBars({ rows }: { rows: any[] }) {
   )
 }
 
-function WhaleList({ rows }: { rows: any[] }) {
-  if (!rows?.length) return null
+// Aggregated whale activity (grouped by brand·chain·direction). Each row expands to
+// the underlying raw transfers — replaces the old raw-ticker that spammed the same
+// brand+amount and read like a feed, not an insight.
+function WhaleGroups({ groups, events }: { groups: any[]; events: any[] }) {
+  const [open, setOpen] = useState<string | null>(null)
+  // backward-compat: a snapshot from before aggregation has only raw `events`
+  const list = groups?.length
+    ? groups
+    : (events ?? []).slice(0, 8).map((e: any) => ({ label: e.label, chain: e.chain, direction: e.direction, count: 1, total: e.usd, largest: e.usd }))
+  if (!list.length) return null
   return (
     <Card className="overflow-hidden p-0">
       <div className="border-b border-white/8 px-5 py-3.5">
-        <h3 className="font-display text-base font-semibold">Whale activity — 24h (≥ $50K)</h3>
+        <h3 className="font-display text-base font-semibold">
+          Whale Activity — Aggregated
+          <Tip text="Aggregated large wallet transfers (≥ $50K) involving tracked casino-related wallets. Click a row to see the underlying transactions." />
+        </h3>
       </div>
       <div className="max-h-80 divide-y divide-white/5 overflow-y-auto">
-        {rows.map((w, i) => (
-          <div key={i} className="flex items-center gap-3 px-5 py-2.5 text-sm">
-            <span className={w.direction === 'in' ? 'text-mint-400' : 'text-rose-400'}>
-              {w.direction === 'in' ? <ArrowDownRight size={15} /> : <ArrowUpRight size={15} />}
-            </span>
-            <span className="flex-1 truncate font-medium">{w.label}</span>
-            <ChainPill chain={w.chain} />
-            <span className={`w-24 text-right font-semibold tabular-nums ${w.direction === 'in' ? 'text-mint-400' : 'text-rose-400'}`}>
-              {w.direction === 'in' ? '+' : '−'}
-              {fmtUsd(w.usd)}
-            </span>
-          </div>
-        ))}
+        {list.map((g: any) => {
+          const key = `${g.label}:${g.chain}:${g.direction}`
+          const isIn = g.direction === 'in'
+          const ev = open === key ? (events ?? []).filter((e: any) => e.label === g.label && e.chain === g.chain && e.direction === g.direction) : []
+          return (
+            <div key={key}>
+              <button onClick={() => setOpen(open === key ? null : key)} className="flex w-full items-center gap-3 px-5 py-2.5 text-left text-sm hover:bg-white/[0.02]">
+                <span className={isIn ? 'text-mint-400' : 'text-rose-400'}>{isIn ? <ArrowDownRight size={15} /> : <ArrowUpRight size={15} />}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-medium">{g.label}</div>
+                  <div className="text-[11px] text-white/40">
+                    {g.count} whale {isIn ? 'inflow' : 'outflow'}{g.count > 1 ? 's' : ''} · largest {fmtUsd(g.largest)}
+                  </div>
+                </div>
+                <ChainPill chain={g.chain} />
+                <span className={`w-24 text-right font-semibold tabular-nums ${isIn ? 'text-mint-400' : 'text-rose-400'}`}>
+                  {isIn ? '+' : '−'}
+                  {fmtUsd(g.total)}
+                </span>
+              </button>
+              {open === key && ev.length > 0 && (
+                <div className="bg-white/[0.02] px-5 pb-2 pt-0.5">
+                  {ev.map((e: any, j: number) => (
+                    <div key={j} className="flex items-center gap-2 py-1 text-[12px] text-white/55">
+                      <span className="text-white/30">{new Date(e.ts).toISOString().slice(11, 16)} UTC</span>
+                      <span className="flex-1" />
+                      <span className="tabular-nums">{isIn ? '+' : '−'}{fmtUsd(e.usd)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
+      <ModuleNote>Whale activity reflects observed large wallet transfers involving tracked casino-related wallets. It does not indicate user identity or intent.</ModuleNote>
     </Card>
   )
 }
@@ -179,18 +248,25 @@ function ReserveList({ rows }: { rows: any[] }) {
     <Card className="overflow-hidden p-0">
       <div className="flex items-center gap-2 border-b border-white/8 px-5 py-3.5">
         <ShieldCheck size={16} className="text-mint-400" />
-        <h3 className="font-display text-base font-semibold">All-chain reserves</h3>
+        <h3 className="font-display text-base font-semibold">
+          Tracked All-chain Reserves
+          <Tip text="Observed wallet balances for verified casino brands. Coverage may be partial and is not a complete financial statement." />
+        </h3>
       </div>
       <div className="divide-y divide-white/5">
         {rows.map((r, i) => (
           <div key={r.label} className="flex items-center gap-3 px-5 py-3 text-sm">
             <span className="w-5 text-center font-bold text-white/30">{i + 1}</span>
             <span className="flex-1 truncate font-medium">{r.label}</span>
-            {r.coverage != null && <span className="hidden text-xs text-white/40 sm:inline">{Math.round(r.coverage * 100)}% mapped</span>}
+            <CoverageChip level={r.level ?? 'unknown'} />
             <span className="w-24 text-right font-semibold tabular-nums text-mint-400">{fmtUsd(r.reserves)}</span>
           </div>
         ))}
       </div>
+      <ModuleNote>
+        Observed wallet balances for verified casino brands. Coverage may be partial — not a complete financial statement.{' '}
+        <a href="/methodology/proof-of-reserves" className="text-gold-400 hover:underline">How this is calculated →</a>
+      </ModuleNote>
     </Card>
   )
 }
@@ -227,7 +303,7 @@ export default function Daily() {
         <div className="mb-8">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Crypto Casino Market — Daily</h1>
-            {ready && <ConfidencePill level={data.confidence_level} />}
+            {ready && <VerifiedBadge />}
           </div>
           <p className="mt-2 text-sm text-white/55">
             {ready ? (
@@ -253,7 +329,7 @@ export default function Daily() {
             </div>
 
             <div className="grid gap-6 lg:grid-cols-2">
-              <WhaleList rows={p?.whales ?? []} />
+              <WhaleGroups groups={p?.whaleGroups ?? []} events={p?.whales ?? []} />
               <ReserveList rows={p?.topReserves ?? []} />
             </div>
 
@@ -261,11 +337,18 @@ export default function Daily() {
             {p?.unattributed && p.unattributed.count > 0 && (
               <Card className="p-5">
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="font-display text-base font-semibold">Unattributed Casino Flow</h3>
-                  <span className="text-[13px] text-white/50">{p.unattributed.count} clusters · {fmtUsd(p.unattributed.vol7d)} 7d <span className="rounded bg-white/8 px-1.5 py-0.5 text-[11px] text-white/45">confidence: low</span></span>
+                  <h3 className="font-display text-base font-semibold">Unattributed Casino-related Flow</h3>
+                  <span className="text-[13px] text-white/50">
+                    {p.unattributed.count} clusters · {fmtUsd(p.unattributed.vol7d)} 7d{' '}
+                    <span className="rounded bg-white/8 px-1.5 py-0.5 text-[11px] text-white/45">confidence: low</span>
+                  </span>
                 </div>
-                <p className="text-[13px] text-white/45">
-                  Pattern-detected casino-related wallet activity not yet attributed to a verified brand — excluded from every figure above. <a href="/rankings/unattributed-flow" className="text-gold-400 hover:underline">View details →</a>
+                <p className="text-[13px] leading-relaxed text-white/45">
+                  Pattern-detected casino-related wallet activity that has <strong className="text-white/65">not yet been attributed</strong> to a
+                  verified casino brand. These flows are <strong className="text-white/65">excluded from every verified figure and ranking above</strong> until
+                  attribution improves — they are shown here for transparency, not as a verdict on any operator.{' '}
+                  <a href="/rankings/unattributed-flow" className="text-gold-400 hover:underline">View details →</a>{' '}
+                  <a href="/methodology/address-attribution" className="text-gold-400 hover:underline">Attribution methodology →</a>
                 </p>
               </Card>
             )}

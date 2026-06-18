@@ -34,16 +34,23 @@ function buildDigestBodies(snap: any): { subject: string; html: string; text: st
   const row = (label: string, value: string) =>
     `<tr><td style="padding:7px 0;color:#9aa0b4;font-size:13px">${esc(label)}</td><td style="padding:7px 0;text-align:right;font-weight:700;color:#fff;font-size:14px">${esc(value)}</td></tr>`
   const stats = [
-    row('24h tracked volume', fmtUsd(snap.tracked_volume_24h ?? 0)),
+    row('24H Verified Tracked Volume', fmtUsd(snap.tracked_volume_24h ?? 0)),
     row('Net flow (24h)', (net >= 0 ? '+' : '−') + fmtUsd(Math.abs(net))),
-    row('Active casinos', String(snap.active_casinos ?? 0)),
-    row('Chains', String(snap.active_chains ?? 0)),
+    row('Active Verified Brands', String(snap.active_casinos ?? 0)),
+    row('Active chains', String(snap.active_chains ?? 0)),
     row('Live streamers', String(snap.live_streamers ?? 0)),
     row('Tracked reserves (all-chain)', fmtUsd(snap.reserves_total ?? 0)),
   ].join('')
   const movers = (p.topMovers ?? []).slice(0, 6).map((m: any) => row(m.label, fmtUsd(m.vol24h))).join('')
-  const whales = (p.whales ?? []).slice(0, 6).map((w: any) => row(`${w.label} · ${w.direction === 'in' ? 'deposit' : 'withdrawal'}`, fmtUsd(w.usd))).join('')
-  const reserves = (p.topReserves ?? []).slice(0, 6).map((r: any) => row(r.label, fmtUsd(r.reserves))).join('')
+  // aggregated whale groups (fall back to raw events for pre-aggregation snapshots)
+  const wGroups = (p.whaleGroups ?? []).length
+    ? p.whaleGroups.slice(0, 6)
+    : (p.whales ?? []).slice(0, 6).map((w: any) => ({ label: w.label, direction: w.direction, count: 1, total: w.usd }))
+  const whales = wGroups
+    .map((g: any) => row(`${g.label} · ${g.count} ${g.direction === 'in' ? 'inflow' : 'outflow'}${g.count > 1 ? 's' : ''}`, fmtUsd(g.total)))
+    .join('')
+  const COV: Record<string, string> = { high: 'High', medium: 'Medium', partial: 'Partial', under_review: 'Under review', unknown: 'Unknown' }
+  const reserves = (p.topReserves ?? []).slice(0, 6).map((r: any) => row(`${r.label} · ${COV[r.level] ?? 'Coverage n/a'}`, fmtUsd(r.reserves))).join('')
 
   const section = (title: string, body: string) =>
     body
@@ -55,10 +62,10 @@ function buildDigestBodies(snap: any): { subject: string; html: string; text: st
     <div style="max-width:560px;margin:0 auto;background:#11141c;border:1px solid #1e2230;border-radius:16px;padding:28px">
       <div style="font-weight:700;font-size:18px;letter-spacing:.04em;color:#f5b100">WCOIN.CASINO</div>
       <div style="color:#6b7080;font-size:12px;margin-top:2px">Crypto Casino Market Daily · ${esc(date)} (UTC)</div>
-      ${section('Market snapshot', stats)}
-      ${section('Biggest movers (24h)', movers)}
-      ${section('Whale activity (24h)', whales)}
-      ${section('Trust &amp; reserves', reserves)}
+      ${section('Verified market snapshot', stats)}
+      ${section('Biggest movers — verified 24h volume', movers)}
+      ${section('Whale activity — aggregated (24h)', whales)}
+      ${section('Tracked all-chain reserves', reserves)}
       <div style="margin-top:26px"><a href="${SITE}/daily" style="display:inline-block;background:#f5b100;color:#0b0d12;font-weight:700;text-decoration:none;padding:11px 18px;border-radius:10px;font-size:14px">Read the full daily report →</a></div>
       <p style="color:#6b7080;font-size:11px;margin:24px 0 0;line-height:1.6">Figures are on-chain observations &amp; third-party data with inherent attribution uncertainty — not a statement on any operator's solvency or legality. See methodology on the site.<br><br>You're receiving this because you subscribed at WCOIN.CASINO. <a href="{{UNSUB}}" style="color:#9aa0b4">Unsubscribe</a>.</p>
     </div>
@@ -68,7 +75,7 @@ function buildDigestBodies(snap: any): { subject: string; html: string; text: st
     `24h volume: ${fmtUsd(snap.tracked_volume_24h ?? 0)} | net flow: ${(net >= 0 ? '+' : '-') + fmtUsd(Math.abs(net))} | casinos: ${snap.active_casinos} | chains: ${snap.active_chains} | reserves: ${fmtUsd(snap.reserves_total ?? 0)}\n\n` +
     `Biggest movers: ${(p.topMovers ?? []).slice(0, 5).map((m: any) => `${m.label} ${fmtUsd(m.vol24h)}`).join(', ')}\n\n` +
     `Full report: ${SITE}/daily\nUnsubscribe: {{UNSUB}}`
-  return { subject: `Crypto Casino Market Daily — ${fmtUsd(snap.tracked_volume_24h ?? 0)} on-chain, ${snap.active_casinos} casinos (${date})`, html, text }
+  return { subject: `Crypto Casino Market Daily — ${fmtUsd(snap.tracked_volume_24h ?? 0)} verified on-chain, ${snap.active_casinos} brands (${date})`, html, text }
 }
 
 // Upsert today's digest row from the latest snapshot.

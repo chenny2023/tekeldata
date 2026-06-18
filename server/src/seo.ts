@@ -736,14 +736,14 @@ function reportPage(snap: any, prev: string | null, next: string | null): { titl
   const p = snap.payload || {}
   const net = snap.net_flow_24h ?? 0
   const title = `Crypto casino market — ${date} | Daily on-chain report | WCOIN.CASINO`
-  const description = `Crypto-casino market on ${date} (UTC): ${fmtUsd(snap.tracked_volume_24h ?? 0)} tracked 24h on-chain volume across ${snap.active_casinos ?? 0} casinos and ${snap.active_chains ?? 0} chains, ${fmtUsd(snap.reserves_total ?? 0)} mapped reserves.`
+  const description = `Crypto-casino market on ${date} (UTC): ${fmtUsd(snap.tracked_volume_24h ?? 0)} verified tracked 24h on-chain volume across ${snap.active_casinos ?? 0} verified brands and ${snap.active_chains ?? 0} chains, ${fmtUsd(snap.reserves_total ?? 0)} tracked all-chain reserves. Unattributed flow excluded.`
 
   const stats =
     `<div class="grid">` +
-    stat('24h tracked volume', fmtUsd(snap.tracked_volume_24h ?? 0)) +
+    stat('24H Verified Tracked Volume', fmtUsd(snap.tracked_volume_24h ?? 0)) +
     stat('Net flow (24h)', (net >= 0 ? '+' : '−') + fmtUsd(Math.abs(net)), net >= 0 ? 'mint' : 'rose') +
-    stat('Active casinos', fmtNum(snap.active_casinos ?? 0)) +
-    stat('Chains', String(snap.active_chains ?? 0)) +
+    stat('Active Verified Brands', fmtNum(snap.active_casinos ?? 0)) +
+    stat('Active Chains', String(snap.active_chains ?? 0)) +
     stat('Live streamers', String(snap.live_streamers ?? 0)) +
     stat('Tracked reserves', fmtUsd(snap.reserves_total ?? 0), 'mint') +
     `</div>`
@@ -763,20 +763,25 @@ function reportPage(snap: any, prev: string | null, next: string | null): { titl
         .join('')}</tbody></table>`
     : ''
 
-  const whales = (p.whales ?? []).slice(0, 10)
-  const whalesT = whales.length
-    ? `<h2>Whale activity (24h, ≥ $50K)</h2><table><tbody>${whales
+  // aggregated whale activity (grouped by brand·chain·direction); fall back to raw
+  // events for snapshots taken before aggregation existed
+  const wGroups = (p.whaleGroups ?? []).length
+    ? p.whaleGroups.slice(0, 12)
+    : (p.whales ?? []).slice(0, 10).map((w: any) => ({ label: w.label, chain: w.chain, direction: w.direction, count: 1, total: w.usd, largest: w.usd }))
+  const whalesT = wGroups.length
+    ? `<h2>Whale activity — aggregated (24h, ≥ $50K)</h2><p class="prose" style="font-size:13px;color:var(--dim)">Observed large wallet transfers involving tracked casino-related wallets. Does not indicate user identity or intent.</p><table><thead><tr><th>Operator</th><th>Network</th><th style="text-align:right">Events</th><th style="text-align:right">Total</th></tr></thead><tbody>${wGroups
         .map(
-          (w: any) =>
-            `<tr><td>${esc(w.label)}</td><td><span class="pill">${esc(chainName(w.chain))}</span></td><td class="n ${w.direction === 'in' ? 'mint' : 'rose'}">${w.direction === 'in' ? '+' : '−'}${fmtUsd(w.usd)}</td></tr>`,
+          (g: any) =>
+            `<tr><td>${esc(g.label)}</td><td><span class="pill">${esc(chainName(g.chain))}</span></td><td class="n">${g.count} ${g.direction === 'in' ? 'in' : 'out'}</td><td class="n ${g.direction === 'in' ? 'mint' : 'rose'}">${g.direction === 'in' ? '+' : '−'}${fmtUsd(g.total)}</td></tr>`,
         )
         .join('')}</tbody></table>`
     : ''
 
+  const COV: Record<string, string> = { high: 'High', medium: 'Medium', partial: 'Partial', under_review: 'Under review', unknown: 'Unknown' }
   const reserves = (p.topReserves ?? []).slice(0, 8)
   const reservesT = reserves.length
-    ? `<h2>Reserve watch — all-chain tracked reserves</h2><table><tbody>${reserves
-        .map((r: any) => `<tr><td><a href="/casino/${slugify(r.label)}">${esc(r.label)}</a></td><td class="n mint">${fmtUsd(r.reserves)}</td></tr>`)
+    ? `<h2>Tracked all-chain reserves</h2><p class="prose" style="font-size:13px;color:var(--dim)">Observed wallet balances for verified casino brands. Coverage may be partial — not a complete financial statement.</p><table><thead><tr><th>Operator</th><th>Coverage</th><th style="text-align:right">Tracked reserves</th></tr></thead><tbody>${reserves
+        .map((r: any) => `<tr><td><a href="/casino/${slugify(r.label)}">${esc(r.label)}</a></td><td><span class="pill">${esc(COV[r.level] ?? 'Unknown')}</span></td><td class="n mint">${fmtUsd(r.reserves)}</td></tr>`)
         .join('')}</tbody></table>`
     : ''
 
@@ -784,12 +789,12 @@ function reportPage(snap: any, prev: string | null, next: string | null): { titl
   const u = p.unattributed
   const unattrT =
     u && u.count
-      ? `<h2>Unattributed Casino Flow</h2><p class="prose" style="font-size:13px;color:var(--dim)">Pattern-detected casino-related flow not attributed to a verified brand — shown separately and excluded from every figure above.</p><table><tbody>${(u.top ?? [])
+      ? `<h2>Unattributed Casino-related Flow</h2><p class="prose" style="font-size:13px;color:var(--dim)">Pattern-detected casino-related wallet activity not yet attributed to a verified casino brand — shown separately and excluded from every verified figure and ranking above until attribution improves. Confidence: low.</p><table><tbody>${(u.top ?? [])
           .map((x: any) => `<tr><td>${esc(x.label)}</td><td class="n">${fmtUsd(x.vol7d)} 7d</td></tr>`)
           .join('')}<tr><td><strong>Total unattributed</strong></td><td class="n"><strong>${fmtUsd(u.vol24h)} 24h · ${fmtUsd(u.vol7d)} 7d</strong></td></tr></tbody></table>`
       : ''
 
-  const confNote = `<p class="prose" style="margin-top:20px;font-size:13px"><strong>Data confidence notes.</strong> All figures are brand-merged, verified on-chain observations for the stated window; unattributed pattern flow is reported separately above. Snapshot confidence for this day: <span class="pill">${esc(snap.confidence_level || 'medium')}</span>. See <a href="/methodology/data-confidence">how we rate data confidence</a>.</p>`
+  const confNote = `<p class="prose" style="margin-top:20px;font-size:13px"><strong>Data coverage notes.</strong> Headline figures are <em>verified</em> casino flow only — brand-merged on-chain observations for the stated window. Unattributed pattern flow is reported separately and excluded from every figure above. Reserve coverage is partial by brand and expressed as a level, not a percentage. See <a href="/methodology/data-confidence">how we rate data confidence</a>.</p>`
 
   const pager =
     prev || next
@@ -797,7 +802,7 @@ function reportPage(snap: any, prev: string | null, next: string | null): { titl
       : ''
 
   const body = `
-<p class="sub">On-chain snapshot of the crypto-casino market for <strong>${esc(date)} (UTC)</strong> — confidence: ${esc(snap.confidence_level || 'medium')}.</p>
+<p class="sub">Verified on-chain snapshot of the crypto-casino market for <strong>${esc(date)} (UTC)</strong> — verified flow only; unattributed flow shown separately.</p>
 <p class="upd">Archived daily report · <a href="/daily">today's live report</a></p>
 ${pager}
 ${stats}

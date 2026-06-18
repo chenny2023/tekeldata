@@ -25,6 +25,24 @@ const upsert = db.prepare(`
     confidence_level=@conf, updated_at=@now
 `)
 
+// Reserve COVERAGE level — qualitative band, never a raw %. The old UI rendered the
+// weeks-of-withdrawal-coverage ratio ×100 ("4092% mapped"), which is meaningless to a
+// reader and hurts credibility. We express coverage as an honest level instead, and
+// log implausible inputs as data-quality issues.
+function coverageLevel(b: any): 'high' | 'medium' | 'partial' | 'under_review' | 'unknown' {
+  if (!(b.reserves > 0)) return 'unknown'
+  if (b.volumeSuspect) return 'under_review'
+  if (b.reserveCoverage != null && b.reserveCoverage > 200) return 'under_review' // implausible ratio
+  if (b.confidence === 'high') return 'high'
+  if (b.confidence === 'medium') return 'medium'
+  return 'partial'
+}
+
+const dqInsert = db.prepare(`
+  INSERT INTO data_quality_issue (date, issue_type, severity, related_brand_id, details_json, status, created_at, updated_at)
+  VALUES (@date, @type, @sev, @brand, @details, 'open', @now, @now)
+`)
+
 export async function generateMarketSnapshot(): Promise<void> {
   const now = Date.now()
   const d1 = now - DAY
@@ -59,9 +77,19 @@ export async function generateMarketSnapshot(): Promise<void> {
 
   // recent verified whale transfers (worker; indexed by usd)
   const whales = (await workerAll(
-    `SELECT label, chain, usd, direction, ts FROM transfers WHERE category='casino' AND ts>=? AND usd>=50000 ${NOT_UNATTR} ORDER BY ts DESC LIMIT 12`,
+    `SELECT label, chain, usd, direction, ts FROM transfers WHERE category='casino' AND ts>=? AND usd>=50000 ${NOT_UNATTR} ORDER BY ts DESC LIMIT 40`,
     [d1],
   )) as { label: string; chain: string; usd: number; direction: string; ts: number }[]
+
+  // AGGREGATED whale activity — grouped by (brand, chain, direction) so the report
+  // shows "Rain.gg · 6 inflows · $557.8K · ETH" instead of a raw transfer ticker
+  // spamming the same brand+amount. Raw events stay in `whales` for the expand view.
+  const whaleGroups = (await workerAll(
+    `SELECT label, chain, direction, COUNT(*) cnt, SUM(usd) total, MAX(usd) largest
+     FROM transfers WHERE category='casino' AND ts>=? AND usd>=50000 ${NOT_UNATTR}
+     GROUP BY label, chain, direction ORDER BY total DESC LIMIT 12`,
+    [d1],
+  )) as { label: string; chain: string; direction: string; cnt: number; total: number; largest: number }[]
 
   // reserves (small tables — main thread is fine)
   const reservesTotal =
@@ -79,19 +107,20 @@ export async function generateMarketSnapshot(): Promise<void> {
   const liveStreamers = (db.prepare('SELECT COUNT(*) n FROM streamers WHERE live=1').get() as any).n ?? 0
   const activeCasinos = verified.filter((b) => (b.volume24h ?? 0) > 0).length
 
+  const reserveRows = verified.filter((b) => b.reserves > 0).sort((a, b) => b.reserves - a.reserves)
   const payload = {
     topMovers: verified
       .filter((b) => !b.volumeSuspect) // keep anomalous wash/internal volume out of movers
       .slice()
       .sort((a, b) => (b.volume24h ?? 0) - (a.volume24h ?? 0))
       .slice(0, 8)
-      .map((b) => ({ label: b.brand, vol24h: b.volume24h ?? 0, vol7d: b.volume7d ?? 0, net7d: b.net7d ?? 0, trust: b.trust ?? null })),
-    topReserves: verified
-      .filter((b) => b.reserves > 0)
-      .sort((a, b) => b.reserves - a.reserves)
-      .slice(0, 8)
-      .map((b) => ({ label: b.brand, reserves: b.reserves, coverage: b.reserveCoverage ?? null })),
+      // `repSignal` replaces the bare `trust` field (which read like an official safety
+      // score); `trust` kept for backward-compat with older consumers/snapshots.
+      .map((b) => ({ label: b.brand, vol24h: b.volume24h ?? 0, vol7d: b.volume7d ?? 0, net7d: b.net7d ?? 0, change24h: b.change24h ?? null, repSignal: b.trust ?? null, trust: b.trust ?? null, confidence: b.confidence ?? 'medium' })),
+    topReserves: reserveRows.slice(0, 8).map((b) => ({ label: b.brand, reserves: b.reserves, level: coverageLevel(b), confidence: b.confidence ?? 'medium', coverage: b.reserveCoverage ?? null })),
     chainVolume: chainRows.map((c) => ({ chain: c.chain, vol24h: c.v ?? 0 })),
+    // aggregated whale groups (default display) + raw events (expand) — see queries above
+    whaleGroups: whaleGroups.map((g) => ({ label: g.label, chain: g.chain, direction: g.direction, count: g.cnt, total: g.total, largest: g.largest })),
     whales: whales.map((w) => ({ label: w.label, chain: w.chain, usd: w.usd, direction: w.direction, ts: w.ts })),
     // pattern-detected flow not attributed to a verified brand — shown separately
     unattributed: {
@@ -108,6 +137,19 @@ export async function generateMarketSnapshot(): Promise<void> {
 
   // confidence: lower when we have thin coverage today
   const conf = activeCasinos >= 20 && reservesTotal > 0 ? 'high' : activeCasinos >= 5 ? 'medium' : 'low'
+
+  // data-quality log: record reserve-coverage anomalies (the "% mapped > 100" class)
+  // so they're auditable instead of silently shown. Best-effort; never blocks the snapshot.
+  try {
+    const today = utcDay(now)
+    db.prepare('DELETE FROM data_quality_issue WHERE date=? AND issue_type=?').run(today, 'reserve_coverage_under_review')
+    const flagged = reserveRows.filter((b) => coverageLevel(b) === 'under_review')
+    for (const b of flagged.slice(0, 50))
+      dqInsert.run({ date: today, type: 'reserve_coverage_under_review', sev: 'warn', brand: b.brand, details: JSON.stringify({ reserves: b.reserves, reserveCoverage: b.reserveCoverage ?? null, volumeSuspect: !!b.volumeSuspect }), now })
+    if (flagged.length) console.log(`[snapshot] flagged ${flagged.length} reserve-coverage anomalies → data_quality_issue`)
+  } catch (e) {
+    console.warn('[snapshot] dq log skipped:', (e as Error).message)
+  }
 
   upsert.run({
     d: utcDay(now),

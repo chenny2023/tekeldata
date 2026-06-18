@@ -510,9 +510,10 @@ export interface MarketSnapshot {
   reserve_change_7d: number | null
   confidence_level: string
   payload: {
-    topMovers: { label: string; vol24h: number; vol7d: number; net7d: number; trust: number | null }[]
-    topReserves: { label: string; reserves: number; coverage: number | null }[]
+    topMovers: { label: string; vol24h: number; vol7d: number; net7d: number; trust: number | null; repSignal?: number | null; confidence?: string; change24h?: number | null }[]
+    topReserves: { label: string; reserves: number; coverage: number | null; level?: string; confidence?: string }[]
     chainVolume: { chain: string; vol24h: number }[]
+    whaleGroups?: { label: string; chain: string; direction: string; count: number; total: number; largest: number }[]
     whales: { label: string; chain: string; usd: number; direction: string; ts: number }[]
     unattributed?: { count: number; vol24h: number; vol7d: number; top: { label: string; vol7d: number }[] }
   }
