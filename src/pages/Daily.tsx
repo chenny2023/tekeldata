@@ -17,6 +17,17 @@ import { fmtUsd, fmtNum } from '../data/format'
 // Top badge no longer claims a single whole-page confidence (the page mixes verified
 // flow, low-confidence unattributed flow and partial reserve coverage). It states the
 // LENS instead; confidence/coverage is shown per module.
+// ISO week key (e.g. 2026-W25) — matches the server's weekly-report slug.
+function isoWeekKey(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00Z')
+  const day = (d.getUTCDay() + 6) % 7
+  const thu = new Date(d)
+  thu.setUTCDate(d.getUTCDate() - day + 3)
+  const ys = new Date(Date.UTC(thu.getUTCFullYear(), 0, 1))
+  const wk = Math.ceil(((thu.getTime() - ys.getTime()) / 86_400_000 + 1) / 7)
+  return `${thu.getUTCFullYear()}-W${String(wk).padStart(2, '0')}`
+}
+
 function VerifiedBadge() {
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full border border-mint-500/30 bg-mint-500/10 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-mint-400">
@@ -635,6 +646,10 @@ export default function Daily() {
               <div className="px-1 text-[13px] text-white/45">
                 <a href={`/reports/daily/${new Date(new Date(data.snapshot_date + 'T00:00:00Z').getTime() - 86400000).toISOString().slice(0, 10)}`} className="text-gold-400 hover:underline">
                   ← Previous daily reports
+                </a>
+                <span className="px-2 text-white/20">·</span>
+                <a href={`/reports/weekly/${isoWeekKey(data.snapshot_date)}`} className="text-gold-400 hover:underline">
+                  This week's summary →
                 </a>
               </div>
             )}

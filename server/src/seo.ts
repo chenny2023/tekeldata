@@ -825,7 +825,7 @@ function reportPage(snap: any, prev: string | null, next: string | null): { titl
 
   const body = `
 <p class="sub">Verified on-chain snapshot of the crypto-casino market for <strong>${esc(date)} (UTC)</strong> — verified flow only; unattributed flow shown separately.</p>
-<p class="upd">Archived daily report · <a href="/daily">today's live report</a></p>
+<p class="upd">Archived daily report · <a href="/reports/weekly/${isoWeek(date).key}">week ${esc(isoWeek(date).key)} summary</a> · <a href="/daily">today's live report</a></p>
 ${pager}
 ${stats}
 ${readT}
@@ -857,6 +857,104 @@ ${pager}
       updated: Date.now(),
       body,
       ogImage: `${SITE}/api/share/daily.png?date=${encodeURIComponent(date)}`,
+    }),
+  }
+}
+
+// ── Weekly report — aggregates the week's daily snapshots into one evergreen page ─
+function isoWeek(dateStr: string): { key: string; start: string; end: string } {
+  const d = new Date(dateStr + 'T00:00:00Z')
+  const day = (d.getUTCDay() + 6) % 7 // Mon=0 … Sun=6
+  const monday = new Date(d)
+  monday.setUTCDate(d.getUTCDate() - day)
+  const sunday = new Date(monday)
+  sunday.setUTCDate(monday.getUTCDate() + 6)
+  const thursday = new Date(monday)
+  thursday.setUTCDate(monday.getUTCDate() + 3)
+  const yearStart = new Date(Date.UTC(thursday.getUTCFullYear(), 0, 1))
+  const week = Math.ceil(((thursday.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7)
+  return { key: `${thursday.getUTCFullYear()}-W${String(week).padStart(2, '0')}`, start: monday.toISOString().slice(0, 10), end: sunday.toISOString().slice(0, 10) }
+}
+
+function weeklyReportPage(wk: { key: string; start: string; end: string }, days: any[], prev: string | null, next: string | null): { title: string; description: string; html: string } {
+  const url = `${SITE}/reports/weekly/${wk.key}`
+  const n = days.length
+  const totalVol = days.reduce((s, r) => s + (r.tracked_volume_24h ?? 0), 0)
+  const netFlow = days.reduce((s, r) => s + (r.net_flow_24h ?? 0), 0)
+  const avgBrands = Math.round(days.reduce((s, r) => s + (r.active_casinos ?? 0), 0) / Math.max(1, n))
+  const last = days[days.length - 1]
+  const reserves = last?.reserves_total ?? 0
+  const peak = days.slice().sort((a, b) => (b.tracked_volume_24h ?? 0) - (a.tracked_volume_24h ?? 0))[0]
+
+  // weekly brand leaderboard — sum each brand's daily 24h volume across the week
+  const brandVol = new Map<string, number>()
+  const chainVol = new Map<string, number>()
+  for (const r of days) {
+    for (const m of r.payload?.topMovers ?? []) brandVol.set(m.label, (brandVol.get(m.label) ?? 0) + (m.vol24h ?? 0))
+    for (const c of r.payload?.chainVolume ?? []) chainVol.set(c.chain, (chainVol.get(c.chain) ?? 0) + (c.vol24h ?? 0))
+  }
+  const topBrands = [...brandVol.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10)
+  const chains = [...chainVol.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10)
+  const totChain = chains.reduce((s, c) => s + c[1], 0) || 1
+
+  const title = `Crypto casino market — week ${wk.key} | Weekly on-chain report | WCOIN.CASINO`
+  const description = `Crypto-casino market for ISO week ${wk.key} (${wk.start} → ${wk.end}): ${fmtUsd(totalVol)} total verified on-chain volume across ${n} tracked days, ${fmtUsd(reserves)} end-of-week reserves. Verified flow only.`
+
+  const stats =
+    `<div class="grid">` +
+    stat('Verified volume (week)', fmtUsd(totalVol)) +
+    stat('Net flow (week)', (netFlow >= 0 ? '+' : '−') + fmtUsd(Math.abs(netFlow)), netFlow >= 0 ? 'mint' : 'rose') +
+    stat('Avg active brands/day', String(avgBrands)) +
+    stat('Days covered', String(n)) +
+    stat('Peak day', peak ? fmtUsd(peak.tracked_volume_24h ?? 0) : '—') +
+    stat('End-of-week reserves', fmtUsd(reserves), 'mint') +
+    `</div>`
+
+  const brandsT = topBrands.length
+    ? `<h2>Top verified casino flow — week ${esc(wk.key)}</h2><table><thead><tr><th>Operator</th><th style="text-align:right">Week volume</th></tr></thead><tbody>${topBrands
+        .map(([b, v]) => `<tr><td><a href="/casino/${slugify(b)}">${esc(b)}</a></td><td class="n">${fmtUsd(v)}</td></tr>`)
+        .join('')}</tbody></table>`
+    : ''
+  const chainsT = chains.length
+    ? `<h2>Volume by chain — week</h2><table><tbody>${chains.map(([c, v]) => `<tr><td><span class="pill">${esc(chainName(c))}</span></td><td class="n">${fmtUsd(v)}</td><td class="n" style="color:var(--mut)">${((v / totChain) * 100).toFixed(1)}%</td></tr>`).join('')}</tbody></table>`
+    : ''
+  const trendT = `<h2>Daily breakdown</h2><table><thead><tr><th>Date</th><th style="text-align:right">Verified volume</th><th style="text-align:right">Active brands</th></tr></thead><tbody>${days
+    .map((r) => `<tr><td><a href="/reports/daily/${r.snapshot_date}">${esc(r.snapshot_date)}</a></td><td class="n">${fmtUsd(r.tracked_volume_24h ?? 0)}</td><td class="n">${r.active_casinos ?? 0}</td></tr>`)
+    .join('')}</tbody></table>`
+
+  const pager =
+    prev || next
+      ? `<div class="pager">${prev ? `<a href="/reports/weekly/${prev}">← ${esc(prev)}</a>` : '<span></span>'}${next ? `<a href="/reports/weekly/${next}">${esc(next)} →</a>` : '<span></span>'}</div>`
+      : ''
+
+  const body = `
+<p class="sub">Verified weekly snapshot of the crypto-casino market — ISO week <strong>${esc(wk.key)}</strong> (${esc(wk.start)} → ${esc(wk.end)}, UTC). Verified flow only; unattributed flow excluded.</p>
+<p class="upd">Aggregated from ${n} daily snapshots · <a href="/daily">today's live report</a></p>
+${pager}
+${stats}
+${brandsT}
+${chainsT}
+${trendT}
+<p class="prose" style="margin-top:20px;font-size:13px"><strong>Data coverage notes.</strong> Weekly figures sum the verified daily snapshots for the period; unattributed pattern flow is excluded throughout. Reserves are an all-chain best-effort estimate. See <a href="/methodology/on-chain-volume">volume</a> and <a href="/methodology/proof-of-reserves">reserves</a> methodology.</p>
+${pager}`
+  const jsonLd = [{ '@type': 'Dataset', name: `Crypto casino market — week ${wk.key}`, description, url, temporalCoverage: `${wk.start}/${wk.end}`, creator: { '@type': 'Organization', name: 'WCOIN.CASINO', url: SITE }, isAccessibleForFree: true }]
+  return {
+    title,
+    description,
+    html: layout({
+      title,
+      description,
+      canonical: url,
+      jsonLd,
+      breadcrumb: [
+        { name: 'Home', url: SITE + '/' },
+        { name: 'Daily reports', url: SITE + '/daily' },
+        { name: `Week ${wk.key}`, url },
+      ],
+      h1: `Crypto casino market — week ${wk.key}`,
+      updated: Date.now(),
+      body,
+      ogImage: last ? `${SITE}/api/share/daily.png?date=${encodeURIComponent(last.snapshot_date)}` : undefined,
     }),
   }
 }
@@ -1136,6 +1234,23 @@ export async function generateSeoPages(): Promise<void> {
     const prev = i < snaps.length - 1 ? snaps[i + 1].snapshot_date : null // older
     add(`/reports/daily/${s.snapshot_date}`, 'report', reportPage(s, prev, next))
   })
+  // weekly reports — group daily snapshots by ISO week; one evergreen page per week
+  // with ≥3 covered days (prev/next link only to other generated weeks).
+  const weeks = new Map<string, any[]>()
+  for (const s of snaps) {
+    const k = isoWeek(s.snapshot_date).key
+    weeks.set(k, [...(weeks.get(k) ?? []), s])
+  }
+  const weekKeys = [...weeks.keys()].sort()
+  const has = (k: string) => (weeks.get(k)?.length ?? 0) >= 3
+  weekKeys.forEach((key, idx) => {
+    if (!has(key)) return
+    const days = (weeks.get(key) ?? []).slice().sort((a, b) => (a.snapshot_date < b.snapshot_date ? -1 : 1))
+    const prev = idx > 0 && has(weekKeys[idx - 1]) ? weekKeys[idx - 1] : null
+    const next = idx < weekKeys.length - 1 && has(weekKeys[idx + 1]) ? weekKeys[idx + 1] : null
+    add(`/reports/weekly/${key}`, 'report', weeklyReportPage(isoWeek(days[0].snapshot_date), days, prev, next))
+  })
+  await yieldLoop()
   // methodology
   for (const topic of Object.keys(METHODOLOGY)) add(`/methodology/${topic}`, 'methodology', methodologyPage(topic)!)
   await yieldLoop()
@@ -1232,6 +1347,7 @@ export function registerSeo(app: FastifyInstance) {
   app.get('/rankings/:slug', serve('rankings'))
   app.get('/chains/:slug', serve('chains'))
   app.get('/reports/daily/:date', serve('report'))
+  app.get('/reports/weekly/:week', serve('report'))
   app.get('/methodology/:topic', serve('methodology'))
 
   // Dynamic child sitemap with every generated SEO page (+ core URLs). We use a
