@@ -240,11 +240,51 @@ function parseTgMessages(html: string): { id: string; text: string; ts: number }
   return out
 }
 
+// ── 论坛帖子列表抓取（通用：XenForo /threads/slug.123/ + vBulletin showthread.php?t=123）
+async function fetchForum(url: string): Promise<string | null> {
+  const init = { headers: { 'User-Agent': UA, Accept: 'text/html' }, signal: AbortSignal.timeout(40_000) }
+  const unlocked = webFetchUnlocked(url, init) // 过 Cloudflare（BHW 等）
+  try {
+    const res = unlocked ? await unlocked : await webFetchProxied(url, init)
+    if (res.ok) return await res.text()
+  } catch {
+    /* fall through to direct */
+  }
+  try {
+    const r = await webFetch(url, { ...init, signal: AbortSignal.timeout(20_000) })
+    if (r.ok) return await r.text()
+  } catch {
+    /* swallow */
+  }
+  return null
+}
+
+function parseForumThreads(html: string, pageUrl: string): { id: string; title: string; url: string }[] {
+  let origin = ''
+  try { origin = new URL(pageUrl).origin } catch { origin = '' }
+  const host = origin.replace(/^https?:\/\//, '').replace(/[^a-z0-9]/gi, '').slice(0, 12)
+  const out: { id: string; title: string; url: string }[] = []
+  const seen = new Set<string>()
+  const push = (rawId: string, href: string, inner: string) => {
+    const title = inner.replace(/<[^>]+>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, ' ').trim()
+    if (title.length < 8 || seen.has(rawId)) return
+    seen.add(rawId)
+    const full = /^https?:\/\//.test(href) ? href : origin + '/' + href.replace(/^\//, '')
+    out.push({ id: `${host}_${rawId}`, title: title.slice(0, 300), url: full })
+  }
+  // XenForo（AffiliateFix / AGD / BHW）
+  for (const m of html.matchAll(/<a href="([^"]*\/threads\/[^"]*?\.(\d+)\/?[^"]*)"[^>]*>([\s\S]*?)<\/a>/g)) push(m[2], m[1], m[3])
+  // vBulletin（GPWA 等）
+  for (const m of html.matchAll(/<a href="([^"]*showthread\.php\?[^"]*t=(\d+)[^"]*)"[^>]*>([\s\S]*?)<\/a>/g)) push('vb' + m[2], m[1], m[3])
+  return out
+}
+
 // ── 单轮采集：遍历所有产品 × 平台 × 关键词 ────────────────────────────────────
 type Job =
   | { product: string; platform: 'reddit'; kind: 'brand' | 'competitor' | 'demand'; query: string; subreddits: string[] }
   | { product: string; platform: 'x'; kind: 'competitor' | 'brand'; query: string }
   | { product: string; platform: 'telegram'; kind: 'demand'; query: string }
+  | { product: string; platform: 'forum'; kind: 'demand'; query: string; url: string }
 
 function buildJobs(): Job[] {
   const jobs: Job[] = []
@@ -255,6 +295,7 @@ function buildJobs(): Job[] {
     for (const h of p.x.competitorHandles) jobs.push({ product: p.key, platform: 'x', kind: 'competitor', query: h })
     for (const h of p.x.ownHandles) jobs.push({ product: p.key, platform: 'x', kind: 'brand', query: h })
     for (const ch of p.telegram ?? []) jobs.push({ product: p.key, platform: 'telegram', kind: 'demand', query: ch })
+    for (const f of p.forums ?? []) jobs.push({ product: p.key, platform: 'forum', kind: 'demand', query: f.name, url: f.url })
   }
   // 已保存且启用的「自定义采集需求」——随同主调度一起轮询
   for (const c of activeCustomQueries()) jobs.push(c)
@@ -374,6 +415,31 @@ async function runXJob(j: Extract<Job, { platform: 'x' }>): Promise<number> {
   return added
 }
 
+async function runForumJob(j: Extract<Job, { platform: 'forum' }>): Promise<number> {
+  const html = await fetchForum(j.url)
+  if (!html) { consecutiveFails++; return 0 }
+  consecutiveFails = 0
+  const now = Date.now()
+  let added = 0
+  const fresh: AlertSignal[] = []
+  const tx = db.transaction(() => {
+    for (const t of parseForumThreads(html, j.url)) {
+      const intent = intentScore(t.title)
+      const id = `forum_${t.id}_${j.product}`
+      const r = insertSignal.run({
+        id, product: j.product, platform: 'forum', kind: 'demand', query: j.query,
+        author: j.query, title: t.title, body: '',
+        url: t.url, score: 0, sentiment: lexScore(t.title), intent, ts: now, collected_ts: now,
+      })
+      added += r.changes
+      if (r.changes) fresh.push({ id, product: j.product, platform: 'forum', kind: 'demand', title: t.title, url: t.url, intent })
+    }
+  })
+  tx()
+  void maybeAlert(fresh)
+  return added
+}
+
 export async function runSocialIntelOnce(): Promise<void> {
   if (cursor >= jobs.length) { jobs = buildJobs(); cursor = 0 }
   if (jobs.length === 0) return
@@ -382,6 +448,7 @@ export async function runSocialIntelOnce(): Promise<void> {
     const added =
       j.platform === 'reddit' ? await runRedditJob(j)
       : j.platform === 'telegram' ? await runTelegramJob(j)
+      : j.platform === 'forum' ? await runForumJob(j)
       : await runXJob(j)
     if (added) console.log(`[social-intel] ${j.product}/${j.platform}/${j.kind} "${j.query}": +${added}`)
   } catch (e) {

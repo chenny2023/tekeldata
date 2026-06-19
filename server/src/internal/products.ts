@@ -40,9 +40,15 @@ export interface ProductConfig {
   /**
    * Telegram 公开频道用户名（不含 @），监听其近期消息作为需求/竞品信号。
    * 适合 wonix 这类"投手不在 Reddit、聚集在 TG 群/频道"的产品。留空=不监听。
-   * 注意：只能读「公开频道」(t.me/s/<name> 可预览的)；私有群读不到。
+   * 注意：只能读「公开频道」(t.me/s/<name> 可预览的)；私有群/普通 chat 读不到。
    */
   telegram?: string[]
+  /**
+   * 论坛帖子列表页（"最新/标签/板块"页 URL），抓其中的帖子标题+链接作为需求信号。
+   * 通用解析器支持 XenForo(/threads/slug.123/) 与 vBulletin(showthread.php?t=123)；
+   * 走住宅代理/解锁器过 Cloudflare。适合 iGaming 投手聚集的 BHW/AGD/AffiliateFix 等。
+   */
+  forums?: { name: string; url: string }[]
 }
 
 // 关键词可随时增删调优；竞品 X 账号名写错会自动 404 忽略，安全。各产品 ownHandles 待补真实账号。
@@ -139,11 +145,21 @@ export const PRODUCTS: ProductConfig[] = [
         'media buying creative workflow',
       ],
     },
-    subreddits: ['PPC', 'FacebookAds', 'advertising', 'marketing', 'Affiliatemarketing', 'DigitalMarketing'],
+    // iGaming 投手 / 联盟营销 / 绩效投放聚集的 Reddit 社区（含玩家端痛点供反向选品）
+    subreddits: ['Affiliatemarketing', 'PPC', 'FacebookAds', 'advertising', 'sportsbook', 'onlinegambling', 'gambling'],
     // ownHandles 待补：填入 wonix 自己的 X 账号名（不带 @）
     x: { competitorHandles: ['AdCreativeai', 'madgicx', 'creatopy', 'foreplay_co'], ownHandles: [] },
-    // ⚠️ 待补：填入真实的 iGaming 投手/联盟营销公开 TG 频道用户名（不含 @），例如行业资讯/素材分享频道
-    telegram: [],
+    // @iGaming_chat 是群/chat，t.me/s/ 多半抓不到（会优雅返回0）；真正公开「频道」可继续往这里加
+    telegram: ['iGaming_chat'],
+    // iGaming 投手浓度最高的英文公开论坛（XenForo/vBulletin，走住宅代理过 Cloudflare）。
+    // 俄语社区 FB-Killa/vc.ru/CPALENTA 暂缓（需翻译+部分需注册，稳定性待评估）。
+    forums: [
+      { name: 'BHW · iGaming', url: 'https://www.blackhatworld.com/tags/igaming/' },
+      { name: 'BHW · gambling', url: 'https://www.blackhatworld.com/tags/gambling/' },
+      { name: 'BHW · media-buying', url: 'https://www.blackhatworld.com/forums/media-buying.175/' },
+      { name: 'AGD · casino-affiliate', url: 'https://www.affiliateguarddog.com/community/categories/casino-affiliate-forums.56/' },
+      { name: 'AffiliateFix', url: 'https://affiliatefix.com/whats-new/posts/' },
+    ],
   },
 ]
 
