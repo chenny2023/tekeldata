@@ -332,11 +332,33 @@ function parseForumThreads(html: string, pageUrl: string): { id: string; title: 
     const full = /^https?:\/\//.test(href) ? href : origin + '/' + href.replace(/^\//, '')
     out.push({ id: `${host}_${rawId}`, title: title.slice(0, 300), url: full })
   }
-  // XenForo（AffiliateFix / AGD / BHW）
+  // XenForo（AffiliateFix / AGD）
   for (const m of html.matchAll(/<a href="([^"]*\/threads\/[^"]*?\.(\d+)\/?[^"]*)"[^>]*>([\s\S]*?)<\/a>/g)) push(m[2], m[1], m[3])
-  // vBulletin（GPWA 等）
+  // vBulletin（showthread.php?t=）
   for (const m of html.matchAll(/<a href="([^"]*showthread\.php\?[^"]*t=(\d+)[^"]*)"[^>]*>([\s\S]*?)<\/a>/g)) push('vb' + m[2], m[1], m[3])
+  // 通用兜底：非论坛结构的"文章站"(vc.ru/CPALENTA/TraffHub/GPWA 等)——抓同站长标题链接。
+  if (out.length === 0) {
+    const pageHost = (() => { try { return new URL(pageUrl).host } catch { return '' } })()
+    for (const m of html.matchAll(/<a[^>]+href="([^"#]+)"[^>]*>([\s\S]*?)<\/a>/g)) {
+      const href = m[1]
+      if (/\.(css|js|png|jpe?g|svg|gif|ico|webp|woff2?|mp4|pdf)(\?|$)/i.test(href)) continue
+      const title = m[2].replace(/<[^>]+>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, ' ').trim()
+      if (title.length < 25 || title.length > 300 || !/[a-zа-яё]/i.test(title)) continue
+      const full = /^https?:\/\//.test(href) ? href : origin + '/' + href.replace(/^\//, '')
+      try { if (pageHost && !full.includes(pageHost)) continue } catch { continue } // 仅同站
+      const id = `${host}_${strHash(full)}`
+      if (seen.has(id)) continue
+      seen.add(id)
+      out.push({ id, title: title.slice(0, 300), url: full })
+      if (out.length >= 40) break
+    }
+  }
   return out
+}
+function strHash(s: string): string {
+  let h = 5381
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0
+  return (h >>> 0).toString(36)
 }
 
 // ── Bluesky 公开关键词搜索（无 key，app.bsky.feed.searchPosts，与 collectors/bluesky.ts 同范式）

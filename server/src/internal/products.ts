@@ -177,10 +177,14 @@ export const PRODUCTS: ProductConfig[] = [
     // vc.ru / CPALENTA 是文章站(非论坛结构)，需专门解析器，暂缓。
     // 仅保留实测可抓的(直连即通)。BHW 全系=Cloudflare 拦截页(0 帖、白耗额度)已移除；
     // affLIFT 需登录/挡爬也移除。FB-Killa 是主力(122 帖/页)。
+    // 论坛 + 文章站（通用兜底解析器抓列表页链接）。均实测可直连抓到内容。
     forums: [
-      { name: 'FB-Killa (CIS)', url: 'https://fb-killa.pro/forums/' },
-      { name: 'AffiliateFix', url: 'https://affiliatefix.com/whats-new/posts/' },
-      { name: 'AGD · casino-affiliate', url: 'https://www.affiliateguarddog.com/community/categories/casino-affiliate-forums.56/' },
+      { name: 'FB-Killa (CIS)', url: 'https://fb-killa.pro/forums/' },        // 论坛 122/页
+      { name: 'AffiliateFix', url: 'https://affiliatefix.com/whats-new/posts/' }, // 论坛
+      { name: 'AGD · casino-affiliate', url: 'https://www.affiliateguarddog.com/community/categories/casino-affiliate-forums.56/' }, // 论坛
+      { name: 'CPALENTA (CIS)', url: 'https://cpalenta.ru/' },                // 文章站 ~67/页
+      { name: 'TraffHub (CIS)', url: 'https://traffhub.media/' },            // 文章站，gambling 投放强相关
+      { name: 'GPWA', url: 'https://www.gpwa.org/forum/' },                  // iGaming affiliate 行业
     ],
     // 论坛 firehose 过滤词：放宽到「广告素材 + 媒体采买痛点」语境（封号/CPA/ROAS/放量也算 wonix 痛点），
     // 仍排除纯赌场玩家闲聊。关键词源已不走此闸门，分类器做最终精筛。
