@@ -318,18 +318,53 @@ function parseForumThreads(html: string, pageUrl: string): { id: string; title: 
   return out
 }
 
+// ── Bluesky 公开关键词搜索（无 key，app.bsky.feed.searchPosts，与 collectors/bluesky.ts 同范式）
+async function fetchBluesky(query: string): Promise<any[] | null> {
+  const q = encodeURIComponent(query)
+  const url = `https://public.api.bsky.app/xrpc/app.bsky.feed.searchPosts?q=${q}&limit=25&sort=latest`
+  try {
+    const res = await webFetch(url, { headers: { 'User-Agent': UA, Accept: 'application/json' }, signal: AbortSignal.timeout(15_000) })
+    if (!res.ok) return null
+    const j = (await res.json()) as { posts?: any[] }
+    return j.posts ?? []
+  } catch {
+    return null
+  }
+}
+
+// ── Hacker News 全文搜索（无 key，Algolia；对 SaaS/技术选型人群最对口，利好 hirecx）
+async function fetchHN(query: string): Promise<any[] | null> {
+  const q = encodeURIComponent(`"${query}"`)
+  const url = `https://hn.algolia.com/api/v1/search_by_date?query=${q}&tags=(story,comment)&hitsPerPage=20`
+  try {
+    const res = await webFetch(url, { headers: { 'User-Agent': UA, Accept: 'application/json' }, signal: AbortSignal.timeout(15_000) })
+    if (!res.ok) return null
+    const j = (await res.json()) as { hits?: any[] }
+    return j.hits ?? []
+  } catch {
+    return null
+  }
+}
+
 // ── 单轮采集：遍历所有产品 × 平台 × 关键词 ────────────────────────────────────
+type Kind = 'brand' | 'competitor' | 'demand'
 type Job =
-  | { product: string; platform: 'reddit'; kind: 'brand' | 'competitor' | 'demand'; query: string; subreddits: string[] }
+  | { product: string; platform: 'reddit'; kind: Kind; query: string; subreddits: string[] }
   | { product: string; platform: 'x'; kind: 'competitor' | 'brand'; query: string }
   | { product: string; platform: 'telegram'; kind: 'demand'; query: string }
   | { product: string; platform: 'forum'; kind: 'demand'; query: string; url: string }
+  | { product: string; platform: 'bluesky'; kind: Kind; query: string }
+  | { product: string; platform: 'hn'; kind: Kind; query: string }
 
 function buildJobs(): Job[] {
   const jobs: Job[] = []
   for (const p of PRODUCTS) {
     for (const kind of ['brand', 'competitor', 'demand'] as const) {
-      for (const q of p.reddit[kind]) jobs.push({ product: p.key, platform: 'reddit', kind, query: q, subreddits: p.subreddits })
+      for (const q of p.reddit[kind]) {
+        jobs.push({ product: p.key, platform: 'reddit', kind, query: q, subreddits: p.subreddits })
+        jobs.push({ product: p.key, platform: 'bluesky', kind, query: q }) // 同关键词也搜 Bluesky（无 key 广搜）
+        if (kind !== 'brand') jobs.push({ product: p.key, platform: 'hn', kind, query: q }) // HN：需求/竞品词（技术/SaaS 人群）
+      }
     }
     for (const h of p.x.competitorHandles) jobs.push({ product: p.key, platform: 'x', kind: 'competitor', query: h })
     for (const h of p.x.ownHandles) jobs.push({ product: p.key, platform: 'x', kind: 'brand', query: h })
@@ -338,7 +373,23 @@ function buildJobs(): Job[] {
   }
   // 已保存且启用的「自定义采集需求」——随同主调度一起轮询
   for (const c of activeCustomQueries()) jobs.push(c)
-  return jobs
+  return interleave(jobs)
+}
+
+// 各平台轮流交错：避免"先把 Reddit 全跑完才轮到论坛/X/TG"——开机几分钟内即遍历所有源，
+// 且每次重启(游标归零)也能立刻覆盖到每个平台。
+function interleave(jobs: Job[]): Job[] {
+  const buckets = new Map<string, Job[]>()
+  for (const j of jobs) {
+    const k = j.platform
+    if (!buckets.has(k)) buckets.set(k, [])
+    buckets.get(k)!.push(j)
+  }
+  const lists = [...buckets.values()]
+  const max = Math.max(0, ...lists.map((l) => l.length))
+  const out: Job[] = []
+  for (let i = 0; i < max; i++) for (const l of lists) if (i < l.length) out.push(l[i])
+  return out
 }
 
 // ── 自定义采集需求（面板手填）────────────────────────────────────────────────
@@ -479,6 +530,68 @@ async function runForumJob(j: Extract<Job, { platform: 'forum' }>): Promise<numb
   return added
 }
 
+async function runBlueskyJob(j: Extract<Job, { platform: 'bluesky' }>): Promise<number> {
+  const posts = await fetchBluesky(j.query)
+  if (posts === null) { consecutiveFails++; return 0 }
+  consecutiveFails = 0
+  const now = Date.now()
+  let added = 0
+  const fresh: AlertSignal[] = []
+  const tx = db.transaction(() => {
+    for (const p of posts) {
+      const text: string = p?.record?.text ?? ''
+      const rkey = String(p?.uri ?? '').split('/').pop() ?? ''
+      if (!text || !rkey) continue
+      const handle: string = p?.author?.handle ?? ''
+      const intent = j.kind === 'demand' ? intentScore(text) : intentScore(text) * 0.5
+      const id = `bs_${rkey}_${j.product}_${j.kind}`
+      const url = handle ? `https://bsky.app/profile/${handle}/post/${rkey}` : ''
+      const r = insertSignal.run({
+        id, product: j.product, platform: 'bluesky', kind: j.kind, query: j.query,
+        author: handle.slice(0, 120), title: text.replace(/\s+/g, ' ').slice(0, 300), body: text.slice(0, 2000),
+        url, score: Number(p?.likeCount ?? 0), sentiment: senti(text), intent,
+        ts: Date.parse(p?.record?.createdAt ?? p?.indexedAt ?? '') || now, collected_ts: now,
+      })
+      added += r.changes
+      if (r.changes && j.kind === 'demand') fresh.push({ id, product: j.product, platform: 'bluesky', kind: j.kind, title: text.slice(0, 200), url, intent })
+    }
+  })
+  tx()
+  void maybeAlert(fresh)
+  return added
+}
+
+async function runHnJob(j: Extract<Job, { platform: 'hn' }>): Promise<number> {
+  const hits = await fetchHN(j.query)
+  if (hits === null) { consecutiveFails++; return 0 }
+  consecutiveFails = 0
+  const now = Date.now()
+  let added = 0
+  const fresh: AlertSignal[] = []
+  const tx = db.transaction(() => {
+    for (const h of hits) {
+      const text: string = h?.title ?? h?.story_title ?? h?.comment_text ?? h?.story_text ?? ''
+      const oid = String(h?.objectID ?? '')
+      if (!text || !oid) continue
+      const clean = text.replace(/<[^>]+>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, ' ').trim()
+      const intent = j.kind === 'demand' ? intentScore(clean) : intentScore(clean) * 0.5
+      const id = `hn_${oid}_${j.product}_${j.kind}`
+      const url = `https://news.ycombinator.com/item?id=${oid}`
+      const r = insertSignal.run({
+        id, product: j.product, platform: 'hn', kind: j.kind, query: j.query,
+        author: String(h?.author ?? '').slice(0, 120), title: clean.slice(0, 300), body: clean.slice(0, 2000),
+        url, score: Number(h?.points ?? 0), sentiment: senti(clean), intent,
+        ts: (Number(h?.created_at_i) || 0) * 1000 || now, collected_ts: now,
+      })
+      added += r.changes
+      if (r.changes && j.kind === 'demand') fresh.push({ id, product: j.product, platform: 'hn', kind: j.kind, title: clean.slice(0, 200), url, intent })
+    }
+  })
+  tx()
+  void maybeAlert(fresh)
+  return added
+}
+
 export async function runSocialIntelOnce(): Promise<void> {
   if (cursor >= jobs.length) { jobs = buildJobs(); cursor = 0 }
   if (jobs.length === 0) return
@@ -488,6 +601,8 @@ export async function runSocialIntelOnce(): Promise<void> {
       j.platform === 'reddit' ? await runRedditJob(j)
       : j.platform === 'telegram' ? await runTelegramJob(j)
       : j.platform === 'forum' ? await runForumJob(j)
+      : j.platform === 'bluesky' ? await runBlueskyJob(j)
+      : j.platform === 'hn' ? await runHnJob(j)
       : await runXJob(j)
     if (added) console.log(`[social-intel] ${j.product}/${j.platform}/${j.kind} "${j.query}": +${added}`)
   } catch (e) {

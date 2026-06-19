@@ -239,7 +239,7 @@ function toolbar(){
    '<input class="search" id="f-q" placeholder="🔎 搜索标题/正文/作者…" value="'+esc(filters.q)+'">'+
    '<select id="f-product">'+opt('','全部产品',filters.product)+products.map(p=>opt(p.key,p.name,filters.product)).join('')+'</select>'+
    '<select id="f-kind">'+['|全部类别','demand|需求/机会','competitor|竞品','brand|品牌'].map(o=>{const[v,l]=o.split('|');return opt(v,l,filters.kind)}).join('')+'</select>'+
-   '<select id="f-platform">'+['|全部平台','reddit|Reddit','x|X','telegram|Telegram','forum|论坛'].map(o=>{const[v,l]=o.split('|');return opt(v,l,filters.platform)}).join('')+'</select>'+
+   '<select id="f-platform">'+['|全部平台','reddit|Reddit','bluesky|Bluesky','hn|Hacker News','x|X','telegram|Telegram','forum|论坛'].map(o=>{const[v,l]=o.split('|');return opt(v,l,filters.platform)}).join('')+'</select>'+
    '<select id="f-intent">'+['0|意图≥0','0.25|意图≥0.25','0.45|意图≥0.45','0.7|意图≥0.7'].map(o=>{const[v,l]=o.split('|');return opt(v,l,filters.minIntent)}).join('')+'</select>'+
    '<select id="f-status">'+['|全部状态','new|未处理','reviewed|已生成草稿','ignored|已忽略'].map(o=>{const[v,l]=o.split('|');return opt(v,l,filters.status)}).join('')+'</select>'+
    '<select id="f-sort">'+['intent|意图优先','ts|最新优先'].map(o=>{const[v,l]=o.split('|');return opt(v,l,filters.sort)}).join('')+'</select>'+
