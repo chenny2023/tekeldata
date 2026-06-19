@@ -64,6 +64,7 @@ import { startStatsMaintenance } from './aggregate.ts'
 import { registerSocialIntel } from './internal/api.ts'
 import { startSocialIntel } from './internal/socialintel.ts'
 import { startTranslator } from './internal/translate.ts'
+import { startClassifier } from './internal/classify.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const distDir = join(__dirname, '../../dist')
@@ -240,6 +241,7 @@ async function main() {
   startPolymarket() // Polymarket — top prediction markets (live odds + volume)
   startSocialIntel() // 内部社媒情报：竞品/用户需求监听（Reddit 关键词 + X 账号），复用住宅代理
   startTranslator() // 内部社媒情报：每条信号的中文解读后台批量回填（需 OPENROUTER_API_KEY）
+  startClassifier() // 内部社媒情报：LLM 信号分类（actor/tier/pain/solvable）+ 清理不符合（需 OPENROUTER_API_KEY）
 
   // Second wave (+90s): the HEAVY deep-backfill indexers. Their synchronous bulk
   // inserts are what saturate the single Node loop on boot and make the API

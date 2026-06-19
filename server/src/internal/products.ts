@@ -91,40 +91,26 @@ export const PRODUCTS: ProductConfig[] = [
       'hirecx.ai 是“AI 数字员工”平台：像招人一样为你的网站配置一支 AI 客服团队，打通 API 后可承接售前销售、售后支持等全流程，按 token 用量计费，每条消息仅 $0.008。',
     reddit: {
       brand: ['hirecx.ai', 'hirecx'],
+      // spec：HireCX = 竞品置换监听。种子=竞品 AI 客服产品名（命中后由分类器判定"是否在用+是否不满"）。
+      // ⚠️ 待你补：区域性/iGaming 专属 AI 客服商，你最熟这个赛道。
       competitor: [
-        'intercom fin',
-        'zendesk ai',
-        'sierra ai',
-        'decagon ai',
-        'ada cx',
-        'forethought ai',
-        'tidio',
-        'chatbase',
-        'salesforce agentforce',
+        'intercom fin', 'zendesk ai', 'sierra ai', 'decagon ai', 'ada cx', 'forethought ai',
+        'tidio', 'chatbase', 'salesforce agentforce', 'gorgias ai', 'freshchat', 'crisp chat',
+        'voiceflow', 'kustomer ai',
       ],
-    // 目标 = 特定垂直（游戏/博彩网站、AI SaaS、电商独立站）表达"要 online AI 客服/销售"
-    // 的需求与痛点——而非泛泛的"CX 工具选型"。关键词围绕这些行业主的真实说法。
+    // demand 种子=「不满 / 想换 / 选型」话术（撒网，再由分类器分桶 蠢/贵/接入/不懂博彩/想换）。
     demand: [
-      // 电商/独立站
-      'live chat for ecommerce',
-      'customer support for my store',
-      'Shopify customer support app',
-      'automate ecommerce customer service',
-      'AI chatbot for online store',
-      // SaaS
-      'customer support for SaaS',
-      'AI support agent for SaaS',
-      'reduce support tickets',
-      'support team overwhelmed',
-      // 游戏/博彩网站
-      'live chat for igaming',
-      'customer support for online casino',
-      'player support automation',
-      '24/7 customer support for website',
-      // 通用高意图
-      'AI customer service for website',
-      'AI sales agent for website',
-      'outsource customer support',
+      // 不满（蠢）
+      'AI chatbot wrong answers', 'support bot useless', 'chatbot cant understand', 'ai support dumb',
+      // 不满（贵）
+      'intercom too expensive', 'zendesk ai pricing', 'ai support per resolution cost',
+      // 不满（接入）
+      'hard to integrate chatbot', 'bad chatbot api',
+      // 想换 / 选型
+      'looking to switch ai support', 'best ai customer service', 'intercom alternative',
+      'ai customer service for igaming', 'ai support for online casino', 'ai chatbot for sportsbook',
+      // 不懂博彩场景
+      'chatbot doesnt understand kyc', 'support bot bonus questions',
     ],
     },
     subreddits: ['ecommerce', 'shopify', 'dropship', 'SaaS', 'Entrepreneur', 'smallbusiness', 'CustomerService', 'startups'],
@@ -158,22 +144,18 @@ export const PRODUCTS: ProductConfig[] = [
         'creatify ai',
         'smartly.io',
       ],
-    // 收窄到「iGaming 广告素材/投放」语境，去掉 "ad creative tool" 这类泛词（会引来一堆
-    // 非博彩营销噪音）。中英俄混合（FB-Killa 等 CIS 论坛是俄语）。
+    // spec 痛点分层种子：创意疲劳 / 封号拒审 / CPA↑ROAS↓ / 求素材 / 放量瓶颈（再由分类器分层+判 solvable）。
     demand: [
-      'igaming ad creative',
-      'casino ad creatives',
-      'gambling ad creative',
-      'slots ad creatives',
-      'creatives for facebook gambling',
-      'best creatives for igaming',
-      'gambling ad fatigue',
-      'spy tool gambling ads',
-      'casino ad copy',
-      // 俄语 CIS 投手说法：crea/креатив=素材
-      'крео гемблинг',
-      'крео казино',
-      'арбитраж крео',
+      // 创意疲劳 / 素材跑挂（可解）
+      'creatives not converting', 'gambling ad fatigue', 'casino creatives dying', 'need new creatives',
+      'крео не заходит', 'крео выгорел',
+      // 求素材 / 找设计（可解）
+      'igaming ad creative', 'casino ad creatives', 'creatives for facebook gambling', 'where to get gambling creatives',
+      'крео гемблинг', 'нужны крео казино',
+      // 放量瓶颈（可解）
+      'scaling gambling ads', 'cant scale casino offers',
+      // 封号 / 拒审 / CPA（多为不可解→只记录）
+      'facebook ad account banned gambling', 'gambling ad disapproved', 'casino cpa too high',
     ],
     },
     // iGaming 投手 / 联盟营销 / 绩效投放聚集的 Reddit 社区（含玩家端痛点供反向选品）

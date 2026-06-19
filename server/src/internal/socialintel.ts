@@ -92,12 +92,20 @@ CREATE TABLE IF NOT EXISTS social_alert_sent (
 );
 `)
 
-// 迁移：social_intel.zh —— 每条信号的中文解读（AI 生成，后台批量回填）。
-// ALTER TABLE 不支持 IF NOT EXISTS，按 pragma 检测后再加。
+// 迁移：social_intel 增补列（zh 中文解读 + spec 分类字段）。ALTER 不支持 IF NOT EXISTS，按 pragma 加。
 {
-  const cols = db.prepare('PRAGMA table_info(social_intel)').all() as { name: string }[]
-  if (!cols.some((c) => c.name === 'zh')) db.exec('ALTER TABLE social_intel ADD COLUMN zh TEXT')
+  const cols = (db.prepare('PRAGMA table_info(social_intel)').all() as { name: string }[]).map((c) => c.name)
+  const add = (name: string, type: string) => { if (!cols.includes(name)) db.exec(`ALTER TABLE social_intel ADD COLUMN ${name} ${type}`) }
+  add('zh', 'TEXT')
+  add('actor_type', 'TEXT')     // operator | affiliate | media_buyer | player | industry | noise
+  add('intent_tier', 'TEXT')    // hot | warm | cold
+  add('pain_type', 'TEXT')      // 按产品枚举（见 classify.ts）
+  add('solvable', 'INTEGER')    // 仅 wonix：1 可解 / 0 不可解 / null 未判
+  add('reco_play', 'TEXT')      // public_reply | dm | diagnostic | content | discard
+  add('confidence', 'REAL')     // 分类置信度 0..1
+  add('classified_ts', 'INTEGER') // 已分类时间（NULL=待分类，分类器据此挑活）
 }
+db.exec('CREATE INDEX IF NOT EXISTS idx_si_classified ON social_intel(classified_ts, intent DESC)')
 
 const insertSignal = db.prepare(`
   INSERT OR IGNORE INTO social_intel

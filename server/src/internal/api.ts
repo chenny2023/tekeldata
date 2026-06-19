@@ -175,6 +175,8 @@ export function registerSocialIntel(app: FastifyInstance): void {
     if (q.kind) { where.push('kind = ?'); params.push(q.kind) }
     if (q.platform) { where.push('platform = ?'); params.push(q.platform) }
     if (q.status) { where.push('status = ?'); params.push(q.status) }
+    else { where.push("status NOT IN ('dropped','ignored')") } // 默认隐藏被分类器清理/忽略的
+    if (q.tier) { where.push('intent_tier = ?'); params.push(q.tier) } // 热/温/冷
     if (q.minIntent) { where.push('intent >= ?'); params.push(Number(q.minIntent)) }
     if (q.q && q.q.trim()) { where.push('(title LIKE ? OR body LIKE ? OR author LIKE ?)'); const w = `%${q.q.trim()}%`; params.push(w, w, w) }
     const limit = Math.min(200, Number(q.limit) || 60)

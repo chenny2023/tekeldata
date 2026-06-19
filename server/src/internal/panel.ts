@@ -115,7 +115,7 @@ export const PANEL_HTML = `<!doctype html>
 const TOKEN_KEY='wcoin_token'
 let token=localStorage.getItem(TOKEN_KEY)||''
 let tab='overview', products=[]
-let filters={product:'',kind:'',platform:'',minIntent:'0',sort:'intent',status:'',q:''}
+let filters={product:'',kind:'',platform:'',minIntent:'0',sort:'intent',status:'',q:'',tier:''}
 let aDays=7
 const $=s=>document.querySelector(s)
 const esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
@@ -133,6 +133,12 @@ function meter(v){v=v||0;return '<span class="meter"><span class="mt"><span clas
 function sentChip(v){v=v||0;const c=v>0.15?'pos':v<-0.15?'neg':'neu';const lab=v>0.15?'正面':v<-0.15?'负面':'中性';return '<span class="sent '+c+'">'+lab+' '+v.toFixed(2)+'</span>'}
 function kindPill(k){const m={demand:'需求',competitor:'竞品',brand:'品牌'};return '<span class="pill '+k+'">'+(m[k]||k)+'</span>'}
 function zhBlock(s){return '<div class="zh" id="zh-'+s.id+'">'+(s.zh?('🇨🇳 '+esc(s.zh)):'<button class="btn sm ghost" data-act="tr" data-id="'+s.id+'">🇨🇳 生成中文解读</button> <span class="dim" style="font-size:12px">（后台也在自动回填）</span>')+'</div>'}
+// spec 分类标签
+const ACTOR={operator:'运营商',affiliate:'联盟',media_buyer:'投手',player:'玩家',industry:'行业',noise:'噪音'}
+const TIERL={hot:'🔥 热',warm:'🌤 温',cold:'❄ 冷'}
+const PLAYL={dm:'私信',public_reply:'公开回帖',diagnostic:'诊断',content:'内容',discard:'丢弃'}
+function tierPill(t){if(!t)return '';const c=t==='hot'?'#ff5c5c':t==='warm'?'#ffb24a':'#5fb0ff';return '<span class="pill" style="color:'+c+';border-color:'+c+'55;background:'+c+'14">'+(TIERL[t]||t)+'</span>'}
+function metaPills(s){let h='';if(s.actor_type&&s.actor_type!=='noise')h+='<span class="pill">'+esc(ACTOR[s.actor_type]||s.actor_type)+'</span>';if(s.pain_type&&s.pain_type!=='none')h+='<span class="pill demand">'+esc(s.pain_type)+'</span>';if(s.solvable===1)h+='<span class="pill" style="color:#5ff0b0;border-color:#1c5240">可解</span>';else if(s.solvable===0)h+='<span class="pill" style="color:#ff9aa8;border-color:#7a2435">不可解·仅记录</span>';if(s.reco_play&&s.reco_play!=='discard')h+='<span class="pill plat">▶ '+esc(PLAYL[s.reco_play]||s.reco_play)+'</span>';return h}
 
 // ── 事件委托 ───────────────────────────────────────────────────────────────
 const H={}
@@ -238,6 +244,7 @@ function toolbar(){
   return '<div class="toolbar">'+
    '<input class="search" id="f-q" placeholder="🔎 搜索标题/正文/作者…" value="'+esc(filters.q)+'">'+
    '<select id="f-product">'+opt('','全部产品',filters.product)+products.map(p=>opt(p.key,p.name,filters.product)).join('')+'</select>'+
+   '<select id="f-tier">'+['|全部分层','hot|🔥 热','warm|🌤 温','cold|❄ 冷'].map(o=>{const[v,l]=o.split('|');return opt(v,l,filters.tier)}).join('')+'</select>'+
    '<select id="f-kind">'+['|全部类别','demand|需求/机会','competitor|竞品','brand|品牌'].map(o=>{const[v,l]=o.split('|');return opt(v,l,filters.kind)}).join('')+'</select>'+
    '<select id="f-platform">'+['|全部平台','reddit|Reddit','bluesky|Bluesky','hn|Hacker News','x|X','threads|Threads','telegram|Telegram','forum|论坛'].map(o=>{const[v,l]=o.split('|');return opt(v,l,filters.platform)}).join('')+'</select>'+
    '<select id="f-intent">'+['0|意图≥0','0.25|意图≥0.25','0.45|意图≥0.45','0.7|意图≥0.7'].map(o=>{const[v,l]=o.split('|');return opt(v,l,filters.minIntent)}).join('')+'</select>'+
@@ -246,16 +253,17 @@ function toolbar(){
    '<button class="btn sm pri" id="f-apply">应用</button></div>'
 }
 function bindToolbar(){
-  const sync=()=>{filters={product:$('#f-product').value,kind:$('#f-kind').value,platform:$('#f-platform').value,minIntent:$('#f-intent').value,status:$('#f-status').value,sort:$('#f-sort').value,q:$('#f-q').value};renderSignals()}
-  ;['f-product','f-kind','f-platform','f-intent','f-status','f-sort'].forEach(id=>$('#'+id).onchange=sync)
+  const sync=()=>{filters={product:$('#f-product').value,kind:$('#f-kind').value,platform:$('#f-platform').value,minIntent:$('#f-intent').value,status:$('#f-status').value,sort:$('#f-sort').value,q:$('#f-q').value,tier:$('#f-tier').value};renderSignals()}
+  ;['f-product','f-kind','f-platform','f-intent','f-status','f-sort','f-tier'].forEach(id=>$('#'+id).onchange=sync)
   $('#f-apply').onclick=sync
   $('#f-q').onkeydown=e=>{if(e.key==='Enter')sync()}
 }
 async function renderSignals(){
-  const qs=new URLSearchParams({product:filters.product,kind:filters.kind,platform:filters.platform,minIntent:filters.minIntent,status:filters.status,sort:filters.sort,q:filters.q,limit:'100'}).toString()
+  const qs=new URLSearchParams({product:filters.product,kind:filters.kind,platform:filters.platform,minIntent:filters.minIntent,status:filters.status,sort:filters.sort,q:filters.q,tier:filters.tier,limit:'100'}).toString()
   const {signals}=await api('/api/internal/social/signals?'+qs)
   const cards=signals.length?signals.map(s=>
-    '<div class="card"><div class="crow">'+kindPill(s.kind)+'<span class="pill plat">'+s.platform+'</span>'+
+    '<div class="card"><div class="crow">'+tierPill(s.intent_tier)+kindPill(s.kind)+metaPills(s)+
+    '<span class="pill plat">'+s.platform+'</span>'+
     '<span class="pill prod">'+esc(pname(s.product))+'</span>'+meter(s.intent)+sentChip(s.sentiment)+
     (s.status==='reviewed'?'<span class="pill" style="color:var(--good);border-color:#1c5240">已生成草稿</span>':'')+
     '<span class="right dim" style="font-size:12px">'+ago(s.ts)+' · '+esc(s.author||'')+' · "'+esc(s.query||'')+'"</span></div>'+
