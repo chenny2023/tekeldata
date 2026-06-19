@@ -344,6 +344,7 @@ function draftCard(d){
     (d.post_zh?'<div class="zh">🇨🇳 '+esc(d.post_zh)+'</div>':'')+
     (d.rationale?'<div class="rationale">💡 '+esc(d.rationale)+'</div>':'')+
     '<div class="dim" style="font-size:11px;margin-top:8px">✍️ 已起草开场白（可改）：</div>'+
+    (d.platform==='reddit'?'<div class="rationale" style="color:#ff9c7a;border-color:#5c2f1f;background:#22120c">⚠️ Reddit：勿带链接/勿硬广（会被自动删）。先纯给价值，产品最多提一次名+披露身份，或先评论建立信任再私信。用养过的有 karma 的号，别重复同一段文案。</div>':'')+
     '<textarea class="draft" id="dft-'+d.id+'">'+esc(d.draft)+'</textarea>'+
     '<div class="crow" style="margin-top:10px"><a href="'+esc(d.post_url)+'" target="_blank">去原贴回复 ↗</a>'+
     '<button class="btn sm right" data-act="copy" data-id="'+d.id+'">📋 复制</button>'+

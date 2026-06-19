@@ -11,10 +11,36 @@ import { productByKey } from './products.ts'
 // 人工审核后再发；无 OPENROUTER_API_KEY 时返回提示。
 // ─────────────────────────────────────────────────────────────────────────────
 
-function systemFor(productKey: string, painType: string): string {
+// 平台投放规范——Reddit 最严（带链接/推销会被 AutoModerator 直接删）。
+function deliveryRules(platform: string): string {
+  if (platform === 'reddit')
+    return (
+      'PLATFORM = Reddit (STRICT anti-promo — comments with links or a product pitch get auto-removed, ' +
+      'especially from newer accounts). HARD RULES: do NOT include ANY url/link. Do NOT pitch or use marketing ' +
+      'language. The comment must stand on its own as genuinely useful help even if the product were never named. ' +
+      'You may reference the product by NAME at most ONCE, and ONLY with a brief honest disclosure like ' +
+      '"(disclosure: I work on it)". If naming it would read as promotional, DO NOT name it — instead end by ' +
+      'offering to share specifics if they reply or DM. Keep it short and conversational.'
+    )
+  if (platform === 'forum' || platform === 'telegram')
+    return (
+      'PLATFORM = ' + platform + ' (affiliate/industry community). Value-first. A single soft mention of the ' +
+      'product by name is OK (a link only if such posts are clearly normal there), always secondary to the help, ' +
+      'with an honest disclosure of affiliation. No spammy/marketing tone.'
+    )
+  // x / bluesky / threads
+  return (
+    'PLATFORM = ' + platform + '. You may mention the product name/handle once and may include the link if it ' +
+    'reads naturally; still lead with value and avoid a spammy/ad tone.'
+  )
+}
+
+function systemFor(productKey: string, painType: string, platform: string): string {
   const common =
-    'You are NOT a spammer. Only produce a reply if it is genuinely a fit; otherwise set relevant=false. ' +
-    'Sound like a real, knowledgeable peer — no hype, no emoji spam, no fake claims. Respond ONLY as JSON: ' +
+    'Write the reply in the SAME LANGUAGE as the post (e.g. Russian post → Russian reply, Spanish → Spanish). ' +
+    'You are NOT a spammer: only produce a reply if it is genuinely a fit; otherwise set relevant=false. ' +
+    'Sound like a real, knowledgeable peer — concrete and specific, NO hype, NO emoji spam, NO "check out", ' +
+    'NO superlatives, NO fake claims. ' + deliveryRules(platform) + ' Respond ONLY as JSON: ' +
     '{"relevant":true|false,"reason":"<one sentence>","comment":"<the reply draft or empty>"}'
   if (productKey === 'wonix')
     return (
@@ -27,7 +53,7 @@ function systemFor(productKey: string, painType: string): string {
       'concrete, method-driven teardown of their exact pain (e.g. why a creative fatigues, what winning ads in ' +
       'their vertical share), (2) names 2-3 specific creative ANGLE concepts to test, (3) offers to run their ' +
       'offer/reference through wonix and share a couple of ready 5-size assets to test — product as the bait, no ' +
-      'hard sell. Mention wonix.ai once, plainly. ' + common
+      'hard sell. The product is wonix.ai; mention it only as the delivery rules allow. ' + common
     )
   if (productKey === 'hirecx')
     return (
@@ -43,14 +69,15 @@ function systemFor(productKey: string, painType: string): string {
       'gaming-template persona and compare side-by-side; ' +
       'expensive → contrast hirecx\'s no-seat-fees + per-message pricing (~$0.001/msg avg) vs per-seat/per-resolution models; ' +
       'integration → "one script tag, live in minutes, run a trial shift first, manage from Telegram"; ' +
-      'want_switch → migration via industry template + a trial shift to de-risk. Mention hirecx.ai once; speak the ' +
-      '"hire a team / personas" language, not "buy a bot". ' + common
+      'want_switch → migration via industry template + a trial shift to de-risk. The product is hirecx.ai; mention ' +
+      'it only as the delivery rules allow; speak the "hire a team / personas" language, not "buy a bot". ' + common
     )
   return ( // wcoin — content queue
     'You are a knowledgeable, neutral iGaming/crypto-casino analyst. The poster asks about casino safety, ' +
     'rankings, comparisons, legitimacy or payouts. Write a genuinely neutral, helpful reply that offers a ' +
     'concrete data point or how-to and naturally mentions wcoin.casino as an on-chain solvency / data resource ' +
-    '(NOT a hard sell — it should read as a useful pointer). Mention wcoin.casino once. ' + common
+    '(NOT a hard sell — it should read as a useful pointer). The resource is wcoin.casino; mention it only as the ' +
+    'delivery rules allow. ' + common
   )
 }
 
@@ -78,7 +105,7 @@ The social-media post (platform: ${sig.platform}, actor: ${sig.actor_type || '?'
 - Author: ${sig.author || '(unknown)'}
 - URL: ${sig.url}`
 
-  const res = await generateContent(systemFor(sig.product, sig.pain_type), user)
+  const res = await generateContent(systemFor(sig.product, sig.pain_type, sig.platform), user)
   if (!res) return { ok: false, message: 'AI 生成失败（OpenRouter 无响应）' }
   const d = res.data as { relevant?: boolean; reason?: string; comment?: string }
   const relevant = !!d.relevant
