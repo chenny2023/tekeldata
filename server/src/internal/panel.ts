@@ -335,23 +335,34 @@ async function topicsGo(){
 }
 
 // ── 草稿 ────────────────────────────────────────────────────────────────────
-async function renderDrafts(){
-  const {drafts}=await api('/api/internal/social/drafts?status=pending')
-  const cards=drafts.length?drafts.map(d=>
-    '<div class="card"><div class="crow">'+kindPill(d.kind)+'<span class="pill plat">'+d.platform+'</span>'+
-    '<span class="pill prod">'+esc(pname(d.product))+'</span>'+meter(d.intent)+
+function draftCard(d){
+  // spec 卡片：原帖(带链接) → 标签(actor/intent/pain) → 已起草开场白 → [批准][改][丢]
+  return '<div class="card"><div class="crow">'+tierPill(d.intent_tier)+metaPills(d)+
+    '<span class="pill plat">'+d.platform+'</span><span class="pill prod">'+esc(pname(d.product))+'</span>'+meter(d.intent)+
     '<span class="right dim" style="font-size:11px">'+esc(d.model||'')+'</span></div>'+
     '<div class="title">'+esc(d.post_title)+'</div>'+
     (d.post_zh?'<div class="zh">🇨🇳 '+esc(d.post_zh)+'</div>':'')+
     (d.rationale?'<div class="rationale">💡 '+esc(d.rationale)+'</div>':'')+
+    '<div class="dim" style="font-size:11px;margin-top:8px">✍️ 已起草开场白（可改）：</div>'+
     '<textarea class="draft" id="dft-'+d.id+'">'+esc(d.draft)+'</textarea>'+
     '<div class="crow" style="margin-top:10px"><a href="'+esc(d.post_url)+'" target="_blank">去原贴回复 ↗</a>'+
     '<button class="btn sm right" data-act="copy" data-id="'+d.id+'">📋 复制</button>'+
-    '<button class="btn sm good" data-act="dstat" data-id="'+d.id+':posted">✓ 已发布</button>'+
-    '<button class="btn sm" data-act="dstat" data-id="'+d.id+':approved">通过</button>'+
-    '<button class="btn sm bad" data-act="dstat" data-id="'+d.id+':dismissed">弃用</button></div></div>').join('')
-    :'<div class="empty"><div class="big">✍️</div>没有待审核草稿。<br><span class="mut">去"信号"或"概览"页对高意图需求贴点"生成推荐草稿"。</span></div>'
-  $('#app').innerHTML=shell('<p class="lead">审核 AI 生成的推荐评论 → 复制 → 用真实账号到原贴发布（不自动发）。可直接在框内编辑后再复制。</p>'+cards)
+    '<button class="btn sm good" data-act="dstat" data-id="'+d.id+':posted">✓ 已发送</button>'+
+    '<button class="btn sm" data-act="dstat" data-id="'+d.id+':approved">批准</button>'+
+    '<button class="btn sm bad" data-act="dstat" data-id="'+d.id+':dismissed">丢弃</button></div></div>'
+}
+async function renderDrafts(){
+  const {drafts}=await api('/api/internal/social/drafts?status=pending')
+  const sales=drafts.filter(d=>d.product==='wonix'||d.product==='hirecx')
+  const content=drafts.filter(d=>d.product==='wcoin')
+  const sec=(title,sub,arr,emptyMsg)=>'<div class="panel" style="background:transparent;border:0;padding:0;margin-bottom:18px">'+
+    '<h3 style="font-size:14px">'+title+'<span class="tag">'+sub+'</span></h3>'+
+    (arr.length?arr.map(draftCard).join(''):'<div class="empty" style="padding:28px">'+emptyMsg+'</div>')+'</div>'
+  const body= (drafts.length
+    ? sec('🎯 销售队列','Wonix + HireCX · 目标+可发送动作',sales,'暂无销售草稿')+
+      sec('📝 内容队列','wcoin · 中立回帖 → 内容日历',content,'暂无内容草稿')
+    : '<div class="empty"><div class="big">✍️</div>没有待审核草稿。<br><span class="mut">去"信号"/"竞品痛点"页对高意图信号点"生成开场白"。</span></div>')
+  $('#app').innerHTML=shell('<p class="lead">审核 AI 起草的开场白 → 批准/改/丢 → 用真实账号发（不自动发）。销售与内容两条队列分开，按 spec 各走各的动作。</p>'+body)
 }
 H.copy=id=>{const t=$('#dft-'+id);t.select();navigator.clipboard.writeText(t.value);toast('已复制到剪贴板')}
 H.dstat=async raw=>{const i=raw.indexOf(':');const id=raw.slice(0,i),status=raw.slice(i+1);const draft=$('#dft-'+id).value;await api('/api/internal/social/draft/'+id+'/status',{method:'POST',body:JSON.stringify({status,draft})});toast({posted:'已标记发布',approved:'已通过',dismissed:'已弃用'}[status]);renderDrafts()}
