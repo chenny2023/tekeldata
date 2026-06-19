@@ -151,14 +151,16 @@ export const PRODUCTS: ProductConfig[] = [
     x: { competitorHandles: ['AdCreativeai', 'madgicx', 'creatopy', 'foreplay_co'], ownHandles: [] },
     // @iGaming_chat 是群/chat，t.me/s/ 多半抓不到（会优雅返回0）；真正公开「频道」可继续往这里加
     telegram: ['iGaming_chat'],
-    // iGaming 投手浓度最高的英文公开论坛（XenForo/vBulletin，走住宅代理过 Cloudflare）。
-    // 俄语社区 FB-Killa/vc.ru/CPALENTA 暂缓（需翻译+部分需注册，稳定性待评估）。
+    // iGaming 投手浓度最高的公开论坛（XenForo/vBulletin，走住宅代理过 Cloudflare）。
+    // FB-Killa = CIS 最大 арбитраж 论坛（实测可抓 122 帖，俄语意图词已加）。
+    // vc.ru / CPALENTA 是文章站(非论坛结构)，需专门解析器，暂缓。
     forums: [
       { name: 'BHW · iGaming', url: 'https://www.blackhatworld.com/tags/igaming/' },
       { name: 'BHW · gambling', url: 'https://www.blackhatworld.com/tags/gambling/' },
       { name: 'BHW · media-buying', url: 'https://www.blackhatworld.com/forums/media-buying.175/' },
       { name: 'AGD · casino-affiliate', url: 'https://www.affiliateguarddog.com/community/categories/casino-affiliate-forums.56/' },
       { name: 'AffiliateFix', url: 'https://affiliatefix.com/whats-new/posts/' },
+      { name: 'FB-Killa (CIS)', url: 'https://fb-killa.pro/forums/' },
     ],
   },
 ]

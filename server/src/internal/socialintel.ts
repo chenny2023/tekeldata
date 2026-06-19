@@ -102,11 +102,16 @@ const insertSignal = db.prepare(`
 // ── intent 评分：用户表达"选型/求推荐/找替代"的程度（0..1）──────────────────
 // 这些短语命中越多 → 越可能是可以评论推荐自有产品的机会贴。
 const INTENT_PHRASES = [
+  // 英文
   'looking for', 'recommend', 'recommendation', 'suggestions', 'any suggestion',
   'alternative to', 'alternatives', 'best tool', 'best app', 'best platform',
   'which should i', 'what should i', 'anyone use', 'anyone using', 'is there a tool',
   'is there an app', 'how do i', 'need a tool', 'need help', 'worth it', ' vs ',
   'better than', 'tried any', 'what do you use', 'should i use', 'help me choose',
+  // 俄语/CIS（FB-Killa、TG 等）——选型/求推荐/找替代的意图词（小写匹配）
+  'посоветуйте', 'подскажите', 'ищу', 'какой лучше', 'что лучше', 'какую выбрать',
+  'альтернатив', 'стоит ли', 'помогите выбрать', 'кто пользуется', 'кто-нибудь пользуется',
+  'есть ли', 'нужен сервис', 'нужен инструмент', 'посоветуете', 'сравнение',
 ]
 const QUESTION_BONUS = 0.15
 
