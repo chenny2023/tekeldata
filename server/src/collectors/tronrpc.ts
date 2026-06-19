@@ -210,21 +210,26 @@ export async function runTronRpcOnce() {
       fwdRange = Math.min(config.tronMaxRange, Math.ceil(fwdRange * 1.5))
       fwdFailsAtFloor = 0
     } catch (e) {
-      if (fwdRange > RANGE_FLOOR) {
+      const msg = (e as Error).message
+      // Only the result-size cap is fixable by shrinking the block span. Transient
+      // errors (HTTP 429 rate-limit, network/5xx) must NOT shrink or skip — that
+      // would silently drop transfers; instead bubble up so the caller backs off
+      // and we retry the SAME span.
+      const overCap = /more than 10000|exceed|too many|response size|limit exceeded/i.test(msg)
+      if (overCap && fwdRange > RANGE_FLOOR) {
         fwdRange = Math.max(RANGE_FLOOR, Math.floor(fwdRange / 2))
         continue
       }
-      // Already at the floor and still failing — e.g. a single ultra-dense block
-      // exceeds the public endpoint's 10000-result cap. Skip this span after a few
-      // tries (accept a tiny gap) rather than wedging the whole forward indexer.
-      if (++fwdFailsAtFloor >= 4) {
-        console.warn(`[tronrpc] skipping blocks ${from}-${to} after ${fwdFailsAtFloor} floor failures: ${(e as Error).message}`)
+      // Genuinely over-cap even at the floor (a single ultra-dense block) — skip the
+      // span after a few tries rather than wedging the forward indexer forever.
+      if (overCap && ++fwdFailsAtFloor >= 4) {
+        console.warn(`[tronrpc] skipping blocks ${from}-${to} (over cap at floor): ${msg}`)
         stateSet('tronrpc:lastBlock', to)
         from = to + 1
         fwdFailsAtFloor = 0
         continue
       }
-      throw e // back off and retry at the floor
+      throw e // transient (429/network) or not-yet-at-skip-threshold → back off, no data loss
     }
   }
 }
@@ -281,9 +286,12 @@ export async function runTronBackfill() {
         const daysLeft = Math.max(0, ((cursor - target) * BLOCK_MS) / 86_400_000)
         console.log(`[tronrpc] backfill ${from}-${cursor + range}: +${added} · ${daysLeft.toFixed(1)}d left`)
       }
-    } catch {
+    } catch (e) {
+      const overCap = /more than 10000|exceed|too many|response size|limit exceeded/i.test((e as Error).message)
       if (range > RANGE_FLOOR) range = Math.max(RANGE_FLOOR, Math.floor(range / 2))
-      else if (++failsAtFloor >= 4) {
+      // Only skip a span when it's genuinely over the result cap at the floor — not
+      // on transient 429/network errors (those just retry after the polite sleep).
+      else if (overCap && ++failsAtFloor >= 4) {
         cursor = from - 1
         stateSet('tronrpc:cursor', cursor)
         failsAtFloor = 0
