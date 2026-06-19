@@ -20,6 +20,10 @@ import { maybeAlert, type AlertSignal } from './alerts.ts'
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
 
+// 只采近 N 个月（默认 180 天）。有真实发帖时间的源据此过滤；论坛/文章站无时间戳(ts=now)默认放行。
+const RECENT_DAYS = Number(process.env.SOCIAL_RECENT_DAYS) || 180
+const recentCutoff = () => Date.now() - RECENT_DAYS * 86_400_000
+
 // ── schema：独立建表，不污染 casino 的 db.ts ──────────────────────────────────
 db.exec(`
 CREATE TABLE IF NOT EXISTS social_intel (
@@ -364,7 +368,7 @@ function strHash(s: string): string {
 // ── Bluesky 公开关键词搜索（无 key，app.bsky.feed.searchPosts，与 collectors/bluesky.ts 同范式）
 async function fetchBluesky(query: string): Promise<any[] | null> {
   const q = encodeURIComponent(query)
-  const url = `https://public.api.bsky.app/xrpc/app.bsky.feed.searchPosts?q=${q}&limit=25&sort=latest`
+  const url = `https://public.api.bsky.app/xrpc/app.bsky.feed.searchPosts?q=${q}&limit=100&sort=latest`
   try {
     const res = await webFetch(url, { headers: { 'User-Agent': UA, Accept: 'application/json' }, signal: AbortSignal.timeout(15_000) })
     if (!res.ok) return null
@@ -378,7 +382,7 @@ async function fetchBluesky(query: string): Promise<any[] | null> {
 // ── Hacker News 全文搜索（无 key，Algolia；对 SaaS/技术选型人群最对口，利好 hirecx）
 async function fetchHN(query: string): Promise<any[] | null> {
   const q = encodeURIComponent(`"${query}"`)
-  const url = `https://hn.algolia.com/api/v1/search_by_date?query=${q}&tags=(story,comment)&hitsPerPage=20`
+  const url = `https://hn.algolia.com/api/v1/search_by_date?query=${q}&tags=(story,comment)&hitsPerPage=50`
   try {
     const res = await webFetch(url, { headers: { 'User-Agent': UA, Accept: 'application/json' }, signal: AbortSignal.timeout(15_000) })
     if (!res.ok) return null
@@ -547,29 +551,76 @@ function markFail(p: string): void {
 }
 function markOk(p: string): void { platFails.set(p, 0); platUntil.delete(p) }
 
+// PullPush.io — 免费 keyless Reddit 全文搜索（Pushshift 继任者），原生 since 时间过滤，
+// 帖子+评论都能搜，比 search.rss 全且稳。api.pullpush.io 走直连（不在代理 host 列表）。
+async function pullpush(kind: 'submission' | 'comment', q: string, since: number): Promise<any[] | null> {
+  const url = `https://api.pullpush.io/reddit/search/${kind}/?q=${encodeURIComponent(q)}&size=100&since=${since}&sort=desc`
+  try {
+    const r = await webFetch(url, { headers: { 'User-Agent': UA, Accept: 'application/json' }, signal: AbortSignal.timeout(25_000) })
+    if (!r.ok) return null
+    return ((await r.json()) as any).data ?? []
+  } catch {
+    return null
+  }
+}
+
 async function runRedditJob(j: Extract<Job, { platform: 'reddit' }>): Promise<number> {
-  const xml = await redditSearch(j.query, j.subreddits)
-  if (!xml) { markFail(j.platform); return 0 }
-  markOk(j.platform)
-  const now = Date.now()
-  let added = 0
+  const since = Math.floor(recentCutoff() / 1000)
+  const cutoff = recentCutoff()
+  const subs = await pullpush('submission', j.query, since)
+  const coms = await pullpush('comment', j.query, since)
   const fresh: AlertSignal[] = []
+  let added = 0
+  const now = Date.now()
+
+  if (subs === null && coms === null) {
+    // PullPush 不可用 → 回退到 search.rss
+    const xml = await redditSearch(j.query, j.subreddits)
+    if (!xml) { markFail(j.platform); return 0 }
+    markOk(j.platform)
+    const tx = db.transaction(() => {
+      for (const e of parseAtom(xml)) {
+        if (e.ts && e.ts < cutoff) continue
+        const text = `${e.title} ${e.content}`
+        const intent = j.kind === 'demand' ? intentScore(text) : intentScore(text) * 0.5
+        const id = `reddit_${e.id}_${j.product}_${j.kind}`
+        const r = insertSignal.run({ id, product: j.product, platform: 'reddit', kind: j.kind, query: j.query, author: e.author.slice(0, 120), title: e.title.slice(0, 300), body: e.content, url: e.link, score: 0, sentiment: senti(text), intent, ts: e.ts, collected_ts: now })
+        added += r.changes
+        if (r.changes) fresh.push({ id, product: j.product, platform: 'reddit', kind: j.kind, title: e.title, url: e.link, intent })
+      }
+    })
+    tx()
+    void maybeAlert(fresh)
+    return added
+  }
+
+  markOk(j.platform)
   const tx = db.transaction(() => {
-    for (const e of parseAtom(xml)) {
-      const text = `${e.title} ${e.content}`
-      const intent = j.kind === 'demand' ? intentScore(text) : intentScore(text) * 0.5
-      const id = `reddit_${e.id}_${j.product}_${j.kind}`
-      const r = insertSignal.run({
-        id, product: j.product, platform: 'reddit', kind: j.kind, query: j.query,
-        author: e.author.slice(0, 120), title: e.title.slice(0, 300), body: e.content,
-        url: e.link, score: 0, sentiment: senti(text), intent, ts: e.ts, collected_ts: now,
-      })
-      added += r.changes
-      if (r.changes) fresh.push({ id, product: j.product, platform: 'reddit', kind: j.kind, title: e.title, url: e.link, intent })
+    const ingest = (rows: any[], isComment: boolean) => {
+      for (const p of rows) {
+        const ts = (Number(p.created_utc) || 0) * 1000
+        if (ts && ts < cutoff) continue
+        const permalink = p.permalink ? `https://www.reddit.com${p.permalink}` : ''
+        const title = isComment ? (p.body || '') : (p.title || '')
+        const body = isComment ? (p.body || '') : (p.selftext || '')
+        const text = `${title} ${body}`.trim()
+        if (!text || !permalink) continue
+        const intent = j.kind === 'demand' ? intentScore(text) : intentScore(text) * 0.5
+        const id = `reddit_${strHash(permalink)}_${j.product}_${j.kind}`
+        const r = insertSignal.run({
+          id, product: j.product, platform: 'reddit', kind: j.kind, query: j.query,
+          author: String(p.author || '').slice(0, 120), title: title.replace(/\s+/g, ' ').slice(0, 300), body: body.slice(0, 2000),
+          url: permalink, score: Number(p.score || 0), sentiment: senti(text), intent, ts: ts || now, collected_ts: now,
+        })
+        added += r.changes
+        if (r.changes && j.kind === 'demand') fresh.push({ id, product: j.product, platform: 'reddit', kind: j.kind, title: title.slice(0, 200), url: permalink, intent })
+      }
     }
+    ingest(subs || [], false)
+    ingest(coms || [], true)
   })
   tx()
-  void maybeAlert(fresh) // C. 黄金一小时提醒（高意图 demand 才触发，内部去重）
+  void maybeAlert(fresh)
   return added
 }
 
@@ -582,6 +633,7 @@ async function runTelegramJob(j: Extract<Job, { platform: 'telegram' }>): Promis
   const fresh: AlertSignal[] = []
   const tx = db.transaction(() => {
     for (const m of parseTgMessages(html)) {
+      if (m.ts && m.ts < recentCutoff()) continue
       if (!relevant(j.product, 'demand', m.text)) continue
       const intent = intentScore(m.text)
       const id = `tg_${m.id}_${j.product}`
@@ -613,6 +665,7 @@ async function runXJob(j: Extract<Job, { platform: 'x' }>): Promise<number> {
   let added = 0
   const tx = db.transaction(() => {
     for (const t of tweets!) {
+      if (t.ts && t.ts < recentCutoff()) continue
       const r = insertSignal.run({
         id: `x_${t.id}_${j.product}`,
         product: j.product, platform: 'x', kind: j.kind, query: j.query,
@@ -666,6 +719,8 @@ async function runBlueskyJob(j: Extract<Job, { platform: 'bluesky' }>): Promise<
       const text: string = p?.record?.text ?? ''
       const rkey = String(p?.uri ?? '').split('/').pop() ?? ''
       if (!text || !rkey) continue
+      const bts = Date.parse(p?.record?.createdAt ?? p?.indexedAt ?? '') || 0
+      if (bts && bts < recentCutoff()) continue
       const handle: string = p?.author?.handle ?? ''
       const intent = j.kind === 'demand' ? intentScore(text) : intentScore(text) * 0.5
       const id = `bs_${rkey}_${j.product}_${j.kind}`
@@ -674,7 +729,7 @@ async function runBlueskyJob(j: Extract<Job, { platform: 'bluesky' }>): Promise<
         id, product: j.product, platform: 'bluesky', kind: j.kind, query: j.query,
         author: handle.slice(0, 120), title: text.replace(/\s+/g, ' ').slice(0, 300), body: text.slice(0, 2000),
         url, score: Number(p?.likeCount ?? 0), sentiment: senti(text), intent,
-        ts: Date.parse(p?.record?.createdAt ?? p?.indexedAt ?? '') || now, collected_ts: now,
+        ts: bts || now, collected_ts: now,
       })
       added += r.changes
       if (r.changes && j.kind === 'demand') fresh.push({ id, product: j.product, platform: 'bluesky', kind: j.kind, title: text.slice(0, 200), url, intent })
@@ -697,6 +752,8 @@ async function runHnJob(j: Extract<Job, { platform: 'hn' }>): Promise<number> {
       const text: string = h?.title ?? h?.story_title ?? h?.comment_text ?? h?.story_text ?? ''
       const oid = String(h?.objectID ?? '')
       if (!text || !oid) continue
+      const hts = (Number(h?.created_at_i) || 0) * 1000
+      if (hts && hts < recentCutoff()) continue
       const clean = text.replace(/<[^>]+>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, ' ').trim()
       const intent = j.kind === 'demand' ? intentScore(clean) : intentScore(clean) * 0.5
       const id = `hn_${oid}_${j.product}_${j.kind}`
@@ -705,7 +762,7 @@ async function runHnJob(j: Extract<Job, { platform: 'hn' }>): Promise<number> {
         id, product: j.product, platform: 'hn', kind: j.kind, query: j.query,
         author: String(h?.author ?? '').slice(0, 120), title: clean.slice(0, 300), body: clean.slice(0, 2000),
         url, score: Number(h?.points ?? 0), sentiment: senti(clean), intent,
-        ts: (Number(h?.created_at_i) || 0) * 1000 || now, collected_ts: now,
+        ts: hts || now, collected_ts: now,
       })
       added += r.changes
       if (r.changes && j.kind === 'demand') fresh.push({ id, product: j.product, platform: 'hn', kind: j.kind, title: clean.slice(0, 200), url, intent })
@@ -725,6 +782,7 @@ async function runThreadsJob(j: Extract<Job, { platform: 'threads' }>): Promise<
   const fresh: AlertSignal[] = []
   const tx = db.transaction(() => {
     for (const p of posts) {
+      if (p.ts && p.ts < recentCutoff()) continue
       const intent = j.kind === 'demand' ? intentScore(p.text) : intentScore(p.text) * 0.5
       const id = `th_${p.id}_${j.product}_${j.kind}`
       const url = p.url
@@ -766,6 +824,23 @@ export async function runSocialIntelOnce(): Promise<void> {
   }
 }
 
+// 清理超出时间窗(默认 6 个月)的旧信号 + 其草稿。有真实发帖时间(ts>0)且过旧的才删；
+// 论坛/文章站 ts=now 不受影响。
+function pruneOld(): void {
+  try {
+    const cutoff = recentCutoff()
+    const ids = db.prepare('SELECT id FROM social_intel WHERE ts > 0 AND ts < ?').all(cutoff) as { id: string }[]
+    if (!ids.length) return
+    const delD = db.prepare('DELETE FROM social_drafts WHERE signal_id = ?')
+    const delS = db.prepare('DELETE FROM social_intel WHERE id = ?')
+    const tx = db.transaction(() => { for (const { id } of ids) { delD.run(id); delS.run(id) } })
+    tx()
+    console.log(`[social-intel] 清理超过 ${RECENT_DAYS} 天的旧信号 ${ids.length} 条`)
+  } catch (e) {
+    console.warn('[social-intel] prune failed:', (e as Error).message)
+  }
+}
+
 export function startSocialIntel(): void {
   if ((process.env.SOCIAL_INTEL_ENABLED ?? '1') === '0') return
   const total = buildJobs().length
@@ -777,4 +852,6 @@ export function startSocialIntel(): void {
     setTimeout(loop, Number(process.env.SOCIAL_INTEL_INTERVAL_MS) || 120_000)
   }
   setTimeout(loop, 50_000)
+  setTimeout(pruneOld, 120_000) // 启动后清一次旧数据
+  setInterval(pruneOld, 6 * 3600_000) // 每 6 小时清一次
 }
