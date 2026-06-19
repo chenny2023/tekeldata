@@ -124,7 +124,15 @@ export async function runEvmOnce() {
         if (r.changes > 0) emitTransfer(rec)
       }
     })
-    insert(logs)
+    // Insert in chunks, yielding the event loop between them. A wide range (or a
+    // post-downtime catch-up) can return thousands of logs; one synchronous
+    // transaction over all of them — each row touching 5 indexes on the 37M-row
+    // table — froze the loop for ~90s+ on a cold cache (healthcheck 000). Chunking
+    // + setImmediate keeps the loop responsive while indexing (matches tronrpc).
+    for (let i = 0; i < logs.length; i += 300) {
+      insert(logs.slice(i, i + 300))
+      if (i + 300 < logs.length) await new Promise((r) => setImmediate(r))
+    }
     processed += logs.length
     stateSet('evm:lastBlock', to)
     last = to

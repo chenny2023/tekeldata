@@ -45,9 +45,9 @@ async function getLogsRange(
   )
 }
 
-function insertHistorical(logs: any[], byAddr: Map<string, WatchRow>, anchorBlock: number, anchorTs: number): number {
-  let added = 0
-  const tx = db.transaction((items: any[]) => {
+async function insertHistorical(logs: any[], byAddr: Map<string, WatchRow>, anchorBlock: number, anchorTs: number): Promise<number> {
+  const tx = db.transaction((items: any[]): number => {
+    let n = 0
     for (const log of items) {
       const token = tokenByAddress(log.address)
       if (!token) continue
@@ -77,10 +77,18 @@ function insertHistorical(logs: any[], byAddr: Map<string, WatchRow>, anchorBloc
         block,
         ts: anchorTs - (anchorBlock - block) * BLOCK_MS,
       })
-      added += r.changes
+      n += r.changes
     }
+    return n
   })
-  tx(logs)
+  // chunk + yield: a wide adaptive range can return tens of thousands of logs; one
+  // synchronous transaction over all of them froze the loop ~90s+ on the 37M-row
+  // table (cold cache). Chunk so the event loop stays responsive (matches tronrpc).
+  let added = 0
+  for (let i = 0; i < logs.length; i += 300) {
+    added += tx(logs.slice(i, i + 300)) as number
+    if (i + 300 < logs.length) await new Promise((r) => setImmediate(r))
+  }
   return added
 }
 
@@ -126,7 +134,7 @@ async function backfillSegment(
         getLogsRange(tokens, watched, from, to, 2),
         getLogsRange(tokens, watched, from, to, 1),
       ])
-      const added = insertHistorical([...deposits, ...withdrawals], byAddr, anchorBlock, anchorTs)
+      const added = await insertHistorical([...deposits, ...withdrawals], byAddr, anchorBlock, anchorTs)
       cursor = from - 1
       stateSet(`backfill:${seg}:cursor`, cursor)
       range = Math.min(RANGE_CAP, Math.ceil(range * 1.5))
