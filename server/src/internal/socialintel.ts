@@ -346,6 +346,66 @@ async function fetchHN(query: string): Promise<any[] | null> {
   }
 }
 
+// ── ScrapeCreators 付费源（X 账号推文 + Threads 关键词搜索）────────────────────
+// key 在 Railway 环境变量 `scrapecreators`（小写）。无 key 时相关 job 返回 null 跳过。
+const SC_KEY = () => process.env.scrapecreators || process.env.SCRAPECREATORS_API_KEY || ''
+export const scEnabled = () => !!SC_KEY()
+async function scFetch(path: string, params: Record<string, string>): Promise<any | null> {
+  const key = SC_KEY()
+  if (!key) return null
+  const qs = new URLSearchParams(params).toString()
+  try {
+    const res = await webFetch(`https://api.scrapecreators.com${path}?${qs}`, {
+      headers: { 'x-api-key': key, Accept: 'application/json' },
+      signal: AbortSignal.timeout(30_000),
+    })
+    if (!res.ok) return null
+    return await res.json()
+  } catch {
+    return null
+  }
+}
+
+// X 账号近期推文（ScrapeCreators，比 syndication 稳）。返回归一化数组或 null。
+async function scTweets(handle: string): Promise<{ id: string; text: string; likes: number; rts: number; ts: number }[] | null> {
+  const j = await scFetch('/v1/twitter/user-tweets', { handle })
+  if (!j) return null
+  const arr: any[] = j.tweets ?? j.data ?? []
+  // SC 返回原始 Twitter GraphQL Tweet 对象：id 在 rest_id，正文/计数/时间在 legacy
+  return arr
+    .map((t) => {
+      const lg = t.legacy ?? t
+      return {
+        id: String(t.rest_id ?? t.id_str ?? t.id ?? ''),
+        text: lg.full_text ?? lg.text ?? '',
+        likes: Number(lg.favorite_count ?? 0),
+        rts: Number(lg.retweet_count ?? 0),
+        ts: Date.parse(lg.created_at ?? '') || 0,
+      }
+    })
+    .filter((t) => t.id && t.text)
+}
+
+// Threads 关键词搜索（ScrapeCreators）。返回归一化数组或 null。
+async function scThreads(query: string): Promise<{ id: string; text: string; user: string; likes: number; ts: number; url: string }[] | null> {
+  const j = await scFetch('/v1/threads/search', { query })
+  if (!j) return null
+  const arr: any[] = j.posts ?? j.results ?? j.searchResults ?? j.data ?? (Array.isArray(j) ? j : [])
+  return arr
+    .map((p) => {
+      const post = p?.thread?.thread_items?.[0]?.post ?? p?.post ?? p?.node ?? p // 防御多种嵌套
+      const text = post?.caption?.text ?? post?.text ?? ''
+      const user = post?.user?.username ?? ''
+      const code = post?.code ?? ''
+      const id = String(post?.id ?? post?.pk ?? code ?? '')
+      const likes = Number(post?.like_count ?? 0)
+      const ts = Number(post?.taken_at ?? 0) * 1000
+      const url = post?.url ?? post?.canonical_url ?? (user && code ? `https://www.threads.net/@${user}/post/${code}` : '')
+      return { id, text, user, likes, ts, url }
+    })
+    .filter((p) => p.id && p.text)
+}
+
 // ── 单轮采集：遍历所有产品 × 平台 × 关键词 ────────────────────────────────────
 type Kind = 'brand' | 'competitor' | 'demand'
 type Job =
@@ -355,6 +415,7 @@ type Job =
   | { product: string; platform: 'forum'; kind: 'demand'; query: string; url: string }
   | { product: string; platform: 'bluesky'; kind: Kind; query: string }
   | { product: string; platform: 'hn'; kind: Kind; query: string }
+  | { product: string; platform: 'threads'; kind: Kind; query: string }
 
 function buildJobs(): Job[] {
   const jobs: Job[] = []
@@ -364,6 +425,7 @@ function buildJobs(): Job[] {
         jobs.push({ product: p.key, platform: 'reddit', kind, query: q, subreddits: p.subreddits })
         jobs.push({ product: p.key, platform: 'bluesky', kind, query: q }) // 同关键词也搜 Bluesky（无 key 广搜）
         if (kind !== 'brand') jobs.push({ product: p.key, platform: 'hn', kind, query: q }) // HN：需求/竞品词（技术/SaaS 人群）
+        if (scEnabled()) jobs.push({ product: p.key, platform: 'threads', kind, query: q }) // Threads 关键词搜索（ScrapeCreators 付费源）
       }
     }
     for (const h of p.x.competitorHandles) jobs.push({ product: p.key, platform: 'x', kind: 'competitor', query: h })
@@ -428,12 +490,24 @@ export async function runCustomQuery(input: {
 
 let jobs: Job[] = []
 let cursor = 0
-export let consecutiveFails = 0
+
+// ── 按平台隔离的失败退避 ──────────────────────────────────────────────────────
+// 某个平台（如 Reddit 解锁器超时、Bluesky 从 Railway 被 403）连续失败时，只让该平台
+// 退避 30 分钟，不拖累其他平台（尤其 ScrapeCreators 这种可靠付费源）。
+const platFails = new Map<string, number>()
+const platUntil = new Map<string, number>()
+function inBackoff(p: string): boolean { return (platUntil.get(p) || 0) > Date.now() }
+function markFail(p: string): void {
+  const n = (platFails.get(p) || 0) + 1
+  platFails.set(p, n)
+  if (n >= 5) { platUntil.set(p, Date.now() + 30 * 60_000); platFails.set(p, 0); console.warn(`[social-intel] ${p} 连续失败，退避 30m`) }
+}
+function markOk(p: string): void { platFails.set(p, 0); platUntil.delete(p) }
 
 async function runRedditJob(j: Extract<Job, { platform: 'reddit' }>): Promise<number> {
   const xml = await redditSearch(j.query, j.subreddits)
-  if (!xml) { consecutiveFails++; return 0 }
-  consecutiveFails = 0
+  if (!xml) { markFail(j.platform); return 0 }
+  markOk(j.platform)
   const now = Date.now()
   let added = 0
   const fresh: AlertSignal[] = []
@@ -458,8 +532,8 @@ async function runRedditJob(j: Extract<Job, { platform: 'reddit' }>): Promise<nu
 
 async function runTelegramJob(j: Extract<Job, { platform: 'telegram' }>): Promise<number> {
   const html = await fetchTgChannel(j.query)
-  if (!html) { consecutiveFails++; return 0 }
-  consecutiveFails = 0
+  if (!html) { markFail(j.platform); return 0 }
+  markOk(j.platform)
   const now = Date.now()
   let added = 0
   const fresh: AlertSignal[] = []
@@ -483,13 +557,18 @@ async function runTelegramJob(j: Extract<Job, { platform: 'telegram' }>): Promis
 }
 
 async function runXJob(j: Extract<Job, { platform: 'x' }>): Promise<number> {
-  const html = await fetchTimeline(j.query)
-  if (!html) { consecutiveFails++; return 0 }
-  consecutiveFails = 0
+  // 优先 ScrapeCreators（稳）；无 key/失败时回退到公开 syndication 时间线
+  let tweets = await scTweets(j.query)
+  if (!tweets) {
+    const html = await fetchTimeline(j.query)
+    tweets = html ? parseTweets(html) : null
+  }
+  if (!tweets) { markFail(j.platform); return 0 }
+  markOk(j.platform)
   const now = Date.now()
   let added = 0
   const tx = db.transaction(() => {
-    for (const t of parseTweets(html)) {
+    for (const t of tweets!) {
       const r = insertSignal.run({
         id: `x_${t.id}_${j.product}`,
         product: j.product, platform: 'x', kind: j.kind, query: j.query,
@@ -507,8 +586,8 @@ async function runXJob(j: Extract<Job, { platform: 'x' }>): Promise<number> {
 
 async function runForumJob(j: Extract<Job, { platform: 'forum' }>): Promise<number> {
   const html = await fetchForum(j.url)
-  if (!html) { consecutiveFails++; return 0 }
-  consecutiveFails = 0
+  if (!html) { markFail(j.platform); return 0 }
+  markOk(j.platform)
   const now = Date.now()
   let added = 0
   const fresh: AlertSignal[] = []
@@ -532,8 +611,8 @@ async function runForumJob(j: Extract<Job, { platform: 'forum' }>): Promise<numb
 
 async function runBlueskyJob(j: Extract<Job, { platform: 'bluesky' }>): Promise<number> {
   const posts = await fetchBluesky(j.query)
-  if (posts === null) { consecutiveFails++; return 0 }
-  consecutiveFails = 0
+  if (posts === null) { markFail(j.platform); return 0 }
+  markOk(j.platform)
   const now = Date.now()
   let added = 0
   const fresh: AlertSignal[] = []
@@ -563,8 +642,8 @@ async function runBlueskyJob(j: Extract<Job, { platform: 'bluesky' }>): Promise<
 
 async function runHnJob(j: Extract<Job, { platform: 'hn' }>): Promise<number> {
   const hits = await fetchHN(j.query)
-  if (hits === null) { consecutiveFails++; return 0 }
-  consecutiveFails = 0
+  if (hits === null) { markFail(j.platform); return 0 }
+  markOk(j.platform)
   const now = Date.now()
   let added = 0
   const fresh: AlertSignal[] = []
@@ -592,10 +671,40 @@ async function runHnJob(j: Extract<Job, { platform: 'hn' }>): Promise<number> {
   return added
 }
 
+async function runThreadsJob(j: Extract<Job, { platform: 'threads' }>): Promise<number> {
+  const posts = await scThreads(j.query)
+  if (posts === null) { markFail(j.platform); return 0 }
+  markOk(j.platform)
+  const now = Date.now()
+  let added = 0
+  const fresh: AlertSignal[] = []
+  const tx = db.transaction(() => {
+    for (const p of posts) {
+      const intent = j.kind === 'demand' ? intentScore(p.text) : intentScore(p.text) * 0.5
+      const id = `th_${p.id}_${j.product}_${j.kind}`
+      const url = p.url
+      const r = insertSignal.run({
+        id, product: j.product, platform: 'threads', kind: j.kind, query: j.query,
+        author: p.user.slice(0, 120), title: p.text.replace(/\s+/g, ' ').slice(0, 300), body: p.text.slice(0, 2000),
+        url, score: p.likes, sentiment: senti(p.text), intent, ts: p.ts || now, collected_ts: now,
+      })
+      added += r.changes
+      if (r.changes && j.kind === 'demand') fresh.push({ id, product: j.product, platform: 'threads', kind: j.kind, title: p.text.slice(0, 200), url, intent })
+    }
+  })
+  tx()
+  void maybeAlert(fresh)
+  return added
+}
+
 export async function runSocialIntelOnce(): Promise<void> {
   if (cursor >= jobs.length) { jobs = buildJobs(); cursor = 0 }
   if (jobs.length === 0) return
-  const j = jobs[cursor++]
+  // 跳过当前处于退避中的平台（避免反复撞死的平台浪费这一轮）
+  let scanned = 0
+  while (scanned < jobs.length && inBackoff(jobs[cursor % jobs.length].platform)) { cursor++; scanned++ }
+  if (scanned >= jobs.length) return // 全部平台都在退避
+  const j = jobs[cursor++ % jobs.length]
   try {
     const added =
       j.platform === 'reddit' ? await runRedditJob(j)
@@ -603,11 +712,12 @@ export async function runSocialIntelOnce(): Promise<void> {
       : j.platform === 'forum' ? await runForumJob(j)
       : j.platform === 'bluesky' ? await runBlueskyJob(j)
       : j.platform === 'hn' ? await runHnJob(j)
+      : j.platform === 'threads' ? await runThreadsJob(j)
       : await runXJob(j)
     if (added) console.log(`[social-intel] ${j.product}/${j.platform}/${j.kind} "${j.query}": +${added}`)
   } catch (e) {
-    consecutiveFails++
-    if (consecutiveFails <= 3) console.warn(`[social-intel] ${j.platform} "${j.query}" failed:`, (e as Error).message)
+    markFail(j.platform)
+    if ((platFails.get(j.platform) || 0) <= 3) console.warn(`[social-intel] ${j.platform} "${j.query}" failed:`, (e as Error).message)
   }
 }
 
@@ -618,10 +728,8 @@ export function startSocialIntel(): void {
   console.log(`[social-intel] internal competitor/demand monitor active — ${total} queries (${PRODUCTS.length} products)`)
   const loop = async () => {
     await runSocialIntelOnce()
-    // 礼貌节流：每条查询间隔 ~2min（解锁器/住宅代理有成本，社媒信号也是慢节奏）。
-    // 持续被封时退避到 30min。可用 SOCIAL_INTEL_INTERVAL_MS 覆盖。
-    const healthy = Number(process.env.SOCIAL_INTEL_INTERVAL_MS) || 120_000
-    setTimeout(loop, consecutiveFails >= 5 ? 30 * 60_000 : healthy)
+    // 固定节奏轮询；失败退避已按平台隔离处理（不再全局停摆）。可用 SOCIAL_INTEL_INTERVAL_MS 覆盖。
+    setTimeout(loop, Number(process.env.SOCIAL_INTEL_INTERVAL_MS) || 120_000)
   }
   setTimeout(loop, 50_000)
 }
