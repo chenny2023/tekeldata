@@ -41,7 +41,7 @@ function systemFor(productKey: string, painType: string): string {
       'tool and dissatisfied; bucket = "' + (painType || 'unknown') + '". Write a short DISPLACEMENT-PROOF reply matched to it: ' +
       'dumb / not_gambling_native → offer a free TRIAL SHIFT: throw their hardest KYC/payout/bonus questions at a ' +
       'gaming-template persona and compare side-by-side; ' +
-      'expensive → contrast no-seat-fees + per-message pricing vs per-seat/per-resolution; ' +
+      'expensive → contrast hirecx\'s no-seat-fees + per-message pricing (~$0.001/msg avg) vs per-seat/per-resolution models; ' +
       'integration → "one script tag, live in minutes, run a trial shift first, manage from Telegram"; ' +
       'want_switch → migration via industry template + a trial shift to de-risk. Mention hirecx.ai once; speak the ' +
       '"hire a team / personas" language, not "buy a bot". ' + common
