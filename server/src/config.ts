@@ -41,6 +41,11 @@ export const config = {
   tronJsonRpc: env.TRON_JSONRPC ?? 'https://api.trongrid.io/jsonrpc',
   tronMode: env.TRON_MODE ?? 'jsonrpc',
   tronMaxRange: Number(env.TRON_MAX_RANGE ?? 4500), // ≤ node's 5000-block getLogs cap
+  // Skip indexing Tron USDT transfers below this USD value. Tron casino hot wallets
+  // see a huge long tail of tiny/dust transfers that bloat the transfers table (37M
+  // rows / 10GB → cold-boot freezes) for little analytic value — the volume signal is
+  // dominated by large flows. 0 = index everything (off).
+  tronMinUsd: Number(env.TRON_MIN_USD ?? 0),
 
   // Stablecoin contracts we index (valued 1:1 USD for accurate, real USD figures).
   // All entries MUST be USD-pegged 1:1 stablecoins — the indexer values every

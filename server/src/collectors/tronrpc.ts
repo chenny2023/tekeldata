@@ -132,7 +132,9 @@ async function insertLogs(
       const w = watchTo ?? watchFrom
       if (!w) continue
       const amount = Number(BigInt(log.data === '0x' ? '0x0' : log.data)) / 1e6 // USDT 6dp
-      if (!(amount > 0)) continue
+      // Skip dust: the long tail of tiny Tron USDT transfers bloats the table for
+      // little analytic value (volume is dominated by large flows). TRON_MIN_USD=0 off.
+      if (!(amount > 0) || amount < config.tronMinUsd) continue
       const block = Number(BigInt(log.blockNumber))
       const ts = anchorTs - (anchorBlock - block) * BLOCK_MS
       const fromB58 = hex20ToB58(fromHex)

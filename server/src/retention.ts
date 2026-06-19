@@ -11,7 +11,11 @@ import { config } from './config.ts'
 // size in place without an (impossible-on-a-full-disk) VACUUM.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BATCH = 5_000
+// Small batch: each DELETE is one synchronous transaction and every deleted row
+// updates 5 indexes on the 37M-row / 10GB table — on a cold cache a 5000-row batch
+// froze the loop for tens of seconds. 300 keeps each batch sub-second once warm
+// (and only a couple seconds cold), with a yield between batches.
+const BATCH = 300
 
 export async function pruneOldTransfers(): Promise<number> {
   if (!(config.retainDays > 0)) return 0
@@ -54,11 +58,14 @@ export function startRetention() {
     console.log('[retention] disabled (set RETAIN_DAYS to enable)')
     return
   }
-  // run the first pass shortly after boot (never blocks startup/healthcheck),
-  // then every 6h
+  // First pass at boot+5min — NOT +30s. After lowering RETAIN_DAYS the first prune is
+  // a large one-time catch-up (deleting the now-out-of-window backlog); running it
+  // during the cold-cache boot rush would pile onto the boot-window freezes. Waiting
+  // 5min lets the boot settle and the page cache warm, so the prune's batches are
+  // fast. Steady-state prunes (every 6h) are small.
   setTimeout(() => {
     pruneOldTransfers().catch((e) => console.warn('[retention] initial prune failed:', (e as Error).message))
-  }, 30_000)
+  }, 300_000)
   setInterval(() => {
     pruneOldTransfers().catch((e) => console.warn('[retention] prune failed:', (e as Error).message))
   }, 6 * 3600_000)
