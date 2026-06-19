@@ -1,4 +1,5 @@
 import { db } from './db.ts'
+import { workerAll } from './readpool.ts'
 import { bus, TransferEvent } from './bus.ts'
 import { webFetch } from './net.ts'
 import { sendEmail } from './email.ts'
@@ -120,19 +121,24 @@ function onTransfer(t: TransferEvent) {
 }
 
 // ── periodic rules — net-flow (and reserve-drop) over a window ───────────────
-function evalNetflow() {
+async function evalNetflow() {
   const rules = activeRules('netflow')
+  if (rules.length === 0) return
   for (const rule of rules) {
     const since = Date.now() - rule.window_h * 3_600_000
     const where = rule.scope === 'all' ? '' : 'AND watch_id = ' + Number(rule.scope)
-    const rows = db
-      .prepare(
-        `SELECT watch_id, label, chain,
-                SUM(CASE WHEN direction='out' THEN usd ELSE 0 END) -
-                SUM(CASE WHEN direction='in'  THEN usd ELSE 0 END) AS netOut
-         FROM transfers WHERE ts >= ? ${where} GROUP BY watch_id`,
-      )
-      .all(since) as { watch_id: number; label: string; chain: string; netOut: number }[]
+    // This GROUP BY scans the transfers table over the rule's window — on the now
+    // 37M-row / 10GB table a multi-day window is millions of rows. Run it through the
+    // read-worker pool so it executes OFF the main event loop; running it on the main
+    // thread froze the loop ~120s on a cold cache at boot (and ~10s every 60s warm),
+    // which fails the healthcheck and was a deploy-stability hazard.
+    const rows = (await workerAll(
+      `SELECT watch_id, label, chain,
+              SUM(CASE WHEN direction='out' THEN usd ELSE 0 END) -
+              SUM(CASE WHEN direction='in'  THEN usd ELSE 0 END) AS netOut
+       FROM transfers WHERE ts >= ? ${where} GROUP BY watch_id`,
+      [since],
+    )) as { watch_id: number; label: string; chain: string; netOut: number }[]
     const bucket = Math.floor(Date.now() / (rule.window_h * 3_600_000)) // one alert per window
     for (const r of rows) {
       if (r.netOut < rule.threshold) continue
@@ -195,8 +201,8 @@ function fmtNum(n: number): string {
 
 export function startAlerts() {
   bus.on('transfer', onTransfer)
-  const loop = () => {
-    try { evalNetflow() } catch (e) { console.warn('[alerts] netflow', (e as Error).message) }
+  const loop = async () => {
+    try { await evalNetflow() } catch (e) { console.warn('[alerts] netflow', (e as Error).message) }
     try { evalReserveDrop() } catch (e) { console.warn('[alerts] reserve', (e as Error).message) }
     setTimeout(loop, 60_000)
   }
