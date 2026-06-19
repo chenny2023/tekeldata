@@ -29,12 +29,23 @@ export async function pruneOldTransfers(): Promise<number> {
     'DELETE FROM transfers WHERE rowid IN (SELECT rowid FROM transfers WHERE ts < ? LIMIT ?)',
   )
   let deleted = 0
+  let lockRetries = 0
   for (;;) {
     let changes = 0
     try {
       changes = del.run(cutoff, BATCH).changes
+      lockRetries = 0
     } catch (e) {
-      console.warn('[retention] batch failed (will retry next cycle):', (e as Error).message)
+      const msg = (e as Error).message
+      // The collectors write constantly, so a prune batch often loses the lock. Don't
+      // abandon the whole prune for 6h on a transient lock — back off and retry the
+      // SAME batch (up to a cap), so the one-time shrink can actually make progress.
+      if (/database is locked|SQLITE_BUSY/i.test(msg) && lockRetries < 50) {
+        lockRetries++
+        await new Promise((r) => setTimeout(r, 500))
+        continue
+      }
+      console.warn('[retention] batch failed (will retry next cycle):', msg)
       break
     }
     deleted += changes
