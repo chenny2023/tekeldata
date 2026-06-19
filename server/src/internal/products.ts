@@ -39,7 +39,7 @@ export interface ProductConfig {
   }
 }
 
-// ⚠️ 下方关键词为初始草稿，请按真实竞品/选型话术补全（尤其 wonix.ai / hirecx.ai）。
+// 关键词可随时增删调优；竞品 X 账号名写错会自动 404 忽略，安全。各产品 ownHandles 待补真实账号。
 export const PRODUCTS: ProductConfig[] = [
   {
     key: 'wcoin',
@@ -67,36 +67,75 @@ export const PRODUCTS: ProductConfig[] = [
     key: 'hirecx',
     name: 'hirecx.ai',
     url: 'https://hirecx.ai',
+    // AI 数字员工 / AI 客服团队：像招人一样为网站配置 AI 客服，API 打通后承担销售+售后，
+    // 按 token 计费每条消息仅 $0.008。受众=网站主/电商/SaaS/客服与增长负责人。
     pitch:
-      'hirecx.ai 是 AI 招聘/候选人体验（candidate experience）工具，帮团队自动化筛选、沟通与面试流程，提升招聘效率与候选人满意度。',
+      'hirecx.ai 是“AI 数字员工”平台：像招人一样为你的网站配置一支 AI 客服团队，打通 API 后可承接售前销售、售后支持等全流程，按 token 用量计费，每条消息仅 $0.008。',
     reddit: {
       brand: ['hirecx.ai', 'hirecx'],
-      competitor: ['greenhouse ats', 'lever ats', 'paradox ai recruiting', 'hirevue'],
+      competitor: [
+        'intercom fin',
+        'zendesk ai',
+        'sierra ai',
+        'decagon ai',
+        'ada cx',
+        'forethought ai',
+        'tidio',
+        'chatbase',
+        'salesforce agentforce',
+      ],
       demand: [
-        'best ATS for startup',
-        'recruiting automation tool',
-        'candidate experience software',
-        'AI recruiting tool',
-        'screening candidates tool',
-        'interview scheduling software',
+        'AI customer service',
+        'AI customer support',
+        'AI chatbot for website',
+        'AI support agent',
+        'automate customer support',
+        'best AI customer service tool',
+        'customer service automation',
+        'AI agent for sales',
+        'replace live chat with AI',
+        'chatbot for ecommerce support',
       ],
     },
-    subreddits: ['recruiting', 'humanresources', 'startups', 'AskHR', 'Entrepreneur'],
-    x: { competitorHandles: [], ownHandles: [] },
+    subreddits: ['CustomerService', 'CustomerSuccess', 'SaaS', 'ecommerce', 'startups', 'smallbusiness'],
+    // ownHandles 待补：填入 hirecx 自己的 X 账号名（不带 @）
+    x: { competitorHandles: ['intercom', 'zendesk', 'ada_cx', 'decagon'], ownHandles: [] },
   },
   {
     key: 'wonix',
     name: 'wonix.ai',
     url: 'https://wonix.ai',
-    // TODO: 补全 wonix.ai 的真实定位、竞品与选型话术
-    pitch: 'wonix.ai —（请在 products.ts 补全产品一句话卖点）。',
+    // 面向 iGaming 行业的广告投放创意工作流：帮投手/媒体采买产出更优广告素材实现投放增长。
+    // 受众=iGaming 广告投手 / 联盟营销 / 绩效投放（performance / media buying）。
+    pitch:
+      'wonix.ai 是面向 iGaming 行业的广告投放创意工作流：帮投手快速产出更优质的广告素材（creative），提升投放转化与增长。',
     reddit: {
       brand: ['wonix.ai', 'wonix'],
-      competitor: [],
-      demand: [],
+      competitor: [
+        'adcreative.ai',
+        'creatopy',
+        'foreplay creative',
+        'madgicx',
+        'pencil ai ads',
+        'creatify ai',
+        'smartly.io',
+      ],
+      demand: [
+        'ad creative tool',
+        'AI ad creatives',
+        'generate ad creatives',
+        'creative automation',
+        'best tool for ad creatives',
+        'scaling facebook ad creatives',
+        'ad creative generator',
+        'iGaming ad creative',
+        'casino ad creatives',
+        'media buying creative workflow',
+      ],
     },
-    subreddits: [],
-    x: { competitorHandles: [], ownHandles: [] },
+    subreddits: ['PPC', 'FacebookAds', 'advertising', 'marketing', 'Affiliatemarketing', 'DigitalMarketing'],
+    // ownHandles 待补：填入 wonix 自己的 X 账号名（不带 @）
+    x: { competitorHandles: ['AdCreativeai', 'madgicx', 'creatopy', 'foreplay_co'], ownHandles: [] },
   },
 ]
 
