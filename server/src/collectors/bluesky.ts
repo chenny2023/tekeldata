@@ -1,5 +1,5 @@
 import { db } from '../db.ts'
-import { webFetch } from '../net.ts'
+import { webFetch, webFetchProxied } from '../net.ts'
 import { brandName } from '../casinometa.ts'
 import { score } from '../sentiment.ts'
 
@@ -58,10 +58,13 @@ export async function runBlueskyOnce() {
   const { label, brand } = list[cursor++]
   try {
     const q = encodeURIComponent(brand.replace(/\.(com|io|gg|game)$/i, '')) // "Stake.com" → search "Stake"
-    const res = await webFetch(
-      `https://public.api.bsky.app/xrpc/app.bsky.feed.searchPosts?q=${q}&limit=25&sort=latest`,
-      { headers: { 'User-Agent': UA, Accept: 'application/json' }, signal: AbortSignal.timeout(15_000) },
-    )
+    const url = `https://public.api.bsky.app/xrpc/app.bsky.feed.searchPosts?q=${q}&limit=25&sort=latest`
+    const init = { headers: { 'User-Agent': UA, Accept: 'application/json' }, signal: AbortSignal.timeout(15_000) }
+    // Bluesky's edge 403s datacenter IPs (Railway + the Webshare datacenter pool), so
+    // try the RESIDENTIAL proxy first (REDDIT_PROXY/PROXY present a home IP that bsky
+    // accepts); fall back to a direct hit only if the residential path errors.
+    let res = await webFetchProxied(url, init).catch(() => null)
+    if (!res || !res.ok) res = await webFetch(url, init)
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const j = (await res.json()) as { posts?: any[] }
     const posts = j.posts ?? []
