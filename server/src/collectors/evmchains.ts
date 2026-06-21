@@ -72,18 +72,14 @@ const L2S = [
     key: 'POLYGON',
     name: 'Polygon',
     env: 'POLYGON',
-    // Diverse providers (different companies/IP policies). The previous list
-    // (polygon-bor-rpc.publicnode.com + llamarpc) both 403'd from Railway's datacenter
-    // IP, so Polygon went dark (missing from the chain coverage). Rotating across
-    // unrelated providers means at least one accepts our IP. llamarpc dropped (dead),
-    // polygon-rpc.com dropped (now API-key-gated → 401).
-    rpcs: [
-      'https://polygon-bor.publicnode.com',
-      'https://1rpc.io/matic',
-      'https://polygon.drpc.org',
-      'https://polygon.api.onfinality.io/public',
-      'https://polygon-bor-rpc.publicnode.com',
-    ],
+    // NOTE: some public Polygon providers (drpc/onfinality/1rpc) return getLogs in a
+    // shape/limit that broke our parser ("withdrawals is not iterable") and the forward
+    // loop retried it tight enough to STARVE the event loop → /api/health stopped
+    // responding → the DEPLOY FAILED and the site went down (2026-06-21). Reverted to
+    // the two publicnode endpoints; if they 403 from our IP Polygon just stays dark,
+    // which is FAR safer than a CPU-starving bad endpoint. Re-add alternates only after
+    // validating each one's eth_getLogs response shape against getLogsRange.
+    rpcs: ['https://polygon-bor.publicnode.com', 'https://polygon-bor-rpc.publicnode.com'],
     tokens: [
       { symbol: 'USDC', address: '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359', decimals: 6 },
       { symbol: 'USDC.e', address: '0x2791bca1f2de4661ed88a30c99a7a9449aa84174', decimals: 6 }, // bridged USDC — dominant on Polygon
