@@ -1,5 +1,5 @@
 import { db } from '../db.ts'
-import { webFetch, webFetchProxied } from '../net.ts'
+import { webFetchProxied, webFetchUnlocked, webFetchDirect } from '../net.ts'
 import { brandName } from '../casinometa.ts'
 import { score } from '../sentiment.ts'
 
@@ -48,6 +48,7 @@ let cursor = 0
 // Reddit. Back off when it persistently rejects us so we don't spam, and recover
 // the instant a request succeeds (e.g. a clean residential proxy is configured).
 export let blueskyConsecutiveFails = 0
+let lastVia = '' // last successful fetch path — log only when it changes (diagnosis)
 
 export async function runBlueskyOnce() {
   if (cursor >= list.length) {
@@ -59,13 +60,34 @@ export async function runBlueskyOnce() {
   try {
     const q = encodeURIComponent(brand.replace(/\.(com|io|gg|game)$/i, '')) // "Stake.com" → search "Stake"
     const url = `https://public.api.bsky.app/xrpc/app.bsky.feed.searchPosts?q=${q}&limit=25&sort=latest`
-    const init = { headers: { 'User-Agent': UA, Accept: 'application/json' }, signal: AbortSignal.timeout(15_000) }
-    // Bluesky's edge 403s datacenter IPs (Railway + the Webshare datacenter pool), so
-    // try the RESIDENTIAL proxy first (REDDIT_PROXY/PROXY present a home IP that bsky
-    // accepts); fall back to a direct hit only if the residential path errors.
-    let res = await webFetchProxied(url, init).catch(() => null)
-    if (!res || !res.ok) res = await webFetch(url, init)
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    // Browser-like headers — bsky's searchPosts sits behind Cloudflare, which fingerprints
+    // headers, not just the IP (verified: getProfiles 200 but searchPosts 403 from the same
+    // datacenter IP → endpoint-specific bot protection).
+    const init = {
+      headers: {
+        'User-Agent': UA,
+        Accept: 'application/json',
+        'Accept-Language': 'en-US,en;q=0.9',
+        Origin: 'https://bsky.app',
+        Referer: 'https://bsky.app/',
+      },
+      signal: AbortSignal.timeout(20_000),
+    }
+    // Try in order and log the WINNING path so prod tells us what actually works:
+    //   1) residential proxy (the user's home IPs — Reddit works through these)
+    //   2) paid web-unlocker (real Cloudflare bypass; null when SCRAPER_API_KEY unset)
+    //   3) direct (datacenter) — getProfiles proves bsky's edge is reachable
+    let res: Response | null = null
+    let via = ''
+    res = await webFetchProxied(url, init).catch(() => null)
+    if (res?.ok) via = 'residential'
+    if (!res?.ok) {
+      const u = webFetchUnlocked(url, init)
+      if (u) { res = await u.catch(() => null); if (res?.ok) via = 'unlocker' }
+    }
+    if (!res?.ok) { res = await webFetchDirect(url, init).catch(() => null); if (res?.ok) via = 'direct' }
+    if (!res?.ok) throw new Error(`HTTP ${res?.status ?? 'blocked'} (all paths)`)
+    if (via !== lastVia) { console.log(`[bluesky] reachable via ${via}`); lastVia = via }
     const j = (await res.json()) as { posts?: any[] }
     const posts = j.posts ?? []
     // word-boundary brand match so "Stake" doesn't catch "mistake"
