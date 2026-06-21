@@ -464,15 +464,25 @@ async function twitterApiSearch(query: string): Promise<{ id: string; text: stri
   const key = TWAPI_KEY()
   if (!key) return null
   const base = `https://api.twitterapi.io/twitter/tweet/advanced_search?query=${encodeURIComponent(query + ' -filter:retweets')}&queryType=Latest`
-  const pages = Number(process.env.SOCIAL_X_PAGES) || 2 // 放大 X：多翻几页
+  const pages = Number(process.env.SOCIAL_X_PAGES) || 1 // 免费试用速率低：默认不翻页（避免连发触发 429）
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+  // 遇 429 退避重试（twitterapi 免费档速率很严），而不是直接判失败
+  const getWithRetry = async (url: string): Promise<Response | null> => {
+    for (let a = 0; a < 3; a++) {
+      const r = await webFetch(url, { headers: { 'X-API-Key': key, Accept: 'application/json' }, signal: AbortSignal.timeout(25_000) })
+      if (r.status !== 429) return r
+      await sleep(4000 * (a + 1))
+    }
+    return null
+  }
   const out: { id: string; text: string; author: string; url: string; likes: number; rts: number; replies: number; ts: number }[] = []
   let cursor = ''
   let gotAny = false
   for (let i = 0; i < pages; i++) {
     const url = cursor ? `${base}&cursor=${encodeURIComponent(cursor)}` : base
     try {
-      const r = await webFetch(url, { headers: { 'X-API-Key': key, Accept: 'application/json' }, signal: AbortSignal.timeout(25_000) })
-      if (!r.ok) break
+      const r = await getWithRetry(url)
+      if (!r || !r.ok) break
       const j = (await r.json()) as any
       const arr: any[] = j.tweets ?? []
       gotAny = true
