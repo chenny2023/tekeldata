@@ -55,6 +55,11 @@ export interface ProductConfig {
    * 解决"论坛整页吞入 + 泛词命中"带来的无效信息。留空=不过滤。
    */
   relevance?: string[]
+  /**
+   * Shopify 应用商店竞品 app 的 slug（apps.shopify.com/<slug>）。只抓 1-3★ 负评——
+   * 商家吐槽竞品 = 置换机会。kind=competitor，进分类器分桶。适合 hirecx。
+   */
+  shopifyApps?: string[]
 }
 
 // 关键词可随时增删调优；竞品 X 账号名写错会自动 404 忽略，安全。各产品 ownHandles 待补真实账号。
@@ -122,6 +127,8 @@ export const PRODUCTS: ProductConfig[] = [
     subreddits: ['ecommerce', 'shopify', 'dropship', 'SaaS', 'Entrepreneur', 'smallbusiness', 'CustomerService', 'startups'],
     // ownHandles 待补：填入 hirecx 自己的 X 账号名（不带 @）
     x: { competitorHandles: ['intercom', 'zendesk', 'ada_cx', 'decagon'], ownHandles: [] },
+    // Shopify 竞品客服/聊天 app（只抓负评=置换机会）。slug 均实测可抓。
+    shopifyApps: ['tidio-chat', 'helpcenter', 'inbox', 'reamaze', 'chatra', 'zendesk', 'livechat', 'chatway'],
     // 去噪：只有真正讲"客服/支持/在线销售对话"的帖才算 hirecx 需求（行业垂直里筛出 CS 话题）
     relevance: [
       'customer service', 'customer support', 'customer experience', 'support ticket', 'support tickets',

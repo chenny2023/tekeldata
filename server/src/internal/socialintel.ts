@@ -453,6 +453,29 @@ async function scThreads(query: string): Promise<{ id: string; text: string; use
     .filter((p) => p.id && p.text)
 }
 
+// ── Shopify 应用商店竞品负评（只抓 1-3★ = 商家吐槽竞品 = 置换机会）──────────────
+async function fetchShopifyReviews(slug: string): Promise<{ id: string; text: string }[] | null> {
+  const url = `https://apps.shopify.com/${encodeURIComponent(slug)}/reviews?sort_by=newest&ratings%5B%5D=1&ratings%5B%5D=2&ratings%5B%5D=3`
+  try {
+    const r = await webFetch(url, { headers: { 'User-Agent': UA, Accept: 'text/html' }, signal: AbortSignal.timeout(25_000) })
+    if (!r.ok) return null
+    const html = await r.text()
+    const out: { id: string; text: string }[] = []
+    const seen = new Set<string>()
+    for (const m of html.matchAll(/data-truncate-review[^>]*>([\s\S]*?)<\/div>/g)) {
+      const text = m[1].replace(/<[^>]+>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, ' ').trim()
+      if (text.length < 20) continue
+      const id = `${slug}_${strHash(text)}`
+      if (seen.has(id)) continue
+      seen.add(id)
+      out.push({ id, text })
+    }
+    return out
+  } catch {
+    return null
+  }
+}
+
 // ── 单轮采集：遍历所有产品 × 平台 × 关键词 ────────────────────────────────────
 type Kind = 'brand' | 'competitor' | 'demand'
 type Job =
@@ -463,6 +486,7 @@ type Job =
   | { product: string; platform: 'bluesky'; kind: Kind; query: string }
   | { product: string; platform: 'hn'; kind: Kind; query: string }
   | { product: string; platform: 'threads'; kind: Kind; query: string }
+  | { product: string; platform: 'shopify'; kind: 'competitor'; query: string }
 
 function buildJobs(): Job[] {
   const jobs: Job[] = []
@@ -479,6 +503,7 @@ function buildJobs(): Job[] {
     for (const h of p.x.ownHandles) jobs.push({ product: p.key, platform: 'x', kind: 'brand', query: h })
     for (const ch of p.telegram ?? []) jobs.push({ product: p.key, platform: 'telegram', kind: 'demand', query: ch })
     for (const f of p.forums ?? []) jobs.push({ product: p.key, platform: 'forum', kind: 'demand', query: f.name, url: f.url })
+    for (const app of p.shopifyApps ?? []) jobs.push({ product: p.key, platform: 'shopify', kind: 'competitor', query: app })
   }
   // 已保存且启用的「自定义采集需求」——随同主调度一起轮询
   for (const c of activeCustomQueries()) jobs.push(c)
@@ -819,6 +844,28 @@ async function runThreadsJob(j: Extract<Job, { platform: 'threads' }>): Promise<
   return added
 }
 
+async function runShopifyJob(j: Extract<Job, { platform: 'shopify' }>): Promise<number> {
+  const reviews = await fetchShopifyReviews(j.query)
+  if (reviews === null) { markFail(j.platform); return 0 }
+  markOk(j.platform)
+  const now = Date.now()
+  let added = 0
+  const tx = db.transaction(() => {
+    for (const rv of reviews) {
+      const id = `shopify_${rv.id}_${j.product}`
+      const r = insertSignal.run({
+        id, product: j.product, platform: 'shopify', kind: 'competitor', query: j.query,
+        author: j.query, title: rv.text.slice(0, 300), body: rv.text.slice(0, 2000),
+        url: `https://apps.shopify.com/${j.query}/reviews`, score: 0, sentiment: senti(rv.text),
+        intent: 0.4, ts: now, collected_ts: now, // 负评本身=潜在置换意图，给个基线分
+      })
+      added += r.changes
+    }
+  })
+  tx()
+  return added
+}
+
 export async function runSocialIntelOnce(): Promise<void> {
   if (cursor >= jobs.length) { jobs = buildJobs(); cursor = 0 }
   if (jobs.length === 0) return
@@ -835,6 +882,7 @@ export async function runSocialIntelOnce(): Promise<void> {
       : j.platform === 'bluesky' ? await runBlueskyJob(j)
       : j.platform === 'hn' ? await runHnJob(j)
       : j.platform === 'threads' ? await runThreadsJob(j)
+      : j.platform === 'shopify' ? await runShopifyJob(j)
       : await runXJob(j)
     if (added) console.log(`[social-intel] ${j.product}/${j.platform}/${j.kind} "${j.query}": +${added}`)
   } catch (e) {
