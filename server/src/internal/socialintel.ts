@@ -24,6 +24,11 @@ const UA =
 const RECENT_DAYS = Number(process.env.SOCIAL_RECENT_DAYS) || 180
 const recentCutoff = () => Date.now() - RECENT_DAYS * 86_400_000
 
+// ⚠️ 这些建表/迁移在 import 期执行（早于 server.ts main() 把 busy_timeout 调到 30s）。
+// 部署切换时旧容器 litestream 占写锁，5s 默认超时会让迁移抛 "database is locked" → 启动崩溃、部署失败。
+// 故在迁移前先把 busy_timeout 拉到 30s（与启动期一致），等过切换锁。
+db.pragma('busy_timeout = 30000')
+
 // ── schema：独立建表，不污染 casino 的 db.ts ──────────────────────────────────
 db.exec(`
 CREATE TABLE IF NOT EXISTS social_intel (
