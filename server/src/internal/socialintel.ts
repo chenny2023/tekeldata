@@ -403,7 +403,15 @@ async function fetchHN(query: string): Promise<any[] | null> {
 
 // ── ScrapeCreators 付费源（X 账号推文 + Threads 关键词搜索）────────────────────
 // key 在 Railway 环境变量 `scrapecreators`（小写）。无 key 时相关 job 返回 null 跳过。
-const SC_KEY = () => process.env.scrapecreators || process.env.SCRAPECREATORS_API_KEY || ''
+// 容忍环境变量「名字」里的首尾空格（Railway 面板手填常见 typo，如 "TWITTERAPI_KEY "）。
+// 先精确取；取不到则扫 process.env 找 trim 后同名的键。值也 trim。
+function envLoose(...names: string[]): string {
+  for (const n of names) { const v = process.env[n]; if (v && v.trim()) return v.trim() }
+  const wants = names.map((n) => n.toLowerCase())
+  for (const [k, v] of Object.entries(process.env)) if (v && v.trim() && wants.includes(k.trim().toLowerCase())) return v.trim()
+  return ''
+}
+const SC_KEY = () => envLoose('scrapecreators', 'SCRAPECREATORS_API_KEY')
 export const scEnabled = () => !!SC_KEY()
 async function scFetch(path: string, params: Record<string, string>): Promise<any | null> {
   const key = SC_KEY()
@@ -463,7 +471,7 @@ async function scThreads(query: string): Promise<{ id: string; text: string; use
 
 // ── twitterapi.io：X 关键词搜索（ScrapeCreators 没有；补上 X 竞品监测/吐槽）──────
 // key 在 env TWITTERAPI_KEY；免费试用有额度，故只搜竞品词、单页。无 key 时整组 xsearch 不排程。
-const TWAPI_KEY = () => process.env.TWITTERAPI_KEY || process.env.twitterapi || ''
+const TWAPI_KEY = () => envLoose('TWITTERAPI_KEY', 'twitterapi')
 export const twitterApiEnabled = () => !!TWAPI_KEY()
 // X 诊断：记录 twitterapi 最近一次调用结果，显示到健康面板（不用 SSH 就能看到 X 为何不出数）
 export let twDiag = 'X: 尚未运行'
