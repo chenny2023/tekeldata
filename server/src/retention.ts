@@ -12,10 +12,10 @@ import { config } from './config.ts'
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Small batch: each DELETE is one synchronous transaction and every deleted row
-// updates 5 indexes on the 37M-row / 10GB table — on a cold cache a 5000-row batch
-// froze the loop for tens of seconds. 300 keeps each batch sub-second once warm
-// (and only a couple seconds cold), with a yield between batches.
-const BATCH = 300
+// updates 5 indexes on the big table — on a cold cache even 300 rows froze the loop
+// ~9s (the boot+5min prune ran in the healthcheck-adjacent window). 50 caps each batch
+// to ~1-2s cold, with a yield between batches, matching the collector inserts.
+const BATCH = 50
 
 export async function pruneOldTransfers(): Promise<number> {
   if (!(config.retainDays > 0)) return 0
