@@ -23,36 +23,45 @@ import { config } from './config.ts'
 
 export async function registerApi(app: FastifyInstance) {
   // ── health / meta ───────────────────────────────────────────────────────────
-  app.get('/api/health', async () => {
-    // MUST stay cheap — Railway's healthcheck hits this constantly. COUNT(*) over
-    // the (multi-million-row) transfers table is a full scan that blocks the event
-    // loop and times out the healthcheck under indexing load; MAX(id) is instant
-    // (PK btree) and gives the cumulative-indexed figure we display.
-    const tx = (db.prepare('SELECT MAX(id) n FROM transfers').get() as any).n ?? 0
-    const wl = (db.prepare('SELECT COUNT(*) n FROM watchlist WHERE active=1').get() as any).n
-    const oldest = (db.prepare('SELECT MIN(ts) t FROM transfers').get() as any).t ?? null
-    const sv = (k: string) =>
-      Number((db.prepare('SELECT value FROM sync_state WHERE key=?').get(k) as any)?.value ?? 0)
-    const anchor = sv('backfill:anchor')
-    // ETH backfill is split into a casino (priority) + exchange segment; report
-    // the casino segment's progress as the headline (the old combined
-    // backfill:cursor is deprecated and never set on current builds)
-    const casCursor = sv('backfill:cas:cursor') || sv('backfill:cursor') || anchor
-    const targetBlocks = Math.ceil((config.deepBackfillDays * 86_400_000) / 12_000)
-    const backfillPct = anchor && casCursor < anchor ? Math.min(100, Math.round(((anchor - casCursor) / targetBlocks) * 100)) : 0
-    return {
-      ok: true,
-      env: config.nodeEnv,
-      watchlist: wl,
-      transfers: tx,
-      evmLastBlock: sv('evm:lastBlock'),
-      historyDays: oldest ? (Date.now() - oldest) / 86_400_000 : 0,
-      backfillPct,
-      twitch: twitchEnabled(),
-      readWorker: readWorkerEnabled(), // is the read-offload worker thread active?
-      time: Date.now(),
+  // /api/health MUST respond instantly — Railway's healthcheck gates every deploy on
+  // it. The DB-querying version blocked behind the collectors' synchronous write
+  // chunks during a cold-boot catch-up storm, so /api/health couldn't return 200
+  // within the window → the deploy FAILED and the site went down (this bit us hard).
+  // Now it's PURE IN-MEMORY: a background timer refreshes the values off the request
+  // path, and the handler just returns the last snapshot — so it answers the instant
+  // the event loop has a free tick, even mid-storm. If the timer is itself delayed by
+  // a freeze, we serve a slightly-stale snapshot, which is fine for a liveness probe.
+  let healthSnap: Record<string, unknown> = { ok: true, env: config.nodeEnv, booting: true, time: Date.now() }
+  const refreshHealth = () => {
+    try {
+      const tx = (db.prepare('SELECT MAX(id) n FROM transfers').get() as any).n ?? 0
+      const wl = (db.prepare('SELECT COUNT(*) n FROM watchlist WHERE active=1').get() as any).n
+      const oldest = (db.prepare('SELECT MIN(ts) t FROM transfers').get() as any).t ?? null
+      const sv = (k: string) =>
+        Number((db.prepare('SELECT value FROM sync_state WHERE key=?').get(k) as any)?.value ?? 0)
+      const anchor = sv('backfill:anchor')
+      const casCursor = sv('backfill:cas:cursor') || sv('backfill:cursor') || anchor
+      const targetBlocks = Math.ceil((config.deepBackfillDays * 86_400_000) / 12_000)
+      const backfillPct = anchor && casCursor < anchor ? Math.min(100, Math.round(((anchor - casCursor) / targetBlocks) * 100)) : 0
+      healthSnap = {
+        ok: true,
+        env: config.nodeEnv,
+        watchlist: wl,
+        transfers: tx,
+        evmLastBlock: sv('evm:lastBlock'),
+        historyDays: oldest ? (Date.now() - oldest) / 86_400_000 : 0,
+        backfillPct,
+        twitch: twitchEnabled(),
+        readWorker: readWorkerEnabled(),
+        time: Date.now(),
+      }
+    } catch {
+      /* keep the last good snapshot */
     }
-  })
+  }
+  refreshHealth()
+  setInterval(refreshHealth, 10_000).unref?.()
+  app.get('/api/health', async () => healthSnap)
 
   // ── aggregate cache ──────────────────────────────────────────────────────────
   // aggregateEntities/aggregateBrands are heavy synchronous scans; better-sqlite3
