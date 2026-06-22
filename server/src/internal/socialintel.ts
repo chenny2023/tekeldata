@@ -4,7 +4,7 @@ import { unlockedFetch } from '../collectors/unlocker.ts'
 import { score as lexScore } from '../sentiment.ts'
 import { PRODUCTS } from './products.ts'
 import { maybeAlert, type AlertSignal } from './alerts.ts'
-import { upsertKol, type KolProfile } from './kol.ts'
+import { upsertKol, threadsAuthorsToCheck, type KolProfile } from './kol.ts'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 内部社媒情报采集器（团队内部）。复用 wcoin 现有的住宅代理 (net.ts) 与无 key 采集范式。
@@ -494,6 +494,22 @@ async function scThreads(query: string): Promise<{ id: string; text: string; use
       return { id, text, user, likes, ts, url }
     })
     .filter((p) => p.id && p.text)
+}
+
+// Threads 用户主页（ScrapeCreators）——搜索结果不含粉丝数，需逐作者补一次(每次 1 credit)。
+export async function scThreadsProfile(handle: string): Promise<KolProfile | null> {
+  const j = await scFetch('/v1/threads/profile', { handle })
+  if (!j || j.success === false) return null
+  const u = j.user ?? j
+  const followers = Number(u.follower_count ?? u.followers ?? 0)
+  if (!followers && !u.username) return null
+  return {
+    platform: 'threads', handle,
+    name: u.full_name ?? '', bio: u.biography ?? u.bio ?? '',
+    followers, following: 0, verified: !!u.is_verified, canDm: false,
+    statuses: 0, createdTs: 0, location: '',
+    profileUrl: `https://www.threads.net/@${handle}`,
+  }
 }
 
 // ── twitterapi.io：X 关键词搜索（ScrapeCreators 没有；补上 X 竞品监测/吐槽）──────
@@ -1009,6 +1025,17 @@ async function runThreadsJob(j: Extract<Job, { platform: 'threads' }>): Promise<
     }
   })
   tx()
+  // 潜在合作 KOL：Threads 搜索结果不含粉丝数 → 对新作者补查 profile（限量，省 credit）。
+  const cap = Number(process.env.SOCIAL_KOL_THREADS_LOOKUPS) || 3
+  if (cap > 0) {
+    const distinct = [...new Set(posts.map((p) => p.user).filter(Boolean))]
+    for (const h of threadsAuthorsToCheck(distinct, cap)) {
+      const prof = await scThreadsProfile(h)
+      if (!prof) continue
+      const post = posts.find((p) => p.user === h)
+      upsertKol(prof, j.product, post ? { text: post.text, url: post.url, engage: post.likes } : undefined)
+    }
+  }
   void maybeAlert(fresh)
   return added
 }

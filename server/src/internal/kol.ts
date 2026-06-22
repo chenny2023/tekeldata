@@ -56,6 +56,30 @@ CREATE INDEX IF NOT EXISTS idx_kol_scored ON social_kol(scored_ts);
 CREATE INDEX IF NOT EXISTS idx_kol_status ON social_kol(status);
 `)
 
+// Threads 作者「已查粉丝」标记——profile 查询耗 credit，避免对同一 handle 反复查（含粉丝不足者）。
+db.exec(`CREATE TABLE IF NOT EXISTS kol_seen (id TEXT PRIMARY KEY, ts INTEGER NOT NULL)`)
+const SEEN_TTL = 30 * 86_400_000
+/** 从候选 handle 里挑出「未入库且 TTL 内未查过」的最多 maxN 个，并立即标记已查（防重复烧 credit）。 */
+export function threadsAuthorsToCheck(handles: string[], maxN: number): string[] {
+  const now = Date.now()
+  const inKol = db.prepare('SELECT 1 FROM social_kol WHERE id=?')
+  const seenGet = db.prepare('SELECT ts FROM kol_seen WHERE id=?')
+  const seenSet = db.prepare('INSERT INTO kol_seen(id, ts) VALUES(?, ?) ON CONFLICT(id) DO UPDATE SET ts=excluded.ts')
+  const out: string[] = []
+  for (const h0 of handles) {
+    if (out.length >= maxN) break
+    const h = (h0 || '').trim()
+    if (!h) continue
+    const id = `threads_${h.toLowerCase()}`
+    if (inKol.get(id)) continue
+    const s = seenGet.get(id) as { ts: number } | undefined
+    if (s && now - s.ts < SEEN_TTL) continue
+    seenSet.run(id, now)
+    out.push(h)
+  }
+  return out
+}
+
 const MIN_FOLLOWERS = () => Number(process.env.SOCIAL_KOL_MIN_FOLLOWERS) || 1000
 const MIN_CRED = () => Number(process.env.SOCIAL_KOL_MIN_CRED) || 40
 const YEAR = 365.25 * 86_400_000
