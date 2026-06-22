@@ -1,28 +1,26 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { db } from '../db.ts'
-import { userFromRequest, isAdminEmail } from '../auth.ts'
 import { generateDraft } from './drafts.ts'
 import { runSocialIntelOnce, runCustomQuery, twDiag, twitterApiEnabled } from './socialintel.ts'
 import { PRODUCTS, productByKey } from './products.ts'
 import { PANEL_HTML } from './panel.ts'
 import { generateContent, openrouterEnabled } from '../content/openrouter.ts'
 import { translateOne, translateBatch } from './translate.ts'
+import { registerWgAuth, requireTeam } from './wgauth.ts'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 内部社媒情报 — 管理员鉴权 API + 面板。所有数据接口仅 admin 可访问。
 // 面板挂在 /internal/social（同源，复用 wcoin_token；也支持内置邮箱验证码登录）。
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Whale Growth 团队会话 或 管理员账号 均可访问（团队门禁见 wgauth.ts）
 function requireAdmin(req: FastifyRequest, reply: FastifyReply): boolean {
-  const user = userFromRequest(req)
-  if (!user || !isAdminEmail(user.email)) {
-    reply.code(403).send({ error: 'admin only' })
-    return false
-  }
-  return true
+  return requireTeam(req, reply)
 }
 
 export function registerSocialIntel(app: FastifyInstance): void {
+  registerWgAuth(app) // Whale Growth 团队验证码登录（/api/internal/auth/*）
+
   // 面板（HTML 外壳无需鉴权；下面的数据接口才校验 token）
   app.get('/internal/social', async (_req, reply) => {
     return reply.header('Content-Type', 'text/html; charset=utf-8').header('Cache-Control', 'no-cache').send(PANEL_HTML)

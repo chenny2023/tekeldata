@@ -1,10 +1,10 @@
-// 内部社媒情报面板 — 单文件 HTML（同源，复用 wcoin_token；支持内置邮箱验证码登录）。
-// 纯原生 JS + 事件委托（data-act），无构建步骤。数据接口均走管理员 token。
+// Whale Growth — 内部增长情报面板（单文件 HTML）。团队验证码登录（验证码发到管理员邮箱）。
+// 纯原生 JS + 事件委托（data-act），无构建步骤。数据接口走团队会话 token（见 wgauth.ts）。
 export const PANEL_HTML = `<!doctype html>
 <html lang="zh"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<title>社媒情报 · 内部</title>
+<title>Whale Growth</title>
 <style>
   :root{
     --bg:#070a10;--panel:#121826;--panel2:#161d2e;--line:#222c40;
@@ -112,7 +112,7 @@ export const PANEL_HTML = `<!doctype html>
 <div id="app"></div>
 <div class="toast" id="toast"></div>
 <script>
-const TOKEN_KEY='wcoin_token'
+const TOKEN_KEY='wg_token'
 let token=localStorage.getItem(TOKEN_KEY)||''
 let tab='overview', products=[]
 let filters={product:'',kind:'',platform:'',minIntent:'0',sort:'intent',status:'',q:'',tier:''}
@@ -125,7 +125,7 @@ function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');cl
 
 async function api(path,opts={}){
   const r=await fetch(path,{...opts,headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,...(opts.headers||{})}})
-  if(r.status===403){token='';localStorage.removeItem(TOKEN_KEY);render();throw new Error('需要管理员登录')}
+  if(r.status===403){token='';localStorage.removeItem(TOKEN_KEY);render();throw new Error('需要登录')}
   return r.json()
 }
 const intColor=v=>v>=0.7?'#ff5c5c':v>=0.45?'#ffb24a':v>=0.25?'#ffd479':'#5b6b86'
@@ -147,21 +147,25 @@ H.go=k=>{tab=k;render()}
 H.logout=()=>{token='';localStorage.removeItem(TOKEN_KEY);render()}
 H.run=async()=>{toast('已触发采集…结果稍后刷新可见');await api('/api/internal/social/run',{method:'POST'})}
 
-// ── 登录 ───────────────────────────────────────────────────────────────────
-let loginEmail=''
-H.reqcode=async()=>{loginEmail=$('#email').value.trim();const r=await fetch('/api/auth/request-code',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:loginEmail})});const j=await r.json();if(j.devCode)toast('开发验证码: '+j.devCode);else toast('验证码已发送至邮箱');render(true)}
-H.verify=async()=>{const code=$('#code').value.trim();const r=await fetch('/api/auth/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:loginEmail,code})});const j=await r.json();if(j.token){token=j.token;localStorage.setItem(TOKEN_KEY,token);render()}else toast(j.error||'验证失败')}
+// ── 登录（Whale Growth 团队验证码：点登录→验证码发到管理员邮箱→输入即可进）──────
+let codeSentTo=''
+H.reqcode=async(_,btn)=>{if(btn){btn.textContent='发送中…';btn.disabled=true}const r=await fetch('/api/internal/auth/send-code',{method:'POST',headers:{'Content-Type':'application/json'}});const j=await r.json();if(j.sent){codeSentTo=j.to||'';if(j.devCode)toast('开发验证码: '+j.devCode);else toast('验证码已发送到管理员邮箱');render(true)}else{toast(j.error||'发送失败');if(btn){btn.textContent='发送验证码登录';btn.disabled=false}}}
+H.verify=async(_,btn)=>{const code=$('#code').value.trim();if(!code)return toast('请输入验证码');if(btn){btn.textContent='验证中…';btn.disabled=true}const r=await fetch('/api/internal/auth/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})});const j=await r.json();if(j.token){token=j.token;localStorage.setItem(TOKEN_KEY,token);render()}else{toast(j.error||'验证失败');if(btn){btn.textContent='登录';btn.disabled=false}}}
+H.backlogin=()=>render(false)
 function loginView(step){
-  $('#app').innerHTML='<div class="login"><div class="logo">📡</div><h1>社媒情报</h1><p class="mut">团队内部 · 仅限管理员</p>'+
+  $('#app').innerHTML='<div class="login"><div class="logo">🐳</div><h1>Whale Growth</h1><p class="mut">团队内部 · 增长情报</p>'+
    (step
-     ?'<input id="code" placeholder="6 位验证码" autofocus><button class="btn pri" data-act="verify" style="width:100%;justify-content:center">登录</button>'
-     :'<input id="email" placeholder="管理员邮箱" value="'+esc(loginEmail)+'" autofocus><button class="btn pri" data-act="reqcode" style="width:100%;justify-content:center">获取验证码</button>')+'</div>'
+     ?'<p class="mut" style="font-size:13px;margin:-4px 0 12px">验证码已发送到管理员邮箱 <b>'+esc(codeSentTo)+'</b>，向管理员索取后输入：</p>'+
+       '<input id="code" placeholder="6 位验证码" autofocus inputmode="numeric" maxlength="6"><button class="btn pri" data-act="verify" style="width:100%;justify-content:center">登录</button>'+
+       '<button class="btn ghost sm" data-act="backlogin" style="width:100%;justify-content:center;margin-top:8px">重新发送 / 返回</button>'
+     :'<p class="mut" style="font-size:13px;margin:-4px 0 14px">点下方按钮，验证码会发送到管理员邮箱，向管理员索取验证码即可登录。</p>'+
+       '<button class="btn pri" data-act="reqcode" style="width:100%;justify-content:center">发送验证码登录</button>')+'</div>'
 }
 
 function shell(inner){
   const nav=[['overview','概览'],['signals','信号'],['painradar','竞品洞察'],['topics','选题建议'],['drafts','草稿'],['custom','自定义采集']]
     .map(t=>'<button class="'+(tab===t[0]?'on':'')+'" data-act="go" data-id="'+t[0]+'">'+t[1]+'</button>').join('')
-  return '<header><div class="brand"><div class="logo">📡</div>社媒情报</div>'+
+  return '<header><div class="brand"><div class="logo">🐳</div>Whale Growth</div>'+
     '<div class="nav">'+nav+'</div><div class="spacer"></div>'+
     '<button class="btn ghost sm" data-act="run">⟳ 手动采集</button>'+
     '<button class="btn ghost sm" data-act="logout">退出</button></header><main>'+inner+'</main>'
