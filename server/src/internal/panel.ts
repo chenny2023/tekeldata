@@ -478,7 +478,7 @@ async function renderOverview(){
   // 🩺 采集健康诊断：每平台 总数/近24h/dropped/最后采集，一眼看出哪个源死了
   const hrows=(st.health||[]).map(h=>'<tr><td>'+esc(h.platform)+'</td><td class="tabnum">'+h.total+'</td><td class="tabnum" style="color:'+(h.last24h>0?'#5ff0b0':'#ff5b6e')+'">'+h.last24h+'</td><td class="tabnum dim">'+(h.dropped||0)+'</td><td class="dim" style="font-size:11px">'+(h.last_ts?ago(h.last_ts):'从未')+'</td></tr>').join('')
   const health='<div class="panel"><h3>🩺 采集健康<span class="tag">近24h=0(红) 说明该源没采进来 · 待分类积压 '+(st.unclassified||0)+'</span></h3>'+
-    '<div class="rationale" style="margin:0 0 10px">🐦 '+esc(st.twDiag||'')+'　|　X启用(key已读): '+(st.xEnabled?'✅是':'❌否')+'</div>'+
+    '<div class="rationale" style="margin:0 0 10px">🐦 '+esc(st.twDiag||'')+'　|　X启用(key已读): '+(st.xEnabled?'✅是':'❌否')+(typeof st.scCredits==='number'&&st.scCredits>=0?'　|　🧵 Threads credits: '+(st.scCredits<150?'<b style="color:var(--bad)">'+st.scCredits+' (low)</b>':st.scCredits):'')+'</div>'+
     '<table class="tbl"><tr><th>平台</th><th>总数</th><th>近24h</th><th>已清理</th><th>最后采集</th></tr>'+
     (hrows||'<tr><td colspan="5" class="dim">暂无</td></tr>')+'</table></div>'
 

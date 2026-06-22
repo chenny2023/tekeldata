@@ -440,6 +440,10 @@ function envLoose(...names: string[]): string {
 }
 const SC_KEY = () => envLoose('scrapecreators', 'SCRAPECREATORS_API_KEY')
 export const scEnabled = () => !!SC_KEY()
+// 额度追踪：每次响应都带 credits_remaining，记下来供低额度保护用（避免烧到 402 断档）。
+export let scCredits = -1 // -1=未知
+const CREDIT_FLOOR = () => Number(process.env.SOCIAL_KOL_CREDIT_FLOOR) || 150
+export const scCreditsLow = () => scCredits >= 0 && scCredits < CREDIT_FLOOR()
 async function scFetch(path: string, params: Record<string, string>): Promise<any | null> {
   const key = SC_KEY()
   if (!key) return null
@@ -450,7 +454,9 @@ async function scFetch(path: string, params: Record<string, string>): Promise<an
       signal: AbortSignal.timeout(30_000),
     })
     if (!res.ok) return null
-    return await res.json()
+    const j = await res.json()
+    if (j && typeof j.credits_remaining === 'number') scCredits = j.credits_remaining
+    return j
   } catch {
     return null
   }
@@ -1031,10 +1037,11 @@ async function runThreadsJob(j: Extract<Job, { platform: 'threads' }>): Promise<
   // 潜在合作 KOL（Threads 最有价值的一块）：搜索结果不含粉丝数 → 对新作者补查 profile（耗 credit）。
   // 关键：宽泛词会搜出大量小号/无关账号，profile 它们纯烧 credit 零产出。所以优先级：
   // ① 认证号（is_verified＝Threads KOL 最强免费信号，几乎都是大号）② 其次按互动量。把额度花在刀刃上。
-  // credit 有限：只 profile「认证号」或「互动≥阈值的号」——宽泛词搜出的小号(几十粉)profile 纯烧 credit。
+  // credit 保护：余额低于阈值时停止 profile（保住核心搜索/信号不断档），等充值后自动恢复。
+  // 否则：profile「认证号」优先，其次「互动≥阈值的号」——跳过宽泛词搜出的纯小号，钱花在刀刃上。
   const cap = Number(process.env.SOCIAL_KOL_THREADS_LOOKUPS) || 3
   const engFloor = Number(process.env.SOCIAL_KOL_THREADS_MIN_LIKES) || 20
-  if (cap > 0) {
+  if (cap > 0 && !scCreditsLow()) {
     const byUser = new Map<string, { engage: number; verified: boolean }>()
     for (const p of posts) {
       if (!p.user) continue
