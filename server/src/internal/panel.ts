@@ -259,7 +259,7 @@ function toolbar(){
    '<select id="f-kind">'+['|全部类别','demand|需求/机会','competitor|竞品','brand|品牌'].map(o=>{const[v,l]=o.split('|');return opt(v,l,filters.kind)}).join('')+'</select>'+
    '<select id="f-platform">'+['|全部平台','reddit|Reddit','bluesky|Bluesky','hn|Hacker News','x|X','threads|Threads','shopify|Shopify评论','appstore|App Store','telegram|Telegram','forum|论坛'].map(o=>{const[v,l]=o.split('|');return opt(v,l,filters.platform)}).join('')+'</select>'+
    '<select id="f-intent">'+['0|意图≥0','0.25|意图≥0.25','0.45|意图≥0.45','0.7|意图≥0.7'].map(o=>{const[v,l]=o.split('|');return opt(v,l,filters.minIntent)}).join('')+'</select>'+
-   '<select id="f-status">'+['|全部状态','new|未处理','reviewed|已生成草稿','ignored|已忽略'].map(o=>{const[v,l]=o.split('|');return opt(v,l,filters.status)}).join('')+'</select>'+
+   '<select id="f-status">'+['|全部状态','new|未处理','reviewed|已起草/批准','ignored|已跳过','mismatch|信号不符'].map(o=>{const[v,l]=o.split('|');return opt(v,l,filters.status)}).join('')+'</select>'+
    '<select id="f-sort">'+['intent|意图优先','ts|最新优先'].map(o=>{const[v,l]=o.split('|');return opt(v,l,filters.sort)}).join('')+'</select>'+
    '<button class="btn sm pri" id="f-apply">应用</button></div>'
 }
@@ -283,13 +283,15 @@ async function renderSignals(){
     zhBlock(s)+
     '<div class="crow" style="margin-top:10px"><a href="'+esc(s.url)+'" target="_blank">查看原贴 ↗</a>'+
     '<button class="btn sm pri right" data-act="mkdraft" data-id="'+s.id+'">生成推荐草稿</button>'+
-    '<button class="btn sm ghost" data-act="ignore" data-id="'+s.id+'">忽略</button></div></div>').join('')
+    '<button class="btn sm ghost" data-act="mismatch" data-id="'+s.id+'" title="内容不准确/不相关，记录后不再采集类似">🚫 信号不符</button>'+
+    '<button class="btn sm ghost" data-act="ignore" data-id="'+s.id+'" title="仅跳过这条，不记录学习">忽略</button></div></div>').join('')
     :'<div class="empty"><div class="big">🛰️</div>暂无符合条件的信号。<br><span class="mut">采集器每 ~2 分钟抓一条查询，刚部署需等几分钟；也可点右上角"手动采集"，或放宽筛选条件。</span></div>'
   $('#app').innerHTML=shell(toolbar()+cards)
   bindToolbar()
 }
 H.mkdraft=async(id,btn)=>{if(btn){btn.textContent='生成中…';btn.disabled=true}const r=await api('/api/internal/social/draft',{method:'POST',body:JSON.stringify({signalId:id})});toast(r.message||'完成');if(r.ok&&r.draftId){tab='drafts';render()}else if(btn){btn.textContent='生成推荐草稿';btn.disabled=false}}
-H.ignore=async id=>{await api('/api/internal/social/signal/'+id+'/status',{method:'POST',body:JSON.stringify({status:'ignored'})});toast('已忽略并记入学习（同类后续自动抑制）');renderSignals()}
+H.ignore=async id=>{await api('/api/internal/social/signal/'+id+'/status',{method:'POST',body:JSON.stringify({status:'ignored'})});toast('已跳过（不记录）');renderSignals()}
+H.mismatch=async id=>{await api('/api/internal/social/signal/'+id+'/status',{method:'POST',body:JSON.stringify({status:'mismatch'})});toast('已记录为信号不符，后续同类不再采集');renderSignals()}
 H.tr=async(id,btn)=>{if(btn){btn.textContent='生成中…';btn.disabled=true}const r=await api('/api/internal/social/translate',{method:'POST',body:JSON.stringify({signalId:id})});const box=$('#zh-'+id);if(r.ok&&box){box.innerHTML='🇨🇳 '+esc(r.zh)}else{toast(r.error||'生成失败');if(btn){btn.textContent='🇨🇳 生成中文解读';btn.disabled=false}}}
 
 // ── 竞品洞察分析（供产品/服务改进参考，非外联）──────────────────────────────
@@ -439,8 +441,8 @@ async function renderCustom(){
     '<td>'+esc(s.kind)+'</td><td><b>'+esc(s.value)+'</b></td>'+
     '<td class="tabnum">'+s.hits+' 次'+(s.kind==='author'&&s.hits<2?' <span class="dim">(需≥2生效)</span>':'')+'</td>'+
     '<td class="right"><button class="btn sm bad" data-act="unsupp" data-id="'+s.id+'">解除</button></td></tr>').join('')
-    :'<tr><td colspan="5" class="dim" style="text-align:center;padding:20px">还没有抑制规则。在「信号」页点"忽略"会自动学习：同一作者被忽略≥2次→以后自动丢；被忽略的内容也会作为反例，让分类器丢弃同类。</td></tr>'
-  const suppanel='<div class="panel"><h3>🚫 忽略学习 / 抑制规则<span class="tag">点"忽略"自动积累 · 可解除</span></h3>'+
+    :'<tr><td colspan="5" class="dim" style="text-align:center;padding:20px">还没有抑制规则。在「信号」页点"🚫 信号不符"会自动学习：同一作者被标≥2次→以后自动丢；被标内容也作为反例，让分类器丢弃同类。（"忽略"只是跳过，不记录）</td></tr>'
+  const suppanel='<div class="panel"><h3>🚫 信号不符 / 抑制规则<span class="tag">点"信号不符"自动积累 · 可解除</span></h3>'+
     '<table class="tbl"><tr><th>产品</th><th>类型</th><th>对象</th><th>忽略次数</th><th></th></tr>'+suprows+'</table></div>'
   $('#app').innerHTML=shell('<p class="lead">临时有新的情报方向？在这里填关键词即时采集，勾选保存后会被纳入定时轮询。结果进入"信号"页（按产品标签过滤）。</p>'+form+list+suppanel+maint)
   $('#c-go').onclick=customGo

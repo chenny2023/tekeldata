@@ -67,10 +67,11 @@ async function classifyProductBatch(product: string): Promise<number> {
     if (supp.length) { const d = db.prepare("UPDATE social_intel SET status='dropped', classified_ts=? WHERE id=?"); db.transaction(() => supp.forEach((x) => d.run(now, x.id)))() }
     return supp.length
   }
-  // 忽略学习②：最近被忽略的标题作为"反例"喂给 LLM，让它把同类判 keep=false
-  const ignoredEx = (db.prepare("SELECT title FROM social_intel WHERE product=? AND status='ignored' AND title!='' ORDER BY classified_ts DESC LIMIT 12").all(product) as { title: string }[]).map((x) => x.title)
+  // 不符学习②：最近被标「信号不符」的标题作为"反例"喂给 LLM，让它把同类判 keep=false。
+  //（忽略=纯跳过，不参与学习，保持输入干净）
+  const ignoredEx = (db.prepare("SELECT title FROM social_intel WHERE product=? AND status='mismatch' AND title!='' ORDER BY classified_ts DESC LIMIT 12").all(product) as { title: string }[]).map((x) => x.title)
   const ignoredBlock = ignoredEx.length
-    ? `\n团队已"忽略"以下内容（判为无用）——对明显同主题/同套路的，设 keep=false：\n` + ignoredEx.map((t) => '- ' + t.slice(0, 80)).join('\n')
+    ? `\n团队已标记以下内容"信号不符/不准确"——对明显同主题/同套路的，设 keep=false：\n` + ignoredEx.map((t) => '- ' + t.slice(0, 80)).join('\n')
     : ''
   // 正例学习：团队"已起草回复"(status=reviewed)的标题=高价值，倾向保留+给更高 tier，提升精准度
   const draftedEx = (db.prepare("SELECT title FROM social_intel WHERE product=? AND status='reviewed' AND title!='' ORDER BY collected_ts DESC LIMIT 8").all(product) as { title: string }[]).map((x) => x.title)

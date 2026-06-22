@@ -107,7 +107,7 @@ export function registerSocialIntel(app: FastifyInstance): void {
   app.get('/api/internal/social/painradar', async (req, reply) => {
     if (!requireAdmin(req, reply)) return
     const q = req.query as Record<string, string>
-    const where = ["kind='competitor'", "status != 'ignored'"]
+    const where = ["kind='competitor'", "status NOT IN ('ignored','mismatch')"]
     const params: any[] = []
     if (q.product) { where.push('product = ?'); params.push(q.product) }
     const limit = Math.min(100, Number(q.limit) || 50)
@@ -125,7 +125,7 @@ export function registerSocialIntel(app: FastifyInstance): void {
   app.get('/api/internal/social/painanalysis', async (req, reply) => {
     if (!requireAdmin(req, reply)) return
     const q = req.query as Record<string, string>
-    const w = ["kind='competitor'", "status NOT IN ('dropped','ignored')"]
+    const w = ["kind='competitor'", "status NOT IN ('dropped','ignored','mismatch')"]
     const p: any[] = []
     if (q.product) { w.push('product = ?'); p.push(q.product) }
     const W = w.join(' AND ')
@@ -153,7 +153,7 @@ export function registerSocialIntel(app: FastifyInstance): void {
     if (!prod) return reply.code(400).send({ error: '请选择一个有效产品' })
     if (!openrouterEnabled()) return reply.code(400).send({ error: 'OPENROUTER_API_KEY 未配置' })
     const rows = db.prepare(
-      `SELECT query, pain_type, title FROM social_intel WHERE kind='competitor' AND product=? AND status NOT IN ('dropped','ignored')
+      `SELECT query, pain_type, title FROM social_intel WHERE kind='competitor' AND product=? AND status NOT IN ('dropped','ignored','mismatch')
        ORDER BY (CASE WHEN sentiment<0 THEN -sentiment ELSE 0 END) DESC, ts DESC LIMIT 60`,
     ).all(prod.key) as { query: string; pain_type: string; title: string }[]
     if (rows.length < 3) return reply.code(400).send({ error: '竞品吐槽样本太少（<3），多采集些再生成' })
@@ -235,7 +235,7 @@ export function registerSocialIntel(app: FastifyInstance): void {
     if (q.platform) { where.push('platform = ?'); params.push(q.platform) }
     else { where.push("platform NOT IN ('shopify','appstore')") } // 评论源默认只进「竞品痛点」，不进信号流（不可回复）；按平台筛选仍可查看
     if (q.status) { where.push('status = ?'); params.push(q.status) }
-    else { where.push("status NOT IN ('dropped','ignored','reviewed')") } // 默认隐藏：被清理/忽略/已起草草稿的（避免重复操作；'reviewed' 可在状态筛选里回看）
+    else { where.push("status NOT IN ('dropped','ignored','reviewed','mismatch')") } // 默认隐藏：被清理/忽略(跳过)/已起草或批准/信号不符（避免重复；'reviewed' 可在状态筛选里回看）
     if (q.tier) { where.push('intent_tier = ?'); params.push(q.tier) } // 热/温/冷
     if (q.minIntent) { where.push('intent >= ?'); params.push(Number(q.minIntent)) }
     if (q.q && q.q.trim()) { where.push('(title LIKE ? OR body LIKE ? OR author LIKE ?)'); const w = `%${q.q.trim()}%`; params.push(w, w, w) }
@@ -284,6 +284,11 @@ export function registerSocialIntel(app: FastifyInstance): void {
     } else {
       db.prepare('UPDATE social_drafts SET status=?, updated_ts=? WHERE id=?').run(b.status, Date.now(), id)
     }
+    // 批准/已发后，确保对应信号移出信号流（不再重复出现）
+    if (b.status === 'approved' || b.status === 'posted') {
+      const d = db.prepare('SELECT signal_id FROM social_drafts WHERE id=?').get(id) as { signal_id: string } | undefined
+      if (d?.signal_id) db.prepare("UPDATE social_intel SET status='reviewed' WHERE id=? AND status NOT IN ('ignored','mismatch')").run(d.signal_id)
+    }
     return { ok: true }
   })
 
@@ -292,10 +297,11 @@ export function registerSocialIntel(app: FastifyInstance): void {
     if (!requireAdmin(req, reply)) return
     const id = (req.params as any).id as string
     const b = req.body as { status?: string }
-    const allowed = ['new', 'reviewed', 'ignored']
+    const allowed = ['new', 'reviewed', 'ignored', 'mismatch']
     if (!b?.status || !allowed.includes(b.status)) return reply.code(400).send({ error: 'invalid status' })
-    // 忽略学习：记录该信号作者为抑制候选（同作者被忽略≥2次→以后自动丢）。标题留作分类器反例。
-    if (b.status === 'ignored') {
+    // 「信号不符」= 学习：记录作者为抑制候选（同作者≥2次→以后自动丢），标题留作分类器反例。
+    // 「忽略」= 纯跳过，不记录任何学习信号（保持输入干净）。
+    if (b.status === 'mismatch') {
       const sig = db.prepare('SELECT product, author FROM social_intel WHERE id=?').get(id) as { product: string; author: string } | undefined
       if (sig?.author && sig.author.trim()) {
         db.prepare(
