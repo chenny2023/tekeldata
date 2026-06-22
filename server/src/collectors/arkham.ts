@@ -290,6 +290,18 @@ export function startArkham() {
   }
   console.log('[arkham] entity attribution collector active')
   seedFromRoster()
+  // one-time accelerated re-sweep: mark resolved entities stale so refreshOne picks them
+  // up immediately (verify per-chain BTC/Tron attribution without waiting the 6h cadence).
+  // Each refresh sets updated_at=now, so the normal 6h cadence resumes automatically —
+  // no revert needed; just clear the env so a later restart doesn't re-sweep.
+  if (process.env.ARKHAM_FORCE_REFRESH === '1') {
+    try {
+      const n = db.prepare("UPDATE arkham_casino SET updated_at=0 WHERE entity_id IS NOT NULL AND entity_id != ''").run().changes
+      console.log(`[arkham] FORCE_REFRESH: ${n} entities marked stale for a one-time re-sweep`)
+    } catch {
+      /* non-fatal */
+    }
+  }
   // one-time: the first run matched without domain validation (some wrong) — redo
   if (!stateGet('arkham:revalidate:v1')) {
     const n = db.prepare('UPDATE arkham_casino SET resolved_at=0, entity_id=NULL, reserves_usd=NULL').run().changes
