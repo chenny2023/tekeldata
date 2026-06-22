@@ -97,7 +97,7 @@ export const PRODUCTS: ProductConfig[] = [
     subreddits: ['gambling', 'CryptoCurrency', 'sportsbook', 'problemgambling'],
     x: { competitorHandles: ['casinoguru'], ownHandles: [] },
     // Threads 宽泛主题词（实测有返回；长尾短语恒为 0）。靠分类器再筛玩家/行业相关。
-    threadsTerms: ['online casino', 'casino', 'gambling', 'sportsbook', 'slots', 'betting'], // Threads 搜索对多词短语常返回 0，用宽泛单词；认证号优先 profile
+    threadsTerms: ['online casino', 'casino', 'gambling', 'sportsbook', 'slots', 'betting', 'casino bonus', 'free spins', 'sports betting', 'betting tips', 'poker', 'crypto gambling', 'roulette', 'blackjack'], // Threads 搜索对多词短语常返回 0，用宽泛单词；认证号优先 profile
   },
   {
     key: 'hirecx',
@@ -153,7 +153,7 @@ export const PRODUCTS: ProductConfig[] = [
       'support volume', 'support cost', 'answer customers', 'player support', 'support inbox', 'tickets',
     ],
     // Threads 宽泛主题词（B2B 词在 Threads 偏少，但宽词有量；分类器筛出运营/客服/选型相关）。
-    threadsTerms: ['chatbot', 'ai chatbot', 'customer service', 'customer support', 'live chat', 'help desk', 'ai agent'],
+    threadsTerms: ['chatbot', 'ai chatbot', 'customer service', 'customer support', 'live chat', 'help desk', 'ai agent', 'zendesk', 'intercom', 'customer experience', 'ecommerce support'],
   },
   {
     key: 'wonix',
@@ -224,7 +224,7 @@ export const PRODUCTS: ProductConfig[] = [
       'арбитраж', 'залив', 'офер', 'оффер', 'траф', 'бан', 'апрув', 'кампани',
     ],
     // Threads 宽泛主题词（投放/电商类话题在 Threads 有量；分类器筛出投手/联盟相关）。
-    threadsTerms: ['facebook ads', 'meta ads', 'ad creative', 'media buyer', 'dropshipping', 'performance marketing', 'affiliate marketing'],
+    threadsTerms: ['facebook ads', 'meta ads', 'ad creative', 'media buyer', 'dropshipping', 'performance marketing', 'affiliate marketing', 'tiktok ads', 'google ads', 'ugc', 'ecommerce marketing', 'digital marketing'],
   },
 ]
 
