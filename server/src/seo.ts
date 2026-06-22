@@ -865,10 +865,10 @@ function reportPage(snap: any, prev: string | null, next: string | null): { titl
     : ''
 
   const chains = (p.chainVolume ?? []).slice(0, 10)
-  const maxC = Math.max(...chains.map((c: any) => c.vol24h || 0), 1)
+  const maxC = Math.max(...chains.map((c: any) => c.vol7d || 0), 1)
   const chainsT = chains.length
-    ? `<h2>Volume by chain (24h)</h2><table><tbody>${chains
-        .map((c: any) => `<tr><td><span class="pill">${esc(chainName(c.chain))}</span></td><td class="n">${fmtUsd(c.vol24h)}</td><td style="width:120px"><div class="bar"><span style="width:${Math.max(3, ((c.vol24h || 0) / maxC) * 100)}%"></span></div></td></tr>`)
+    ? `<h2>Volume by chain (7d)</h2><table><tbody>${chains
+        .map((c: any) => `<tr><td><span class="pill">${esc(chainName(c.chain))}</span></td><td class="n">${fmtUsd(c.vol7d)}</td><td style="width:120px"><div class="bar"><span style="width:${Math.max(3, ((c.vol7d || 0) / maxC) * 100)}%"></span></div></td></tr>`)
         .join('')}</tbody></table>`
     : ''
 

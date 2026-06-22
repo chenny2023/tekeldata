@@ -54,7 +54,7 @@ function snapshotInput(): { input: any; brands: string[]; values: string[]; repo
     brands.add(r.label)
     return { brand: r.label, reserves: v(fmtUsd(r.reserves)), coverage: COV[r.level] ?? 'Unknown' }
   })
-  const chains = (p.chainVolume ?? []).slice(0, 8).map((c: any) => ({ chain: c.chain, volume_24h: v(fmtUsd(c.vol24h)) }))
+  const chains = (p.chainVolume ?? []).slice(0, 8).map((c: any) => ({ chain: c.chain, volume_7d: v(fmtUsd(c.vol7d)) }))
   const whaleAgg = (p.whaleGroups ?? []).slice(0, 6).map((g: any) => {
     brands.add(g.label)
     return { brand: g.label, chain: g.chain, direction: g.direction === 'in' ? 'inflow' : 'outflow', events: g.count, total: v(fmtUsd(g.total)) }

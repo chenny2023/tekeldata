@@ -205,12 +205,12 @@ function MoversTable({ rows }: { rows: any[] }) {
 function ChainBars({ rows }: { rows: any[] }) {
   const [mode, setMode] = useState<'share' | 'abs'>('share')
   if (!rows?.length) return null
-  const total = rows.reduce((s, r) => s + (r.vol24h || 0), 0) || 1
-  const max = Math.max(...rows.map((r) => r.vol24h || 0), 1)
+  const total = rows.reduce((s, r) => s + (r.vol7d || 0), 0) || 1
+  const max = Math.max(...rows.map((r) => r.vol7d || 0), 1)
   return (
     <Card className="p-5">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-display text-base font-semibold">Volume by chain — 24h</h3>
+        <h3 className="font-display text-base font-semibold">Volume by chain — 7d</h3>
         <div className="flex gap-1 rounded-lg border border-white/8 bg-white/4 p-0.5">
           {(['share', 'abs'] as const).map((k) => (
             <button key={k} onClick={() => setMode(k)} className={`rounded-md px-2 py-0.5 text-[11px] font-semibold transition ${mode === k ? 'bg-gold-500/15 text-gold-400' : 'text-white/45 hover:text-white'}`}>
@@ -221,16 +221,16 @@ function ChainBars({ rows }: { rows: any[] }) {
       </div>
       <div className="space-y-2.5">
         {rows.slice(0, 8).map((c) => {
-          const share = (c.vol24h || 0) / total
+          const share = (c.vol7d || 0) / total
           return (
             <div key={c.chain} className="flex items-center gap-3">
               <div className="w-20 shrink-0">
                 <ChainPill chain={c.chain} />
               </div>
               <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/5">
-                <div className="h-full rounded-full bg-gradient-to-r from-gold-400 to-gold-600" style={{ width: `${Math.max(2, mode === 'share' ? share * 100 : (c.vol24h / max) * 100)}%` }} />
+                <div className="h-full rounded-full bg-gradient-to-r from-gold-400 to-gold-600" style={{ width: `${Math.max(2, mode === 'share' ? share * 100 : (c.vol7d / max) * 100)}%` }} />
               </div>
-              <span className="w-24 text-right text-sm font-semibold tabular-nums text-white/70">{mode === 'share' ? `${(share * 100).toFixed(1)}%` : fmtUsd(c.vol24h)}</span>
+              <span className="w-24 text-right text-sm font-semibold tabular-nums text-white/70">{mode === 'share' ? `${(share * 100).toFixed(1)}%` : fmtUsd(c.vol7d)}</span>
             </div>
           )
         })}

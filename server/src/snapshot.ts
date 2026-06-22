@@ -69,11 +69,21 @@ export async function generateMarketSnapshot(): Promise<void> {
   const trackedVol24 = tot?.vol ?? 0
   const netFlow24 = (tot?.inflow ?? 0) - (tot?.outflow ?? 0)
 
-  // 24h verified casino volume per chain (worker)
+  // Chain distribution over the 7d window (NOT 24h). The 24h window is unreliable for
+  // chain SHARE because slower/keyless collectors (esp. Tron) lag the live head, so a
+  // recent gap makes one chain look like ~96% when the true split is ETH ~55% / TRON
+  // ~42%. 7d has complete data for every chain → an honest, professional breakdown.
   const chainRows = (await workerAll(
     `SELECT chain, SUM(usd) v FROM transfers WHERE category='casino' AND ts>=? ${NOT_UNATTR} GROUP BY chain ORDER BY v DESC`,
+    [d7],
+  )) as { chain: string; v: number }[]
+  // 24h per-chain too — the weekly report sums each day's per-chain value, which only
+  // works with the (non-overlapping) DAILY figure. Carried alongside vol7d.
+  const chainRows24 = (await workerAll(
+    `SELECT chain, SUM(usd) v FROM transfers WHERE category='casino' AND ts>=? ${NOT_UNATTR} GROUP BY chain`,
     [d1],
   )) as { chain: string; v: number }[]
+  const vol24ByChain = new Map(chainRows24.map((c) => [c.chain, c.v ?? 0]))
 
   // recent verified whale transfers (worker; indexed by usd)
   const whales = (await workerAll(
@@ -150,7 +160,7 @@ export async function generateMarketSnapshot(): Promise<void> {
       // score); `trust` kept for backward-compat with older consumers/snapshots.
       .map((b) => ({ label: b.brand, vol24h: b.volume24h ?? 0, vol7d: b.volume7d ?? 0, net7d: b.net7d ?? 0, change24h: b.change24h ?? null, repSignal: b.trust ?? null, trust: b.trust ?? null, confidence: b.confidence ?? 'medium' })),
     topReserves: reserveRows.slice(0, 8).map((b) => ({ label: b.brand, reserves: b.reserves, level: coverageLevel(b), confidence: b.confidence ?? 'medium', coverage: b.reserveCoverage ?? null })),
-    chainVolume: chainRows.map((c) => ({ chain: c.chain, vol24h: c.v ?? 0 })),
+    chainVolume: chainRows.map((c) => ({ chain: c.chain, vol7d: c.v ?? 0, vol24h: vol24ByChain.get(c.chain) ?? 0 })),
     // aggregated whale groups (default display) + raw events (expand) — see queries above
     whaleGroups: whaleGroups.map((g) => ({ label: g.label, chain: g.chain, direction: g.direction, count: g.cnt, total: g.total, largest: g.largest })),
     whales: whales.map((w) => ({ label: w.label, chain: w.chain, usd: w.usd, direction: w.direction, ts: w.ts })),
