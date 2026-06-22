@@ -7,6 +7,7 @@ import { PANEL_HTML } from './panel.ts'
 import { generateContent, openrouterEnabled } from '../content/openrouter.ts'
 import { translateOne, translateBatch } from './translate.ts'
 import { registerWgAuth, requireTeam } from './wgauth.ts'
+import { listKols, kolStats, setKolStatus, generateKolDm } from './kol.ts'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 内部社媒情报 — 管理员鉴权 API + 面板。所有数据接口仅 admin 可访问。
@@ -325,6 +326,34 @@ export function registerSocialIntel(app: FastifyInstance): void {
     if (!requireAdmin(req, reply)) return
     db.prepare('DELETE FROM social_suppress WHERE id=?').run(Number((req.params as any).id))
     return { ok: true }
+  })
+
+  // ── 潜在合作 KOL ────────────────────────────────────────────────────────────
+  // 推荐列表（默认只出靠谱+契合的；?all=1 看全部候选）
+  app.get('/api/internal/social/kols', async (req, reply) => {
+    if (!requireAdmin(req, reply)) return
+    const q = req.query as Record<string, string>
+    const items = listKols({
+      product: q.product || undefined,
+      platform: q.platform || undefined,
+      status: q.status || undefined,
+      minFollowers: q.minFollowers ? Number(q.minFollowers) : undefined,
+      all: q.all === '1',
+    })
+    return { items, stats: kolStats() }
+  })
+  // 标记外联状态：candidate | shortlisted | contacted | rejected
+  app.post('/api/internal/social/kol/:id/status', async (req, reply) => {
+    if (!requireAdmin(req, reply)) return
+    const b = req.body as { status?: string }
+    if (!b?.status || !setKolStatus((req.params as any).id, b.status)) return reply.code(400).send({ error: 'invalid status' })
+    return { ok: true }
+  })
+  // 生成合作邀约 DM
+  app.post('/api/internal/social/kol/:id/dm', async (req, reply) => {
+    if (!requireAdmin(req, reply)) return
+    const r = await generateKolDm((req.params as any).id)
+    return r.ok ? r : reply.code(400).send(r)
   })
 
   // 中文解读：为单条信号即时生成（面板"中文解读"按钮）

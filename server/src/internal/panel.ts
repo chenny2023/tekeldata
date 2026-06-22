@@ -163,7 +163,7 @@ function loginView(step){
 }
 
 function shell(inner){
-  const nav=[['overview','概览'],['signals','信号'],['painradar','竞品洞察'],['topics','选题建议'],['drafts','草稿'],['custom','自定义采集']]
+  const nav=[['overview','概览'],['signals','信号'],['kol','潜在合作'],['painradar','竞品洞察'],['topics','选题建议'],['drafts','草稿'],['custom','自定义采集']]
     .map(t=>'<button class="'+(tab===t[0]?'on':'')+'" data-act="go" data-id="'+t[0]+'">'+t[1]+'</button>').join('')
   return '<header><div class="brand"><div class="logo">🐳</div>Whale Growth</div>'+
     '<div class="nav">'+nav+'</div><div class="spacer"></div>'+
@@ -179,6 +179,7 @@ async function render(loginStep){
   try{
     if(tab==='overview')await renderOverview()
     else if(tab==='signals')await renderSignals()
+    else if(tab==='kol')await renderKol()
     else if(tab==='painradar')await renderPainRadar()
     else if(tab==='topics')await renderTopics()
     else if(tab==='drafts')await renderDrafts()
@@ -292,6 +293,56 @@ async function renderSignals(){
 H.mkdraft=async(id,btn)=>{if(btn){btn.textContent='生成中…';btn.disabled=true}const r=await api('/api/internal/social/draft',{method:'POST',body:JSON.stringify({signalId:id})});toast(r.message||'完成');if(r.ok&&r.draftId){tab='drafts';render()}else if(btn){btn.textContent='生成推荐草稿';btn.disabled=false}}
 H.ignore=async id=>{await api('/api/internal/social/signal/'+id+'/status',{method:'POST',body:JSON.stringify({status:'ignored'})});toast('已跳过（不记录）');renderSignals()}
 H.mismatch=async id=>{await api('/api/internal/social/signal/'+id+'/status',{method:'POST',body:JSON.stringify({status:'mismatch'})});toast('已记录为信号不符，后续同类不再采集');renderSignals()}
+
+// ── 潜在合作 KOL ─────────────────────────────────────────────────────────────
+let kolF={product:'',platform:'',status:'',all:''}
+const ROLEL={media_buyer:'投手',affiliate:'联盟',casino_influencer:'赌场达人',operator:'运营商',cx:'客服圈',crypto:'币圈',industry:'行业',other:'其它'}
+const KSTAT={candidate:'候选',shortlisted:'入围',contacted:'已联系',rejected:'不合适'}
+const fmtN=n=>n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':String(n||0)
+function credPill(v){v=v||0;const c=v>=70?'#5ff0b0':v>=50?'#ffd479':'#ffb24a';return '<span class="pill" style="color:'+c+';border-color:'+c+'55;background:'+c+'14" title="可信分(受众质量)0-100">信用 '+v+'</span>'}
+async function renderKol(){
+  const opt=(v,l,sel)=>'<option value="'+v+'"'+(sel===v?' selected':'')+'>'+l+'</option>'
+  const qs=new URLSearchParams({product:kolF.product,platform:kolF.platform,status:kolF.status,all:kolF.all}).toString()
+  const {items,stats}=await api('/api/internal/social/kols?'+qs)
+  const bar='<div class="toolbar">'+
+    '<select id="k-product">'+opt('','全部产品',kolF.product)+products.map(p=>opt(p.key,p.name,kolF.product)).join('')+'</select>'+
+    '<select id="k-platform">'+['|全部平台','x|X','threads|Threads'].map(o=>{const[v,l]=o.split('|');return opt(v,l,kolF.platform)}).join('')+'</select>'+
+    '<select id="k-status">'+['|全部状态','candidate|候选','shortlisted|入围','contacted|已联系','rejected|不合适'].map(o=>{const[v,l]=o.split('|');return opt(v,l,kolF.status)}).join('')+'</select>'+
+    '<select id="k-all">'+['|仅靠谱推荐','1|全部候选(含低分)'].map(o=>{const[v,l]=o.split('|');return opt(v,l,kolF.all)}).join('')+'</select>'+
+    '<button class="btn sm pri" id="k-apply">应用</button>'+
+    '<span class="right dim" style="font-size:12px">推荐 <b style="color:var(--good)">'+stats.recommended+'</b> · 候选库 '+stats.total+' · 已联系 '+stats.contacted+'</span></div>'
+  const cards=items.length?items.map(k=>{
+    const verified=k.verified?'<span class="pill" style="color:#5fb0ff;border-color:#5fb0ff55" title="已认证">✔ 认证</span>':''
+    const dm=k.can_dm?'':'<span class="pill" style="color:#ff9aa8;border-color:#7a2435" title="对方未开放私信">🔒 不可私信</span>'
+    const fitp=k.fit_product?'<span class="pill prod">契合：'+esc(pname(k.fit_product))+'</span>':''
+    return '<div class="card"><div class="crow">'+
+      '<span class="pill plat">'+esc(k.platform)+'</span>'+
+      '<span class="pill" style="color:#cdd6f4">@'+esc(k.handle)+'</span>'+
+      (k.name?'<span class="dim" style="font-size:13px">'+esc(k.name)+'</span>':'')+
+      verified+credPill(k.cred_score)+
+      '<span class="pill">👥 '+fmtN(k.followers)+'</span>'+
+      (k.fit_role?'<span class="pill demand">'+(ROLEL[k.fit_role]||esc(k.fit_role))+'</span>':'')+fitp+dm+
+      '<span class="pill" style="opacity:.8">'+(KSTAT[k.status]||k.status)+'</span>'+
+      '<span class="right dim" style="font-size:12px">关注 '+fmtN(k.following)+' · 发文 '+fmtN(k.statuses)+'</span></div>'+
+      (k.bio?'<div class="body">'+esc(k.bio)+'</div>':'')+
+      (k.fit_reason?'<div class="zh">🎯 '+esc(k.fit_reason)+'</div>':'')+
+      (k.sample_text?'<div class="dim" style="font-size:12px;margin-top:6px">代表帖：'+esc(k.sample_text.slice(0,160))+(k.sample_url?' <a href="'+esc(k.sample_url)+'" target="_blank">↗</a>':'')+'</div>':'')+
+      (k.dm_draft?'<div class="zh" id="dm-'+esc(k.id)+'" style="white-space:pre-wrap;border-left:2px solid var(--accent);padding-left:8px;margin-top:8px">✉️ '+esc(k.dm_draft)+'</div>':'<div id="dm-'+esc(k.id)+'"></div>')+
+      '<div class="crow" style="margin-top:10px"><a href="'+esc(k.profile_url)+'" target="_blank">主页 ↗</a>'+
+      '<button class="btn sm pri right" data-act="koldm" data-id="'+esc(k.id)+'">✉️ 生成合作 DM</button>'+
+      '<button class="btn sm ghost" data-act="kshort" data-id="'+esc(k.id)+'" title="加入入围">⭐ 入围</button>'+
+      '<button class="btn sm ghost" data-act="kcontact" data-id="'+esc(k.id)+'" title="标记已联系">✅ 已联系</button>'+
+      '<button class="btn sm ghost" data-act="kreject" data-id="'+esc(k.id)+'" title="不合适，移出推荐">🚫 不合适</button></div></div>'
+  }).join('')
+  :'<div class="empty"><div class="big">🤝</div>暂无潜在合作对象。<br><span class="mut">系统从 X 关键词搜索中自动沉淀粉丝≥1000 的作者，再用 AI 筛出领域契合、靠谱(非薅羊毛/机器人)的 KOL。X 采集运行几小时后这里会陆续出现；也可切到「全部候选」看未筛选的原始库。Threads 需 ScrapeCreators 有额度。</span></div>'
+  $('#app').innerHTML=shell(bar+cards)
+  ;['k-product','k-platform','k-status','k-all'].forEach(id=>$('#'+id).onchange=()=>{kolF={product:$('#k-product').value,platform:$('#k-platform').value,status:$('#k-status').value,all:$('#k-all').value};renderKol()})
+  $('#k-apply').onclick=()=>{kolF={product:$('#k-product').value,platform:$('#k-platform').value,status:$('#k-status').value,all:$('#k-all').value};renderKol()}
+}
+H.koldm=async(id,btn)=>{if(btn){btn.textContent='生成中…';btn.disabled=true}const r=await api('/api/internal/social/kol/'+encodeURIComponent(id)+'/dm',{method:'POST'});if(r.ok&&r.draft){const box=$('#dm-'+id);if(box)box.innerHTML='✉️ '+esc(r.draft);box.style.cssText='white-space:pre-wrap;border-left:2px solid var(--accent);padding-left:8px;margin-top:8px';toast('已生成合作 DM')}else toast(r.error||r.message||'生成失败');if(btn){btn.textContent='✉️ 生成合作 DM';btn.disabled=false}}
+H.kshort=async id=>{await api('/api/internal/social/kol/'+encodeURIComponent(id)+'/status',{method:'POST',body:JSON.stringify({status:'shortlisted'})});toast('已入围');renderKol()}
+H.kcontact=async id=>{await api('/api/internal/social/kol/'+encodeURIComponent(id)+'/status',{method:'POST',body:JSON.stringify({status:'contacted'})});toast('已标记已联系');renderKol()}
+H.kreject=async id=>{await api('/api/internal/social/kol/'+encodeURIComponent(id)+'/status',{method:'POST',body:JSON.stringify({status:'rejected'})});toast('已移出推荐');renderKol()}
 H.tr=async(id,btn)=>{if(btn){btn.textContent='生成中…';btn.disabled=true}const r=await api('/api/internal/social/translate',{method:'POST',body:JSON.stringify({signalId:id})});const box=$('#zh-'+id);if(r.ok&&box){box.innerHTML='🇨🇳 '+esc(r.zh)}else{toast(r.error||'生成失败');if(btn){btn.textContent='🇨🇳 生成中文解读';btn.disabled=false}}}
 
 // ── 竞品洞察分析（供产品/服务改进参考，非外联）──────────────────────────────

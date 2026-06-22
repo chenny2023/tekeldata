@@ -4,6 +4,7 @@ import { unlockedFetch } from '../collectors/unlocker.ts'
 import { score as lexScore } from '../sentiment.ts'
 import { PRODUCTS } from './products.ts'
 import { maybeAlert, type AlertSignal } from './alerts.ts'
+import { upsertKol, type KolProfile } from './kol.ts'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 内部社媒情报采集器（团队内部）。复用 wcoin 现有的住宅代理 (net.ts) 与无 key 采集范式。
@@ -501,7 +502,8 @@ const TWAPI_KEY = () => envLoose('TWITTERAPI_KEY', 'twitterapi')
 export const twitterApiEnabled = () => !!TWAPI_KEY()
 // X 诊断：记录 twitterapi 最近一次调用结果，显示到健康面板（不用 SSH 就能看到 X 为何不出数）
 export let twDiag = 'X: 尚未运行'
-async function twitterApiSearch(query: string): Promise<{ id: string; text: string; author: string; url: string; likes: number; rts: number; replies: number; ts: number }[] | null> {
+type XItem = { id: string; text: string; author: string; url: string; likes: number; rts: number; replies: number; ts: number; prof?: KolProfile }
+async function twitterApiSearch(query: string): Promise<XItem[] | null> {
   const key = TWAPI_KEY()
   if (!key) { twDiag = 'X: 无 TWITTERAPI_KEY'; return null }
   const base = `https://api.twitterapi.io/twitter/tweet/advanced_search?query=${encodeURIComponent(query + ' -filter:retweets')}&queryType=Latest`
@@ -523,7 +525,7 @@ async function twitterApiSearch(query: string): Promise<{ id: string; text: stri
     twDiag = 'X: 持续 429 限流'
     return null
   }
-  const out: { id: string; text: string; author: string; url: string; likes: number; rts: number; replies: number; ts: number }[] = []
+  const out: XItem[] = []
   let cursor = ''
   let gotAny = false
   for (let i = 0; i < pages; i++) {
@@ -538,12 +540,25 @@ async function twitterApiSearch(query: string): Promise<{ id: string; text: stri
         const id = String(t.id ?? '')
         const text = t.text ?? t.full_text ?? ''
         if (!id || !text) continue
+        const a = t.author ?? {}
+        const handle = a.userName ?? a.screen_name ?? a.name ?? ''
         out.push({
           id, text,
-          author: t.author?.userName ?? t.author?.screen_name ?? t.author?.name ?? '',
+          author: handle,
           url: t.twitterUrl ?? t.url ?? '',
           likes: Number(t.likeCount ?? 0), rts: Number(t.retweetCount ?? 0), replies: Number(t.replyCount ?? 0),
           ts: Date.parse(t.createdAt ?? '') || 0,
+          prof: handle
+            ? {
+                platform: 'x', handle,
+                name: a.name ?? '', bio: a.description ?? a.profile_bio?.description ?? '',
+                followers: Number(a.followers ?? 0), following: Number(a.following ?? 0),
+                verified: !!(a.isVerified || a.isBlueVerified), canDm: !!a.canDm,
+                statuses: Number(a.statusesCount ?? 0),
+                createdTs: Date.parse(a.createdAt ?? '') || 0,
+                location: a.location ?? '', profileUrl: a.twitterUrl ?? a.url ?? `https://x.com/${handle}`,
+              }
+            : undefined,
         })
       }
       if (!j.has_next_page || !j.next_cursor || arr.length === 0) break
@@ -1043,6 +1058,10 @@ async function runXSearchJob(j: Extract<Job, { platform: 'xsearch' }>): Promise<
     }
   })
   tx()
+  // 沉淀潜在合作 KOL（粉丝达标的作者）——在事务外做，避免拖长写锁
+  for (const t of tweets) {
+    if (t.prof) upsertKol(t.prof, j.product, { text: t.text, url: t.url, engage: t.likes + t.rts + t.replies })
+  }
   void maybeAlert(fresh)
   return added
 }
