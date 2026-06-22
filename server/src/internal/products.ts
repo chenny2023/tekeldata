@@ -71,6 +71,13 @@ export interface ProductConfig {
    * 靠后续 LLM 分类器去噪。留空=不采 Threads（不要复用 reddit 长尾词，那样恒为空）。
    */
   threadsTerms?: string[]
+  /**
+   * KOL/KOC 发现专用 X 搜索词。区别于 reddit.demand（找"有痛点的潜在客户"），这里放
+   * 该领域「影响者/创作者自己会发的内容词」（如 'media buying tips'、'cx strategy'），
+   * 目的是把发这类内容、且有粉丝量的达人本身捞进 KOL 库（作者→upsertKol，再 LLM 判契合）。
+   * 只喂 X 关键词搜索（多词短语 X 支持良好；Threads 对多词常返 0，故不复用）。
+   */
+  kolTerms?: string[]
 }
 
 // 关键词可随时增删调优；竞品 X 账号名写错会自动 404 忽略，安全。各产品 ownHandles 待补真实账号。
@@ -154,6 +161,12 @@ export const PRODUCTS: ProductConfig[] = [
     ],
     // Threads 宽泛主题词（B2B 词在 Threads 偏少，但宽词有量；分类器筛出运营/客服/选型相关）。
     threadsTerms: ['chatbot', 'ai chatbot', 'customer service', 'customer support', 'live chat', 'help desk', 'ai agent', 'zendesk', 'intercom', 'customer experience', 'ecommerce support'],
+    // KOL/KOC 发现：CX/客服/电商/SaaS 影响者会发的内容词 → 把这些达人本身捞进库
+    kolTerms: [
+      'customer support tips', 'cx strategy', 'customer experience tips', 'scaling customer support',
+      'ecommerce customer service', 'support automation', 'shopify store tips', 'saas customer success',
+      'dtc customer service', 'help desk tips', 'building a saas', 'ecommerce tips',
+    ],
   },
   {
     key: 'wonix',
@@ -225,6 +238,12 @@ export const PRODUCTS: ProductConfig[] = [
     ],
     // Threads 宽泛主题词（投放/电商类话题在 Threads 有量；分类器筛出投手/联盟相关）。
     threadsTerms: ['facebook ads', 'meta ads', 'ad creative', 'media buyer', 'dropshipping', 'performance marketing', 'affiliate marketing', 'tiktok ads', 'google ads', 'ugc', 'ecommerce marketing', 'digital marketing'],
+    // KOL/KOC 发现：投放/创意/UA 影响者会发的内容词 → 把这些达人本身捞进库
+    kolTerms: [
+      'winning ad creative', 'ad creative tips', 'media buying tips', 'scaling facebook ads',
+      'ugc ads', 'creative strategy', 'performance marketing tips', 'dtc marketing',
+      'ad creative breakdown', 'facebook ads strategy', 'tiktok ads strategy', 'paid ads tips',
+    ],
   },
 ]
 

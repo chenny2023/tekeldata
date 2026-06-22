@@ -690,6 +690,7 @@ function buildJobs(): Job[] {
       for (const h of p.x.competitorHandles) jobs.push({ product: p.key, platform: 'xsearch', kind: 'competitor', query: `to:${h}` }) // 竞品评论区吐槽
       for (const q of p.reddit.brand) jobs.push({ product: p.key, platform: 'xsearch', kind: 'brand', query: q }) // 自有产品在 X 的提及
       if ((process.env.SOCIAL_X_DEMAND ?? '1') !== '0') for (const q of p.reddit.demand) jobs.push({ product: p.key, platform: 'xsearch', kind: 'demand', query: q }) // X 上的用户需求
+      for (const q of p.kolTerms ?? []) jobs.push({ product: p.key, platform: 'xsearch', kind: 'demand', query: q }) // KOL/KOC 发现：捞发该领域内容的达人本身
     }
   }
   // 已保存且启用的「自定义采集需求」——随同主调度一起轮询
