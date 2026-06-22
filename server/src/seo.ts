@@ -678,6 +678,59 @@ ${caveat}
   }
 }
 
+// Consumer-facing proof-of-reserves GUIDE + verified list. Distinct intent from the
+// /rankings/reserves leaderboard (a ranking) and /methodology/proof-of-reserves (how we
+// estimate): this answers "which crypto casinos have proof of reserves / what does it
+// mean" with an explainer + FAQ schema + the live verified list. The on-chain moat page.
+function reservesHubPage(brands: BrandAgg[], slugOfBrand: (b: BrandAgg) => string): { title: string; description: string; html: string } {
+  const url = `${SITE}/proof-of-reserves`
+  const withReserves = brands.filter((b) => (b.reserves ?? 0) > 0).sort((a, b) => (b.reserves ?? 0) - (a.reserves ?? 0)).slice(0, 60)
+  const totalRes = withReserves.reduce((s, b) => s + (b.reserves ?? 0), 0)
+  const title = 'Crypto Casino Proof of Reserves — Verified List & How It Works | WCOIN.CASINO'
+  const description = `Which crypto casinos have on-chain proof of reserves? We map ${withReserves.length} operators' wallet reserves directly from the blockchain (≈${fmtUsd(totalRes)} tracked) and explain what proof of reserves does — and doesn't — prove.`
+  const trows = withReserves
+    .map(
+      (e, i) =>
+        `<tr><td class="n" style="text-align:left;color:var(--dim);width:34px">${i + 1}</td><td><a href="/casino/${slugOfBrand(e)}">${esc(e.brand)}</a></td><td class="n gold">${fmtUsd(e.reserves ?? 0)}</td><td class="n">${e.reserveCoverage != null ? e.reserveCoverage.toFixed(1) + '×' : '—'}</td></tr>`,
+    )
+    .join('')
+  const faqs = [
+    { q: 'What is proof of reserves for a crypto casino?', a: 'Proof of reserves means an operator\'s holdings can be verified directly on the blockchain rather than taken on trust. Because crypto wallets are public, anyone can check the balances of an operator\'s known wallets at any time.' },
+    { q: 'How does WCOIN.CASINO track casino reserves?', a: 'We map the on-chain wallets we associate with each operator and read their all-chain balances directly from the blockchain, refreshed roughly every 30 minutes. Coverage varies by operator and attribution carries inherent uncertainty — see our methodology.' },
+    { q: 'Does proof of reserves mean a casino is solvent or safe?', a: 'No. Mapped reserves show what is observable on-chain at a point in time. They are not a statement on solvency, liabilities, legality, or safety, and balances can move. Treat reserves as one descriptive signal among several.' },
+    { q: 'Which crypto casinos have the largest mapped reserves?', a: `As of the latest update, operators with the largest mapped on-chain reserves include ${withReserves.slice(0, 5).map((b) => b.brand).join(', ') || '—'}. See the full ranked list below.` },
+  ]
+  const body =
+    `<p class="sub">Proof of reserves lets you verify a crypto casino's holdings <strong>directly on the blockchain</strong> instead of taking the operator's word for it. Below is every casino whose wallets we map on-chain, with reserves read live from the chain.</p>` +
+    `<p class="upd">${withReserves.length} operators with mapped reserves · ≈${fmtUsd(totalRes)} tracked · refreshed continuously · <a href="/rankings/reserves">reserves ranking</a> · <a href="/methodology/proof-of-reserves">how we estimate</a></p>` +
+    `<p class="prose" style="margin:10px 0;padding:11px 14px;background:#ffffff08;border:1px solid var(--line);border-radius:11px;font-size:13px"><strong>What this is — and isn't.</strong> Mapped reserves are an on-chain best-effort estimate from wallets we attribute to each operator; coverage varies and attribution is uncertain. This is observed on-chain data, <em>not</em> a statement on any operator's solvency, legality, fairness, or safety.</p>` +
+    `<table><thead><tr><th>#</th><th>Operator</th><th style="text-align:right">Mapped reserves</th><th style="text-align:right">Coverage ratio</th></tr></thead><tbody>${trows}</tbody></table>` +
+    `<h2 style="margin-top:26px">Proof of reserves — FAQ</h2>` +
+    faqs.map((f) => `<h3 style="margin:16px 0 4px;font-size:15px">${esc(f.q)}</h3><p class="prose">${esc(f.a)}</p>`).join('') +
+    `<p class="prose" style="margin-top:22px">Track any operator's reserve history on the <a href="/app/casinos">interactive dashboard</a>, or see the daily market-wide view in the <a href="/daily">daily report</a>.</p>`
+  const jsonLd = [
+    { '@type': 'ItemList', name: 'Crypto casinos with proof of reserves', itemListElement: withReserves.map((e, i) => ({ '@type': 'ListItem', position: i + 1, name: e.brand, url: `${SITE}/casino/${slugOfBrand(e)}` })) },
+    { '@type': 'FAQPage', mainEntity: faqs.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) },
+  ]
+  return {
+    title,
+    description,
+    html: layout({
+      title,
+      description,
+      canonical: url,
+      jsonLd,
+      breadcrumb: [
+        { name: 'Home', url: SITE + '/' },
+        { name: 'Proof of Reserves', url },
+      ],
+      h1: 'Crypto Casino Proof of Reserves',
+      updated: Date.now(),
+      body,
+    }),
+  }
+}
+
 function trustRankingPage(views: CasinoView[], slugOfView: (v: CasinoView) => string): { title: string; description: string; html: string } {
   const url = `${SITE}/rankings/trust`
   const rows = views
@@ -1286,7 +1339,7 @@ export async function generateSeoPages(): Promise<void> {
     if (a) a.push(val)
     else m.set(k, [val])
   }
-  const COMPARE_TOP_K = Number(process.env.SEO_COMPARE_TOP_K ?? 9)
+  const COMPARE_TOP_K = Number(process.env.SEO_COMPARE_TOP_K ?? 13)
   const strong = cap.filter((v) => dataConfidence(v) !== 'low')
   const qScore = (v: CasinoView) => (blendedTrust(v)?.score ?? 0) * 1e12 + (v.onchain?.volume7d ?? 0)
   const topK = strong.slice().sort((a, b) => qScore(b) - qScore(a)).slice(0, COMPARE_TOP_K)
@@ -1331,7 +1384,7 @@ export async function generateSeoPages(): Promise<void> {
         .join(',')
       enrich.push({ brand_key: v.key, label: v.name, slug: slugOfView(v), confidence: 'low', missing, now })
     }
-    if (idx % 25 === 24) await yieldLoop() // hand the loop back every 25 page-builds
+    if (idx % 15 === 14) await yieldLoop() // hand the loop back every 15 page-builds
   }
   // rankings: metric leaderboards + trust board + index
   for (const key of Object.keys(METRICS)) {
@@ -1341,6 +1394,7 @@ export async function generateSeoPages(): Promise<void> {
   add('/rankings/trust', 'rankings', trustRankingPage(ranked, slugOfView))
   add('/rankings', 'rankings', rankingsIndexPage([...chainSet], unattributed.length > 0))
   add('/risk', 'risk', riskIndexPage(recentRiskEvents(80)), 'featured_core') // neutral risk registry
+  add('/proof-of-reserves', 'reserves', reservesHubPage(onchainBrands, slugOfBrand), 'featured_core') // on-chain moat: PoR guide + verified list
   if (unattributed.length) add('/rankings/unattributed-flow', 'rankings', unattributedFlowPage(unattributed))
   await yieldLoop()
   // chains
@@ -1350,7 +1404,7 @@ export async function generateSeoPages(): Promise<void> {
   for (let i = 0; i < comparePairs.length; i++) {
     const p = comparePairs[i]
     add(`/compare/${p.slugA}-vs-${p.slugB}`, 'compare', comparePage(p.a, p.b, p.slugA, p.slugB))
-    if (i % 25 === 24) await yieldLoop()
+    if (i % 15 === 14) await yieldLoop()
   }
   // best-on-chain shortlists (trust-ranked) — featured_core (high-value evergreen)
   for (const g of chainBestGroups) add(`/rankings/best-on-${g.chain}`, 'rankings', bestOnChainPage(g.chain, g.entries), 'featured_core')
@@ -1383,7 +1437,10 @@ export async function generateSeoPages(): Promise<void> {
   await yieldLoop()
 
   // ── Phase 2: WRITE in small chunked transactions, yielding between chunks ───
-  const CHUNK = 50
+  // 20 (not 50): each write transaction touches the multi-GB DB, and on a cold-cache
+  // boot a 50-page transaction was part of the long SEO-regen freeze. Smaller chunks
+  // keep the event loop responsive as the page set grows.
+  const CHUNK = 20
   for (let i = 0; i < built.length; i += CHUNK) {
     const slice = built.slice(i, i + CHUNK)
     db.transaction(() => {
@@ -1472,6 +1529,7 @@ export function registerSeo(app: FastifyInstance) {
   app.get('/compare/:slug', serve('compare'))
   app.get('/rankings', serve('rankings'))
   app.get('/risk', serve('risk'))
+  app.get('/proof-of-reserves', serve('reserves'))
   app.get('/rankings/:slug', serve('rankings'))
   app.get('/chains/:slug', serve('chains'))
   app.get('/reports/daily/:date', serve('report'))
