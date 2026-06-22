@@ -666,9 +666,10 @@ function buildJobs(): Job[] {
         jobs.push({ product: p.key, platform: 'reddit', kind, query: q, subreddits: p.subreddits })
         jobs.push({ product: p.key, platform: 'bluesky', kind, query: q }) // 同关键词也搜 Bluesky（无 key 广搜）
         if (kind !== 'brand') jobs.push({ product: p.key, platform: 'hn', kind, query: q }) // HN：需求/竞品词（技术/SaaS 人群）
-        if (scEnabled()) jobs.push({ product: p.key, platform: 'threads', kind, query: q }) // Threads 关键词搜索（ScrapeCreators 付费源）
       }
     }
+    // Threads：必须用宽泛主题词（threadsTerms）——长尾短语在 Threads 搜索恒返回 0。kind=demand，靠分类器精筛。
+    if (scEnabled()) for (const q of p.threadsTerms ?? []) jobs.push({ product: p.key, platform: 'threads', kind: 'demand', query: q })
     for (const h of p.x.competitorHandles) jobs.push({ product: p.key, platform: 'x', kind: 'competitor', query: h })
     for (const h of p.x.ownHandles) jobs.push({ product: p.key, platform: 'x', kind: 'brand', query: h })
     for (const ch of p.telegram ?? []) jobs.push({ product: p.key, platform: 'telegram', kind: 'demand', query: ch })

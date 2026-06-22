@@ -65,6 +65,12 @@ export interface ProductConfig {
    * 无 key、稳定。kind=competitor。适合 hirecx（竞品客服 app 的差评=置换机会）。
    */
   appleApps?: string[]
+  /**
+   * Threads 专用搜索词。Threads 搜索只对「宽泛/单词级话题」返回结果（实测 'casino'→19 条，
+   * 而 'crypto casino'/'is this casino safe' 这类长尾短语→0 条）。所以这里用宽泛主题词，
+   * 靠后续 LLM 分类器去噪。留空=不采 Threads（不要复用 reddit 长尾词，那样恒为空）。
+   */
+  threadsTerms?: string[]
 }
 
 // 关键词可随时增删调优；竞品 X 账号名写错会自动 404 忽略，安全。各产品 ownHandles 待补真实账号。
@@ -90,6 +96,8 @@ export const PRODUCTS: ProductConfig[] = [
     },
     subreddits: ['gambling', 'CryptoCurrency', 'sportsbook', 'problemgambling'],
     x: { competitorHandles: ['casinoguru'], ownHandles: [] },
+    // Threads 宽泛主题词（实测有返回；长尾短语恒为 0）。靠分类器再筛玩家/行业相关。
+    threadsTerms: ['online casino', 'crypto casino', 'casino', 'gambling', 'sportsbook', 'slots', 'stake casino', 'casino withdrawal'],
   },
   {
     key: 'hirecx',
@@ -144,6 +152,8 @@ export const PRODUCTS: ProductConfig[] = [
       'presales', 'pre-sales', 'after-sales', 'sales chat', 'respond to customers', 'handle inquiries',
       'support volume', 'support cost', 'answer customers', 'player support', 'support inbox', 'tickets',
     ],
+    // Threads 宽泛主题词（B2B 词在 Threads 偏少，但宽词有量；分类器筛出运营/客服/选型相关）。
+    threadsTerms: ['chatbot', 'ai chatbot', 'customer service', 'customer support', 'live chat', 'help desk', 'ai agent'],
   },
   {
     key: 'wonix',
@@ -213,6 +223,8 @@ export const PRODUCTS: ProductConfig[] = [
       'крео', 'креатив', 'креатива', 'баннер', 'связк', 'прелендинг', 'клоак', 'спай',
       'арбитраж', 'залив', 'офер', 'оффер', 'траф', 'бан', 'апрув', 'кампани',
     ],
+    // Threads 宽泛主题词（投放/电商类话题在 Threads 有量；分类器筛出投手/联盟相关）。
+    threadsTerms: ['facebook ads', 'meta ads', 'ad creative', 'media buyer', 'dropshipping', 'performance marketing', 'affiliate marketing'],
   },
 ]
 
