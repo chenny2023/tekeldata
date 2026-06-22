@@ -1026,11 +1026,14 @@ async function runThreadsJob(j: Extract<Job, { platform: 'threads' }>): Promise<
     }
   })
   tx()
-  // 潜在合作 KOL：Threads 搜索结果不含粉丝数 → 对新作者补查 profile（限量，省 credit）。
-  const cap = Number(process.env.SOCIAL_KOL_THREADS_LOOKUPS) || 3
+  // 潜在合作 KOL（Threads 最有价值的一块）：搜索结果不含粉丝数 → 对新作者补查 profile（耗 credit）。
+  // 优先查「本轮互动最高」的作者——他们更可能是大号 KOL，把有限额度花在刀刃上。
+  const cap = Number(process.env.SOCIAL_KOL_THREADS_LOOKUPS) || 5
   if (cap > 0) {
-    const distinct = [...new Set(posts.map((p) => p.user).filter(Boolean))]
-    for (const h of threadsAuthorsToCheck(distinct, cap)) {
+    const byUser = new Map<string, number>()
+    for (const p of posts) if (p.user) byUser.set(p.user, Math.max(byUser.get(p.user) || 0, p.likes || 0))
+    const ranked = [...byUser.entries()].sort((a, b) => b[1] - a[1]).map((e) => e[0]) // 互动量降序
+    for (const h of threadsAuthorsToCheck(ranked, cap)) {
       const prof = await scThreadsProfile(h)
       if (!prof) continue
       const post = posts.find((p) => p.user === h)

@@ -99,9 +99,17 @@ export interface KolProfile {
   profileUrl?: string
 }
 
-// 启发式可信分（受众质量），透明可解释，0-100。
-export function credScore(p: { followers: number; following: number; verified?: boolean; statuses?: number; createdTs?: number; bestEngage?: number }): number {
+// 启发式可信分（受众质量），透明可解释，0-100。按平台分开算：
+// X 数据全（粉丝/关注比/账号年龄/活跃度都有）；Threads profile 只有粉丝+认证（无关注/年龄/发帖），
+// 故 Threads 用「粉丝为主 + 认证 + 互动」的公平算法，避免因缺字段被结构性扣分、进不了推荐。
+export function credScore(p: { platform?: string; followers: number; following: number; verified?: boolean; statuses?: number; createdTs?: number; bestEngage?: number }): number {
   const f = Math.max(0, p.followers || 0)
+  if (p.platform === 'threads') {
+    let s = Math.max(0, Math.min(60, (Math.log10(Math.max(f, 1)) - 3) * 20 + 22)) // 1k≈22, 1万≈42, 10万≈60
+    if (p.verified) s += 22 // Threads 认证较稀缺、含金量高
+    s += Math.max(0, Math.min(18, Math.log10((p.bestEngage || 0) + 1) * 6)) // 互动：100赞≈12, 1000赞≈18
+    return Math.round(Math.max(0, Math.min(100, s)))
+  }
   const fl = Math.max(1, p.following || 0)
   let s = 0
   // 粉丝量(对数)：1k≈13, 1万≈26, 10万≈39, 上限 40
@@ -151,7 +159,7 @@ export function upsertKol(p: KolProfile, product: string, post?: { text?: string
     // 代表作：留互动更高的那条
     const keepNewSample = !prev || engage >= (prev.best_engage || 0) || !prev.sample_text
     const best_engage = Math.max(prev?.best_engage || 0, engage)
-    const cred = credScore({ followers, following: p.following, verified: p.verified, statuses: p.statuses, createdTs: p.createdTs, bestEngage: best_engage })
+    const cred = credScore({ platform: p.platform, followers, following: p.following, verified: p.verified, statuses: p.statuses, createdTs: p.createdTs, bestEngage: best_engage })
     const row = {
       id, platform: p.platform, handle,
       name: (p.name || '').slice(0, 120), bio: (p.bio || '').slice(0, 600),
