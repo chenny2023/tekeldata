@@ -100,6 +100,20 @@ CREATE TABLE IF NOT EXISTS social_alert_sent (
   ts        INTEGER NOT NULL
 );
 
+-- 竞品洞察：把竞品吐槽综合成"竞品短板→对我们产品/服务的启示"，供产品改进参考（非外联）。
+CREATE TABLE IF NOT EXISTS social_insights (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  product     TEXT NOT NULL,
+  theme       TEXT NOT NULL,          -- 痛点主题
+  gap         TEXT,                   -- 竞品在这块的短板
+  implication TEXT,                   -- 对我们产品/服务的启示/机会
+  severity    TEXT,                   -- high | med | low
+  evidence_count INTEGER DEFAULT 0,
+  model       TEXT,
+  created_ts  INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_ins_product ON social_insights(product, created_ts DESC);
+
 -- 忽略学习：用户点"忽略"→ 记录抑制规则，后续同类自动丢。kind=author（按作者）。
 -- 被忽略信号的标题另作为"反例"喂给分类器（LLM 判定同类→drop），实现"类似内容别采"。
 CREATE TABLE IF NOT EXISTS social_suppress (

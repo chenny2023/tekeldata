@@ -123,6 +123,57 @@ export function registerSocialIntel(app: FastifyInstance): void {
     return { signals: rows }
   })
 
+  // 竞品洞察分析：痛点类型分布 + 各竞品排行 + 原始证据（只读，供产品改进参考）
+  app.get('/api/internal/social/painanalysis', async (req, reply) => {
+    if (!requireAdmin(req, reply)) return
+    const q = req.query as Record<string, string>
+    const w = ["kind='competitor'", "status NOT IN ('dropped','ignored')"]
+    const p: any[] = []
+    if (q.product) { w.push('product = ?'); p.push(q.product) }
+    const W = w.join(' AND ')
+    const byPain = db.prepare(`SELECT COALESCE(NULLIF(pain_type,''),'(未分类)') pain, COUNT(*) n, AVG(sentiment) avg_sent FROM social_intel WHERE ${W} GROUP BY pain ORDER BY n DESC LIMIT 15`).all(...p)
+    const byCompetitor = db.prepare(`SELECT query, platform, COUNT(*) n, AVG(sentiment) avg_sent FROM social_intel WHERE ${W} GROUP BY query, platform ORDER BY n DESC LIMIT 20`).all(...p)
+    const complaints = db.prepare(`SELECT id, product, platform, query, title, url, sentiment, pain_type, zh, ts FROM social_intel WHERE ${W} ORDER BY (CASE WHEN sentiment<0 THEN -sentiment ELSE 0 END) DESC, ts DESC LIMIT 60`).all(...p)
+    return { byPain, byCompetitor, complaints }
+  })
+
+  // 竞品洞察：列出已生成的产品改进洞察
+  app.get('/api/internal/social/insights', async (req, reply) => {
+    if (!requireAdmin(req, reply)) return
+    const q = req.query as Record<string, string>
+    const rows = q.product
+      ? db.prepare('SELECT * FROM social_insights WHERE product=? ORDER BY created_ts DESC LIMIT 40').all(q.product)
+      : db.prepare('SELECT * FROM social_insights ORDER BY created_ts DESC LIMIT 40').all()
+    return { insights: rows }
+  })
+
+  // 竞品洞察：用近期竞品吐槽 → AI 综合成"竞品短板→对我们产品/服务的启示"
+  app.post('/api/internal/social/insights', async (req, reply) => {
+    if (!requireAdmin(req, reply)) return
+    const b = (req.body || {}) as { product?: string }
+    const prod = productByKey(String(b.product || ''))
+    if (!prod) return reply.code(400).send({ error: '请选择一个有效产品' })
+    if (!openrouterEnabled()) return reply.code(400).send({ error: 'OPENROUTER_API_KEY 未配置' })
+    const rows = db.prepare(
+      `SELECT query, pain_type, title FROM social_intel WHERE kind='competitor' AND product=? AND status NOT IN ('dropped','ignored')
+       ORDER BY (CASE WHEN sentiment<0 THEN -sentiment ELSE 0 END) DESC, ts DESC LIMIT 60`,
+    ).all(prod.key) as { query: string; pain_type: string; title: string }[]
+    if (rows.length < 3) return reply.code(400).send({ error: '竞品吐槽样本太少（<3），多采集些再生成' })
+    const sample = rows.map((r, i) => `${i + 1}. [竞品:${r.query}|${r.pain_type || '?'}] ${r.title}`).join('\n').slice(0, 6500)
+    const system =
+      `你是产品策略分析师。下面是用户对【${prod.name} 的竞品】的真实吐槽/差评（${prod.pitch}）。` +
+      `请综合成给我们「产品和服务改进」的洞察——不是用来回复，而是反哺我们做得更好。` +
+      `归纳 5-8 条，每条：theme(痛点主题) / gap(竞品在这块的具体短板) / implication(对我们产品或服务的启示或机会) / severity(high|med|low)。` +
+      `只返回 JSON：{"insights":[{"theme":"...","gap":"...","implication":"...","severity":"high|med|low"}]}`
+    const res = await generateContent(system, `竞品吐槽样本：\n${sample}`)
+    const ins = (res?.data?.insights ?? []) as any[]
+    if (!Array.isArray(ins) || ins.length === 0) return reply.code(502).send({ error: 'AI 未返回有效洞察，请重试' })
+    const now = Date.now()
+    const stmt = db.prepare('INSERT INTO social_insights(product, theme, gap, implication, severity, evidence_count, model, created_ts) VALUES(?,?,?,?,?,?,?,?)')
+    db.transaction(() => { for (const x of ins.slice(0, 8)) stmt.run(prod.key, String(x.theme || '').slice(0, 200), String(x.gap || '').slice(0, 500), String(x.implication || '').slice(0, 500), String(x.severity || 'med').slice(0, 8), rows.length, res?.model || '', now) })()
+    return { ok: true, added: Math.min(8, ins.length) }
+  })
+
   // B. 选题建议：列出已存档选题
   app.get('/api/internal/social/topics', async (req, reply) => {
     if (!requireAdmin(req, reply)) return

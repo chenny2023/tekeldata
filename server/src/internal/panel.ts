@@ -159,7 +159,7 @@ function loginView(step){
 }
 
 function shell(inner){
-  const nav=[['overview','概览'],['signals','信号'],['painradar','竞品痛点'],['topics','选题建议'],['drafts','草稿'],['custom','自定义采集']]
+  const nav=[['overview','概览'],['signals','信号'],['painradar','竞品洞察'],['topics','选题建议'],['drafts','草稿'],['custom','自定义采集']]
     .map(t=>'<button class="'+(tab===t[0]?'on':'')+'" data-act="go" data-id="'+t[0]+'">'+t[1]+'</button>').join('')
   return '<header><div class="brand"><div class="logo">📡</div>社媒情报</div>'+
     '<div class="nav">'+nav+'</div><div class="spacer"></div>'+
@@ -288,30 +288,47 @@ H.mkdraft=async(id,btn)=>{if(btn){btn.textContent='生成中…';btn.disabled=tr
 H.ignore=async id=>{await api('/api/internal/social/signal/'+id+'/status',{method:'POST',body:JSON.stringify({status:'ignored'})});toast('已忽略并记入学习（同类后续自动抑制）');renderSignals()}
 H.tr=async(id,btn)=>{if(btn){btn.textContent='生成中…';btn.disabled=true}const r=await api('/api/internal/social/translate',{method:'POST',body:JSON.stringify({signalId:id})});const box=$('#zh-'+id);if(r.ok&&box){box.innerHTML='🇨🇳 '+esc(r.zh)}else{toast(r.error||'生成失败');if(btn){btn.textContent='🇨🇳 生成中文解读';btn.disabled=false}}}
 
-// ── 竞品痛点雷达 ────────────────────────────────────────────────────────────
+// ── 竞品洞察分析（供产品/服务改进参考，非外联）──────────────────────────────
 let prFilter=''
+const SEV={high:'<span class="pill" style="color:#ff5c5c;border-color:#5c1f1f;background:#22120c">高</span>',med:'<span class="pill" style="color:#ffb24a;border-color:#5c4a1f;background:#21190a">中</span>',low:'<span class="pill" style="color:#5fb0ff;border-color:#1f3a5c">低</span>'}
 async function renderPainRadar(){
   const qs=prFilter?('?product='+prFilter):''
-  const {signals}=await api('/api/internal/social/painradar'+qs)
+  const a=await api('/api/internal/social/painanalysis'+qs)
+  const ins=await api('/api/internal/social/insights'+qs)
   const opt=(v,l,sel)=>'<option value="'+v+'"'+(sel===v?' selected':'')+'>'+l+'</option>'
-  const bar='<div class="toolbar"><span class="mut" style="font-weight:600">按"痛点分(高意图+负面)"排序，越靠前越可能在找替代方案</span>'+
-    '<select id="pr-product" class="right">'+opt('','全部产品',prFilter)+products.map(p=>opt(p.key,p.name,prFilter)).join('')+'</select></div>'
-  const cards=signals.length?signals.map(s=>
-    '<div class="card"><div class="crow"><span class="pill competitor">竞品: '+esc(s.query||'')+'</span>'+
-    '<span class="pill plat">'+s.platform+'</span><span class="pill prod">'+esc(pname(s.product))+'</span>'+
-    '<span class="meter"><span class="mt"><span class="mf" style="width:'+Math.round(Math.min(1,(s.pain||0)/2)*100)+'%;background:#ff5c5c"></span></span><b style="color:#ff5c5c">痛点 '+(s.pain||0).toFixed(2)+'</b></span>'+
-    sentChip(s.sentiment)+'<span class="right dim" style="font-size:12px">'+ago(s.ts)+' · '+esc(s.author||'')+'</span></div>'+
-    '<div class="title">'+esc(s.title)+'</div>'+
-    '<div class="body">'+esc((s.body||'').slice(0,360))+'</div>'+
-    zhBlock(s)+
-    '<div class="crow" style="margin-top:10px"><a href="'+esc(s.url)+'" target="_blank">查看原贴 ↗</a>'+
-    ((s.platform==='shopify'||s.platform==='appstore')
-      ? '<span class="pill right" style="color:#9fe7c6;border-color:#1c5240">竞品情报 · 评论不可回复，仅供分析</span>'
-      : '<button class="btn sm pri right" data-act="mkdraft" data-id="'+s.id+'">生成替代方案草稿</button>')+
-    '<button class="btn sm ghost" data-act="ignore" data-id="'+s.id+'">忽略</button></div></div>').join('')
-    :'<div class="empty"><div class="big">⚔️</div>暂无竞品痛点信号。<br><span class="mut">需要竞品词采集到带负面情绪的帖子；补全 products.ts 竞品词、多采集几轮后这里会出现"准备换供应商"的人。</span></div>'
-  $('#app').innerHTML=shell('<p class="lead">捞出对竞品不满、且在主动选型的人——这是转化率最高的人群。生成草稿会以"我们产品作为替代方案"切入。</p>'+bar+cards)
-  $('#pr-product').onchange=e=>{prFilter=e.target.value;renderPainRadar()}
+  const bar='<div class="toolbar"><label class="fld" style="flex-direction:row;align-items:center;gap:8px">产品<select id="pr-product">'+products.map(p=>opt(p.key,p.name,prFilter||(products[0]&&products[0].key))).join('')+'</select></label>'+
+    '<button class="btn pri" id="pr-gen">✨ 生成产品改进洞察</button>'+
+    '<select id="pr-filter" class="right">'+opt('','全部产品',prFilter)+products.map(p=>opt(p.key,p.name,prFilter)).join('')+'</select></div>'
+
+  // ① AI 产品改进洞察
+  const il=(ins.insights||[])
+  const insCards=il.length?il.map(x=>
+    '<div class="card"><div class="crow">'+(SEV[x.severity]||'')+'<span class="pill prod">'+esc(pname(x.product))+'</span>'+
+    '<span class="right dim" style="font-size:11px">'+(x.evidence_count||0)+' 条证据 · '+esc(x.model||'')+'</span></div>'+
+    '<div class="title">'+esc(x.theme)+'</div>'+
+    (x.gap?'<div class="mut" style="font-size:13px">⚠️ 竞品短板：'+esc(x.gap)+'</div>':'')+
+    (x.implication?'<div class="zh" style="color:#9fe7c6;border-color:#1c5240;background:#0c2018">💡 对我们的启示：'+esc(x.implication)+'</div>':'')+'</div>').join('')
+    :'<div class="empty" style="padding:26px"><div class="big">🧭</div>还没有洞察。选产品点"生成产品改进洞察"，AI 会把竞品被吐槽的点综合成改进建议。</div>'
+  const insPanel='<div class="panel" style="background:transparent;border:0;padding:0"><h3 style="font-size:14px">🧭 产品改进洞察<span class="tag">竞品被吐槽 → 我们该改进/规避</span></h3>'+insCards+'</div>'
+
+  // ② 痛点类型分布 + ③ 竞品排行
+  const pmax=Math.max(1,...a.byPain.map(x=>x.n))
+  const painBars='<div class="panel"><h3>📊 痛点类型分布</h3>'+(a.byPain.length?a.byPain.map(x=>
+    '<div class="barrow"><span class="lab" title="'+esc(x.pain)+'">'+esc(x.pain)+'</span><span class="bartrack"><span class="barfill" style="width:'+Math.round(x.n/pmax*100)+'%;background:linear-gradient(90deg,#ff7a59,#ff5c5c)"></span></span><span class="num tabnum">'+x.n+'</span></div>').join(''):'<div class="dim">暂无</div>')+'</div>'
+  const compTbl='<div class="panel"><h3>⚔️ 各竞品被吐槽排行</h3><table class="tbl"><tr><th>竞品/来源</th><th>平台</th><th>条数</th><th>平均情绪</th></tr>'+
+    (a.byCompetitor.length?a.byCompetitor.map(c=>'<tr><td>'+esc(c.query||'')+'</td><td><span class="pill plat">'+c.platform+'</span></td><td class="tabnum">'+c.n+'</td><td>'+sentChip(c.avg_sent)+'</td></tr>').join(''):'<tr><td colspan="4" class="dim">暂无</td></tr>')+'</table></div>'
+
+  // ④ 原始吐槽证据（只读，不针对其回复）
+  const ev=(a.complaints||[])
+  const evRows=ev.length?ev.map(s=>
+    '<div class="card" style="padding:10px 14px"><div class="crow"><span class="pill competitor">'+esc(s.query||'')+'</span><span class="pill plat">'+s.platform+'</span>'+(s.pain_type&&s.pain_type!=='none'?'<span class="pill demand">'+esc(s.pain_type)+'</span>':'')+sentChip(s.sentiment)+'<a href="'+esc(s.url)+'" target="_blank" class="right">原帖 ↗</a></div>'+
+    '<div style="font-size:13px;margin-top:6px">'+esc((s.title||'').slice(0,200))+'</div>'+(s.zh?'<div class="zh" style="margin-top:6px">🇨🇳 '+esc(s.zh)+'</div>':'')+'</div>').join('')
+    :'<div class="empty">暂无竞品吐槽。补全竞品词/竞品 app、多采集几轮后这里会有料。</div>'
+  const evPanel='<div class="panel" style="background:transparent;border:0;padding:0"><h3 style="font-size:14px">🧾 原始吐槽证据<span class="tag">只读 · 仅供分析，不回复</span></h3>'+evRows+'</div>'
+
+  $('#app').innerHTML=shell('<p class="lead">竞品被用户吐槽什么 → 反哺我们把产品和服务做得更好（参考分析，不针对这些内容做评论）。</p>'+bar+insPanel+'<div class="grid2">'+painBars+compTbl+'</div>'+evPanel)
+  $('#pr-filter').onchange=e=>{prFilter=e.target.value;renderPainRadar()}
+  $('#pr-gen').onclick=async()=>{const product=$('#pr-product').value;const b=$('#pr-gen');b.textContent='AI 分析中…';b.disabled=true;const r=await api('/api/internal/social/insights',{method:'POST',body:JSON.stringify({product})});toast(r.ok?('已生成 '+(r.added||0)+' 条洞察'):('失败：'+(r.error||'')));prFilter=product;renderPainRadar()}
 }
 
 // ── 选题建议 ────────────────────────────────────────────────────────────────
