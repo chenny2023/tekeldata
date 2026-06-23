@@ -526,7 +526,7 @@ const TWAPI_KEY = () => envLoose('TWITTERAPI_KEY', 'twitterapi')
 export const twitterApiEnabled = () => !!TWAPI_KEY()
 // X 诊断：记录 twitterapi 最近一次调用结果，显示到健康面板（不用 SSH 就能看到 X 为何不出数）
 export let twDiag = 'X: 尚未运行'
-type XItem = { id: string; text: string; author: string; url: string; likes: number; rts: number; replies: number; ts: number; prof?: KolProfile }
+type XItem = { id: string; text: string; author: string; url: string; likes: number; rts: number; replies: number; views: number; ts: number; prof?: KolProfile }
 async function twitterApiSearch(query: string): Promise<XItem[] | null> {
   const key = TWAPI_KEY()
   if (!key) { twDiag = 'X: 无 TWITTERAPI_KEY'; return null }
@@ -574,6 +574,7 @@ async function twitterApiSearch(query: string): Promise<XItem[] | null> {
           author: handle,
           url: t.twitterUrl ?? t.url ?? '',
           likes: Number(t.likeCount ?? 0), rts: Number(t.retweetCount ?? 0), replies: Number(t.replyCount ?? 0),
+          views: Number(t.viewCount ?? 0),
           ts: Date.parse(t.createdAt ?? '') || 0,
           prof: handle
             ? {
@@ -1096,9 +1097,14 @@ async function runXSearchJob(j: Extract<Job, { platform: 'xsearch' }>): Promise<
   const now = Date.now()
   let added = 0
   const fresh: AlertSignal[] = []
+  // 浏览量过滤：浏览 < SOCIAL_X_MIN_VIEWS(默认300) 且已超过 SOCIAL_X_VIEW_FRESH_H(默认6)小时 → 丢。
+  // 豁免很新的帖（黄金一小时：刚发的高意图帖浏览天然少，别误杀）。KOL 沉淀不受此影响（看粉丝不看单帖浏览）。
+  const minViews = Number(process.env.SOCIAL_X_MIN_VIEWS ?? 300)
+  const freshMs = (Number(process.env.SOCIAL_X_VIEW_FRESH_H ?? 6)) * 3600_000
   const tx = db.transaction(() => {
     for (const t of tweets) {
       if (t.ts && t.ts < recentCutoff()) continue
+      if (minViews > 0 && t.views < minViews && (now - (t.ts || now)) > freshMs) continue // 低浏览且不新 → 噪音
       const intent = j.kind === 'demand' ? intentScore(t.text) : intentScore(t.text) * 0.5
       const id = `x_${t.id}_${j.product}_${j.kind}`
       const r = insertSignal.run({
