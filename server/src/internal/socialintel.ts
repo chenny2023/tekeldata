@@ -533,17 +533,20 @@ async function twitterApiSearch(query: string): Promise<XItem[] | null> {
   const base = `https://api.twitterapi.io/twitter/tweet/advanced_search?query=${encodeURIComponent(query + ' -filter:retweets')}&queryType=Latest`
   const pages = Number(process.env.SOCIAL_X_PAGES) || 1
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-  // 遇 429 退避重试；并把最终状态写进 twDiag
+  // 遇 429 或 网络错误/超时 都退避重试（twitterapi 本身 ~2s 返回，超时多为瞬时抖动）。
+  const TIMEOUT = Number(process.env.SOCIAL_X_TIMEOUT_MS) || 15_000
   const getWithRetry = async (url: string): Promise<Response | null> => {
     for (let a = 0; a < 3; a++) {
       try {
-        const r = await webFetch(url, { headers: { 'X-API-Key': key, Accept: 'application/json' }, signal: AbortSignal.timeout(25_000) })
+        const r = await webFetch(url, { headers: { 'X-API-Key': key, Accept: 'application/json' }, signal: AbortSignal.timeout(TIMEOUT) })
         if (r.status !== 429) { if (!r.ok) twDiag = `X: HTTP ${r.status}`; return r }
         twDiag = 'X: 429 限流(重试中)'
         await sleep(4000 * (a + 1))
       } catch (e) {
-        twDiag = 'X: 网络错误 ' + (e as Error).message.slice(0, 60)
-        return null
+        // 网络错误/超时：重试（最后一次才记错误并放弃）
+        if (a === 2) { twDiag = 'X: 网络错误 ' + (e as Error).message.slice(0, 60); return null }
+        twDiag = 'X: 网络抖动(重试中)'
+        await sleep(2000 * (a + 1))
       }
     }
     twDiag = 'X: 持续 429 限流'
