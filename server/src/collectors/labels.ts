@@ -47,11 +47,42 @@ const TRON_HOLDERS_URL =
 
 const REFRESH_DAYS = 1 // re-harvest public casino labels daily (was weekly) so
 // newly-tagged casino hot wallets are attributed within a day, not up to a week
-const TRON_PAGES = 20 // top 20 × 50 = 1000 holders scanned
+const TRON_PAGES = 40 // top 40 × 50 = 2000 holders scanned (was 1000) — Tron casino
+// hot wallets sit lower in the USDT-balance ranking than exchange treasuries, so
+// scanning deeper surfaces more of them (still keyless, paced below)
 const PAGE_SIZE = 50
 
 const GAMBLING_RE =
   /casino|gambl|bet(?!a)|stake|dice|slots?|poker|lottery|lotto|jackpot|roobet|rollbit|bitsler|wager|1xbet|bovada|fortunejack|duelbits|shuffle|gamdom|sportsbook|igaming|bc\.game|metawin|primedice|cloudbet|betfury|thunderpick|wolf\.bet|csgo|trustdice|chips\.gg|sportbet|nanogames/i
+
+// Our 111 curated casino brand names, compiled into a word-boundary regex so a
+// Tron wallet whose PUBLIC Tronscan name-tag is just the brand (e.g. "Vavada",
+// "Roobet: USDT") is recognised as a casino even when it lacks a generic gambling
+// keyword. This still classifies ONLY on a real public tag — it never guesses an
+// attribution; it just widens which real tags we recognise. Generic short names
+// are filtered out to avoid false matches on unrelated tags.
+let _brandRe: RegExp | null | undefined
+function rosterBrandRe(): RegExp | null {
+  if (_brandRe !== undefined) return _brandRe
+  try {
+    const path = fileURLToPath(new URL('../data/casino-roster.json', import.meta.url))
+    const roster = JSON.parse(readFileSync(path, 'utf8')) as { name?: string }[]
+    const GENERIC = new Set(['casino', 'bet', 'play', 'win', 'lucky', 'royal', 'gold', 'star', 'club', 'vip', 'cash', 'king', 'spin', 'game', 'gamba'])
+    const tokens = Array.from(
+      new Set(
+        roster
+          .map((c) => (c.name || '').trim().toLowerCase())
+          .filter((n) => n.length >= 4 && !GENERIC.has(n)),
+      ),
+    ).map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) // escape regex metachars (e.g. "bc.game")
+    if (!tokens.length) return (_brandRe = null)
+    _brandRe = new RegExp('\\b(' + tokens.join('|') + ')\\b', 'i')
+  } catch (e) {
+    console.warn('[labels] brand regex build failed:', (e as Error).message)
+    _brandRe = null
+  }
+  return _brandRe
+}
 const EXCHANGE_RE =
   /binance|okx|okex|huobi|htx|bybit|kraken|coinbase|kucoin|gate\.io|bitfinex|mexc|bitget|crypto\.com|upbit|bithumb|exchange|bitstamp|gemini|bitmart|whitebit|lbank|poloniex/i
 const SKIP_RE = /tether|treasury|justlend|foundation|usdd|wrapped|multisig|burn|null|fake_|spam/i
@@ -139,7 +170,8 @@ async function harvestTronTags(): Promise<number> {
         const addr: string = h.holder_address ?? ''
         if (!tag || !addr || SKIP_RE.test(tag)) continue
         let category: string | null = null
-        if (GAMBLING_RE.test(tag)) category = 'casino'
+        const brandRe = rosterBrandRe()
+        if (GAMBLING_RE.test(tag) || (brandRe && brandRe.test(tag))) category = 'casino'
         else if (EXCHANGE_RE.test(tag)) category = 'exchange'
         if (!category) continue // unknown tag → never guess
         const r = stmt.addWatch.run('TRON', addr, cleanLabel(tag), category, now)
