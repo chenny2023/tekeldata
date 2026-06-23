@@ -94,11 +94,20 @@ function cleanLabel(raw: string): string {
 
 // ── 1. Curated, publicly-documented casino hot wallets (instant, local) ───────
 interface CuratedLabel {
-  chain: 'ETH' | 'TRON'
+  chain: 'ETH' | 'TRON' | 'BTC'
   address: string
   label: string
   category: string
   source?: string
+}
+
+// address-shape guards per chain so a malformed/wrong-chain entry is dropped, not
+// indexed. ETH: 0x + 40 hex; TRON: base58 starting 'T', 34 chars; BTC: legacy
+// (1/3…) or bech32 (bc1…).
+const ADDR_RE: Record<string, RegExp> = {
+  ETH: /^0x[0-9a-f]{40}$/,
+  TRON: /^T[1-9A-HJ-NP-Za-km-z]{33}$/,
+  BTC: /^(bc1[a-z0-9]{8,87}|[13][1-9A-HJ-NP-Za-km-z]{25,39})$/,
 }
 
 export function harvestCuratedLabels(): number {
@@ -116,9 +125,9 @@ export function harvestCuratedLabels(): number {
   const tx = db.transaction(() => {
     for (const r of rows) {
       if (!r.address || !r.label) continue
-      const chain = r.chain === 'TRON' ? 'TRON' : 'ETH'
+      const chain = r.chain === 'TRON' ? 'TRON' : r.chain === 'BTC' ? 'BTC' : 'ETH'
       const addr = chain === 'ETH' ? r.address.toLowerCase() : r.address
-      if (chain === 'ETH' && !/^0x[0-9a-f]{40}$/.test(addr)) continue
+      if (!ADDR_RE[chain].test(addr)) continue // drop malformed / wrong-chain entries
       const res = stmt.addWatch.run(chain, addr, cleanLabel(r.label), r.category || 'casino', now)
       added += res.changes
     }

@@ -12,7 +12,7 @@ import { twitchEnabled } from './collectors/twitch.ts'
 import { redditEnabled } from './collectors/reddit.ts'
 import { probeTier } from './collectors/unlocker.ts'
 import { arkhamFetch } from './net.ts'
-import { arkhamProbe } from './collectors/arkham.ts'
+import { arkhamProbe, arkhamAddressProbe } from './collectors/arkham.ts'
 import { getProfile } from './streamerprofiles.ts'
 import { newsEnabled } from './collectors/news.ts'
 import { telegramSubs } from './collectors/telegram.ts'
@@ -1085,6 +1085,10 @@ export async function registerApi(app: FastifyInstance) {
 
   // live debug: one Arkham /transfers fetch → raw transfer shape (confirm chain field).
   app.get('/api/diag/arkham-probe', async () => arkhamProbe())
+
+  // live debug: probe Arkham non-transfers endpoints for an entity's per-chain
+  // addresses (the 429-free path to harvest Tron/BTC casino wallets). ?key=<slug>
+  app.get('/api/diag/arkham-addresses', async (req) => arkhamAddressProbe((req.query as any)?.key))
 
   // enrichment queue (gated) — low-confidence brands kept as noindex pages, awaiting
   // on-chain/reserve/trust enrichment before promotion to indexable.

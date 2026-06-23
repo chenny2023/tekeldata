@@ -353,6 +353,51 @@ export async function arkhamProbe(): Promise<any> {
   }
 }
 
+// Live debug: probe NON-transfers endpoints for an entity to see whether any of
+// them expose the entity's per-chain addresses (the /transfers endpoint that
+// harvestAddresses uses is rate-limited 429). If an address-bearing field exists
+// here, we can harvest Tron/BTC casino wallets from the authoritative source
+// without the 429. Returns a compact shape (keys + any address-like values).
+export async function arkhamAddressProbe(key?: string): Promise<any> {
+  const row = (
+    key
+      ? db.prepare("SELECT key, name, entity_id FROM arkham_casino WHERE key=? AND entity_id != ''").get(key)
+      : db.prepare("SELECT key, name, entity_id FROM arkham_casino WHERE entity_id != '' ORDER BY reserves_usd DESC LIMIT 1").get()
+  ) as { key: string; name: string; entity_id: string } | undefined
+  if (!row) return { error: 'no resolved entity' }
+  const id = row.entity_id
+  const out: any = { entity: row.name, key: row.key, entity_id: id, probes: {} }
+  const probe = async (label: string, path: string) => {
+    try {
+      const res = arkhamFetch(path, { signal: AbortSignal.timeout(25_000) })
+      if (!res) return (out.probes[label] = { error: 'no key' })
+      const r = await res
+      if (r.status !== 200) return (out.probes[label] = { status: r.status })
+      const j: any = await r.json()
+      // surface top-level keys + chain keys + a hunt for address-shaped strings
+      const top = j && typeof j === 'object' ? Object.keys(j) : typeof j
+      const addrs: string[] = []
+      const scan = (o: any, depth: number) => {
+        if (depth > 4 || addrs.length >= 12 || !o || typeof o !== 'object') return
+        for (const k in o) {
+          const v = o[k]
+          if (typeof v === 'string' && (/^0x[0-9a-fA-F]{40}$/.test(v) || /^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(v) || /^(bc1[a-z0-9]{8,87}|[13][1-9A-HJ-NP-Za-km-z]{25,39})$/.test(v))) {
+            addrs.push((k.includes('chain') || k.includes('Chain') ? '' : '') + v)
+          } else if (typeof v === 'object') scan(v, depth + 1)
+        }
+      }
+      scan(j, 0)
+      out.probes[label] = { status: 200, topKeys: top, sampleAddrs: addrs.slice(0, 12), chainKeys: j && typeof j === 'object' && !Array.isArray(j) ? Object.keys(j).slice(0, 20) : undefined }
+    } catch (e) {
+      out.probes[label] = { error: (e as Error).message }
+    }
+  }
+  await probe('entity', `/intelligence/entity/${encodeURIComponent(id)}`)
+  await probe('portfolio', `/portfolio/entity/${encodeURIComponent(id)}?time=${Date.now()}`)
+  await probe('entity_addresses', `/intelligence/entity/${encodeURIComponent(id)}/addresses`)
+  return out
+}
+
 export interface ArkhamMetric {
   reserves: number | null
   volume7d: number | null
