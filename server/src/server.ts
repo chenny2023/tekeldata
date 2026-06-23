@@ -66,6 +66,7 @@ import { startSocialIntel } from './internal/socialintel.ts'
 import { startTranslator } from './internal/translate.ts'
 import { startClassifier } from './internal/classify.ts'
 import { startKolScorer } from './internal/kol.ts'
+import { startAppWatch } from './internal/appwatch.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const distDir = join(__dirname, '../../dist')
@@ -253,6 +254,7 @@ async function main() {
   startTranslator() // 内部社媒情报：每条信号的中文解读后台批量回填（需 OPENROUTER_API_KEY）
   startClassifier() // 内部社媒情报：LLM 信号分类（actor/tier/pain/solvable）+ 清理不符合（需 OPENROUTER_API_KEY）
   startKolScorer() // 内部社媒情报：潜在合作 KOL 评分（领域契合 + 是否靠谱，需 OPENROUTER_API_KEY）
+  startAppWatch() // 产品观察室：全球主要市场 App Store 低分高流量榜（iTunes 免费榜单+评分）
 
   // Second wave: the HEAVY deep-backfill indexers. Their bulk inserts (a catch-up can
   // be tens of thousands of rows/tick across several chains) saturate the single Node

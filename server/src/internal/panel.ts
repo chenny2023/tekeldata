@@ -337,6 +337,15 @@ const EN={
 '💡 对我们的启示：':'💡 Implication for us: ','⚠️ 竞品短板：':'⚠️ Competitor gap: ','❓ 用户在问：':'❓ Users ask: ','✍️ 切入角度：':'✍️ Angle: ',
 '近24h=0(红) 说明该源没采进来 · 待分类积压':'last-24h=0 (red) = source collected nothing · unclassified backlog',
 'X启用(key已读):':'X enabled (key read):','正常':'OK',
+// 产品观察室
+'全球主要市场 App Store「流量/营收大但口碑差」的 app（评分 < 3.5）——高需求却体验差 = 机会标的（产品/客服缺口，hirecx 切入线索 + 市场情报）。':'App Store apps across major markets with high traffic/revenue but poor reputation (rating < 3.5) — high demand yet bad experience = opportunity (product/support gaps; hirecx leads + market intel).',
+'暂无数据。首次刷新约 1-2 分钟（启动后自动跑，也可点"刷新榜单"）。只列评分 < 3.5 的高流量 app。':'No data yet. First refresh takes ~1-2 min (auto-runs after startup, or click “Refresh”). Only apps rated < 3.5 are listed.',
+'📥 下载榜(下载量大)':'📥 Top Free (downloads)','💰 畅销榜(营收高)':'💰 Top Grossing (revenue)',
+'按榜单名次(流量优先)':'By rank (traffic first)','按评分(最差优先)':'By rating (worst first)','按评分数(影响面大)':'By rating count (reach)',
+'刷新榜单':'Refresh','已触发刷新，约 1-2 分钟后回来看':'Refresh triggered — check back in ~1-2 min',
+'产品观察室':'Product Observatory','全部国家':'All countries','个低分应用':'low-rated apps','更新于':'updated','命中':'Found',
+'名次':'Rank','应用':'App','评分数':'Ratings','市场':'Market','评分':'Rating','类别':'Category',
+'🇺🇸 美国':'🇺🇸 USA','🇬🇧 英国':'🇬🇧 UK','🇯🇵 日本':'🇯🇵 Japan','🇰🇷 韩国':'🇰🇷 Korea','🇩🇪 德国':'🇩🇪 Germany','🇫🇷 法国':'🇫🇷 France','🇧🇷 巴西':'🇧🇷 Brazil','🇮🇳 印度':'🇮🇳 India','🇮🇩 印尼':'🇮🇩 Indonesia','🇲🇽 墨西哥':'🇲🇽 Mexico',
 }
 const _ek=Object.keys(EN).filter(k=>EN[k]!==''&&k.length>=2).sort((a,b)=>b.length-a.length)
 const PREFIX=['💡 对我们的启示：','⚠️ 竞品短板：','❓ 用户在问：','✍️ 切入角度：','代表帖：','近24h=0(红) 说明该源没采进来 · 待分类积压']
@@ -401,7 +410,7 @@ function loginView(step){
 }
 
 function shell(inner){
-  const nav=[['overview','概览'],['signals','信号'],['kol','潜在合作'],['painradar','竞品洞察'],['topics','选题建议'],['drafts','草稿'],['custom','自定义采集']]
+  const nav=[['overview','概览'],['signals','信号'],['kol','潜在合作'],['appwatch','产品观察室'],['painradar','竞品洞察'],['topics','选题建议'],['drafts','草稿'],['custom','自定义采集']]
     .map(t=>'<button class="'+(tab===t[0]?'on':'')+'" data-act="go" data-id="'+t[0]+'">'+t[1]+'</button>').join('')
   return '<header><div class="brand"><div class="logo">🐳</div>Whale Growth</div>'+
     '<div class="nav">'+nav+'</div><div class="spacer"></div>'+
@@ -419,6 +428,7 @@ async function render(loginStep){
     if(tab==='overview')await renderOverview()
     else if(tab==='signals')await renderSignals()
     else if(tab==='kol')await renderKol()
+    else if(tab==='appwatch')await renderAppWatch()
     else if(tab==='painradar')await renderPainRadar()
     else if(tab==='topics')await renderTopics()
     else if(tab==='drafts')await renderDrafts()
@@ -582,6 +592,39 @@ H.koldm=async(id,btn)=>{if(btn){btn.textContent='生成中…';btn.disabled=true
 H.kshort=async id=>{await api('/api/internal/social/kol/'+encodeURIComponent(id)+'/status',{method:'POST',body:JSON.stringify({status:'shortlisted'})});toast('已入围');renderKol()}
 H.kcontact=async id=>{await api('/api/internal/social/kol/'+encodeURIComponent(id)+'/status',{method:'POST',body:JSON.stringify({status:'contacted'})});toast('已标记已联系');renderKol()}
 H.kreject=async id=>{await api('/api/internal/social/kol/'+encodeURIComponent(id)+'/status',{method:'POST',body:JSON.stringify({status:'rejected'})});toast('已移出推荐');renderKol()}
+
+// ── 产品观察室（App Store 低分高流量榜）──────────────────────────────────────
+let awF={country:'',chart:'free',sort:'rank'}
+const CC={us:'🇺🇸 美国',gb:'🇬🇧 英国',jp:'🇯🇵 日本',kr:'🇰🇷 韩国',de:'🇩🇪 德国',fr:'🇫🇷 法国',br:'🇧🇷 巴西',in:'🇮🇳 印度',id:'🇮🇩 印尼',mx:'🇲🇽 墨西哥'}
+const ccName=c=>CC[c]||c
+function starRating(v){v=v||0;const c=v<2.5?'#ff5c5c':v<3?'#ff8a4a':'#ffb24a';return '<b style="color:'+c+'">★ '+v.toFixed(2)+'</b>'}
+async function renderAppWatch(){
+  const opt=(v,l,sel)=>'<option value="'+v+'"'+(sel===v?' selected':'')+'>'+l+'</option>'
+  const qs=new URLSearchParams({store:'appstore',country:awF.country,chart:awF.chart,sort:awF.sort}).toString()
+  const {items,countries,lastUpdated}=await api('/api/internal/social/appwatch?'+qs)
+  const bar='<div class="toolbar">'+
+    '<select id="aw-chart">'+[['free','📥 下载榜(下载量大)'],['grossing','💰 畅销榜(营收高)']].map(o=>opt(o[0],o[1],awF.chart)).join('')+'</select>'+
+    '<select id="aw-country">'+opt('','全部国家',awF.country)+countries.map(c=>opt(c,ccName(c),awF.country)).join('')+'</select>'+
+    '<select id="aw-sort">'+[['rank','按榜单名次(流量优先)'],['rating','按评分(最差优先)'],['reviews','按评分数(影响面大)']].map(o=>opt(o[0],o[1],awF.sort)).join('')+'</select>'+
+    '<button class="btn sm pri" id="aw-apply">应用</button>'+
+    '<button class="btn sm ghost" data-act="awrefresh">⟳ 刷新榜单</button>'+
+    '<span class="right dim" style="font-size:12px"><span>命中</span> '+items.length+' <span>个低分应用</span>'+(lastUpdated?' · <span>更新于</span> '+ago(lastUpdated):'')+'</span></div>'
+  const rows=items.length?items.map(a=>
+    '<tr><td class="tabnum dim">#'+a.rank+'</td>'+
+    '<td>'+(a.icon?'<img src="'+esc(a.icon)+'" style="width:34px;height:34px;border-radius:8px;vertical-align:middle;margin-right:8px">':'')+
+      '<a href="'+esc(a.url)+'" target="_blank" style="color:var(--fg);font-weight:600">'+esc(a.name)+'</a>'+
+      '<div class="dim" style="font-size:11px">'+esc(a.publisher||'')+'</div></td>'+
+    '<td><span class="pill">'+esc(a.genre||'')+'</span></td>'+
+    '<td>'+starRating(a.rating)+'</td>'+
+    '<td class="tabnum dim">'+(a.rating_count>=1000?(a.rating_count/1000).toFixed(0)+'k':a.rating_count)+'</td>'+
+    '<td>'+ccName(a.country)+'</td></tr>').join('')
+    :'<tr><td colspan="6" class="dim" style="text-align:center;padding:30px">暂无数据。首次刷新约 1-2 分钟（启动后自动跑，也可点"刷新榜单"）。只列评分 < 3.5 的高流量 app。</td></tr>'
+  const table='<table class="tbl"><tr><th>名次</th><th>应用</th><th>类别</th><th>评分</th><th>评分数</th><th>市场</th></tr>'+rows+'</table>'
+  $('#app').innerHTML=shell('<p class="lead">全球主要市场 App Store「流量/营收大但口碑差」的 app（评分 < 3.5）——高需求却体验差 = 机会标的（产品/客服缺口，hirecx 切入线索 + 市场情报）。</p>'+bar+'<div class="panel">'+table+'</div>')
+  ;['aw-chart','aw-country','aw-sort'].forEach(id=>$('#'+id).onchange=()=>{awF={country:$('#aw-country').value,chart:$('#aw-chart').value,sort:$('#aw-sort').value};renderAppWatch()})
+  $('#aw-apply').onclick=()=>{awF={country:$('#aw-country').value,chart:$('#aw-chart').value,sort:$('#aw-sort').value};renderAppWatch()}
+}
+H.awrefresh=async()=>{toast('已触发刷新，约 1-2 分钟后回来看');await api('/api/internal/social/appwatch/refresh',{method:'POST'})}
 H.tr=async(id,btn)=>{if(btn){btn.textContent='生成中…';btn.disabled=true}const r=await api('/api/internal/social/translate',{method:'POST',body:JSON.stringify({signalId:id})});const box=$('#zh-'+id);if(r.ok&&box){box.innerHTML='🇨🇳 '+esc(r.zh)}else{toast(r.error||'生成失败');if(btn){btn.textContent='🇨🇳 生成中文解读';btn.disabled=false}}}
 
 // ── 竞品洞察分析（供产品/服务改进参考，非外联）──────────────────────────────
