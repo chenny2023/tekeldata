@@ -69,9 +69,9 @@ async function classifyProductBatch(product: string): Promise<number> {
   }
   // 不符学习②：最近被标「信号不符」的标题作为"反例"喂给 LLM，让它把同类判 keep=false。
   //（忽略=纯跳过，不参与学习，保持输入干净）
-  const ignoredEx = (db.prepare("SELECT title FROM social_intel WHERE product=? AND status='mismatch' AND title!='' ORDER BY classified_ts DESC LIMIT 12").all(product) as { title: string }[]).map((x) => x.title)
+  const ignoredEx = (db.prepare("SELECT title FROM social_intel WHERE product=? AND status='mismatch' AND title!='' ORDER BY classified_ts DESC LIMIT 30").all(product) as { title: string }[]).map((x) => x.title)
   const ignoredBlock = ignoredEx.length
-    ? `\n团队已标记以下内容"信号不符/不准确"——对明显同主题/同套路的，设 keep=false：\n` + ignoredEx.map((t) => '- ' + t.slice(0, 80)).join('\n')
+    ? `\n‼️ 团队已明确标记以下内容为「信号不符/不要采」——凡是同主题、同套路、同类型的，一律 keep=false（这是最高优先的排除依据）：\n` + ignoredEx.map((t) => '- ' + t.slice(0, 80)).join('\n')
     : ''
   // 正例学习：团队"已起草回复"(status=reviewed)的标题=高价值，倾向保留+给更高 tier，提升精准度
   const draftedEx = (db.prepare("SELECT title FROM social_intel WHERE product=? AND status='reviewed' AND title!='' ORDER BY collected_ts DESC LIMIT 8").all(product) as { title: string }[]).map((x) => x.title)
@@ -84,8 +84,9 @@ async function classifyProductBatch(product: string): Promise<number> {
     `你是 iGaming 社交信号分类器，产品=${prod.name}（${prod.pitch}）。\n` +
     `对每条帖子分类（actor_type/intent_tier/pain_type/打分），并决定是否保留(keep)。\n` +
     `actor_type 取值: ${r.actors}\npain_type 取值: ${r.pains}\n${r.extra}\n` +
-    `‼️ 保留规则（重要，倾向保留）：只要这条帖跟该产品的领域"沾边"（哪怕只是泛泛讨论、低意图、相邻话题），就 keep=true，用 intent_tier=cold 标记弱信号即可——我们宁可多看一条冷信号，也不愿漏掉。\n` +
-    `keep=false 只用于以下「真噪音」：${COMMON_EXCLUDE} 以及明显属于完全无关的其它行业。拿不准时一律 keep=true。${ignoredBlock}${draftedBlock}\n` +
+    `‼️ 保留规则（精准优先，宁缺毋滥）：keep=true 仅当这条帖是【真正匹配该产品的信号】——即：真实的用户需求/选型/求推荐、对竞品的具体吐槽或不满、或该领域有实质信息量的讨论。\n` +
+    `keep=false（果断丢，别乱留）：泛泛沾边但无明确需求/无信息量的闲聊、新闻资讯/数据播报、营销软文/自我推广/抽奖、招聘求职、与产品需求无关的内容、其它行业。${COMMON_EXCLUDE}\n` +
+    `拿不准（既不像明确信号、也不像纯噪音）→ keep=false（精准优先）。唯一例外：很新(刚发布)且高意图(主动表达痛点/明确购买信号)的，即使弱也保留。${ignoredBlock}${draftedBlock}\n` +
     `intent_tier: hot=主动表达痛点/明确不满/高购买信号; warm=讨论选型求推荐; cold=泛泛相关或低意图(默认档)。reco_play: 销售类高意向→dm 或 public_reply；wcoin→content；噪音→discard。\n${SCHEMA_HINT}`
   const user = rows.map((x, i) => `[${i}] (${x.platform}) ${x.title}${x.body ? ' — ' + x.body.slice(0, 200) : ''}`).join('\n').slice(0, 7000)
 
