@@ -249,14 +249,20 @@ export async function refreshPlayWatch(): Promise<{ ok: boolean; kept: number }>
   return { ok: true, kept }
 }
 
+// 一次性采集：榜单变化慢，只在「从未采过」时全量爬一次，之后不再定时重爬（省 credit）。
+// 需要更新时手动点「刷新榜单」(走 refreshPlayWatch)。强制重采：删 sync_state 的 playwatch_seeded。
 export function startPlayWatch(): void {
   if ((process.env.APPWATCH_ENABLED ?? '1') === '0' || !playEnabled()) return
-  console.log('[appwatch] Google Play 观察室已启动（ScrapingBee 下载榜）')
-  const loop = async () => {
-    try { await refreshPlayWatch() } catch (e) { console.warn('[appwatch] play refresh failed:', (e as Error).message) }
-    setTimeout(loop, Number(process.env.SOCIAL_PLAY_REFRESH_MS) || 86_400_000) // 默认 24h（榜变化慢 + 省 credit）
+  if (db.prepare("SELECT 1 FROM sync_state WHERE key='playwatch_seeded'").get()) {
+    console.log('[appwatch] Google Play 已采集过，跳过（如需更新点"刷新榜单"）'); return
   }
-  setTimeout(loop, 30_000)
+  console.log('[appwatch] Google Play：首次全量采集…')
+  setTimeout(async () => {
+    try {
+      const r = await refreshPlayWatch()
+      if (r.ok) db.prepare("INSERT INTO sync_state(key,value) VALUES('playwatch_seeded',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(String(Date.now()))
+    } catch (e) { console.warn('[appwatch] play seed failed:', (e as Error).message) }
+  }, 30_000)
 }
 
 export interface AppWatchFilter { store?: string; country?: string; chart?: string; sort?: string; limit?: number; buildable?: boolean }
@@ -402,12 +408,18 @@ export function startAppAnalyzer(): void {
   setTimeout(loop, 180_000) // 启动 3 分钟后开跑（等首刷有数据）
 }
 
+// 一次性采集：只在「从未采过」时全量爬一次 App Store，之后不再定时重爬。
+// 需要更新时手动点「刷新榜单」(走 refreshAppWatch)。强制重采：删 sync_state 的 appwatch_seeded。
 export function startAppWatch(): void {
   if ((process.env.APPWATCH_ENABLED ?? '1') === '0') return
-  console.log('[appwatch] 产品观察室已启动（App Store 低分高流量榜，10 大市场）')
-  const loop = async () => {
-    try { await refreshAppWatch() } catch (e) { console.warn('[appwatch] refresh failed:', (e as Error).message) }
-    setTimeout(loop, Number(process.env.APPWATCH_REFRESH_MS) || 12 * 3600_000)
+  if (db.prepare("SELECT 1 FROM sync_state WHERE key='appwatch_seeded'").get()) {
+    console.log('[appwatch] App Store 已采集过，跳过（如需更新点"刷新榜单"）'); return
   }
-  setTimeout(loop, 120_000) // 启动 2 分钟后首刷（让主服务先稳）
+  console.log('[appwatch] 产品观察室：首次全量采集 App Store…')
+  setTimeout(async () => {
+    try {
+      const r = await refreshAppWatch()
+      if (r.ok) db.prepare("INSERT INTO sync_state(key,value) VALUES('appwatch_seeded',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(String(Date.now()))
+    } catch (e) { console.warn('[appwatch] seed failed:', (e as Error).message) }
+  }, 120_000) // 启动 2 分钟后首采（让主服务先稳）
 }
