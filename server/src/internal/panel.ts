@@ -194,7 +194,9 @@ const EN={
 '可推荐自有产品':'can recommend our products',
 '最高意图机会贴':'Top high-intent opportunities',
 '对方未开放私信':'DMs not open',
-'生成合作 DM':'Generate collaboration DM',
+'生成合作 DM':'Generate collaboration DM','🔎 找联系方式':'🔎 Find contacts','官网':'Site','可私信':'DM open','查找中…':'Searching…',
+'暂无邮箱/TG/Discord · 点"🔎 找联系方式"深挖主页':'No email/TG/Discord yet · click “🔎 Find contacts” to dig the homepage',
+'已补全触达方式':'Contacts updated','未找到额外联系方式（可看主页/DM）':'No extra contacts found (use homepage/DM)',
 '为产品生成选题':'Generate topics for product',
 '已复制到剪贴板':'Copied to clipboard',
 '清空该产品数据':'Purge this product’s data',
@@ -552,6 +554,14 @@ const ROLEL={media_buyer:'投手',affiliate:'联盟',casino_influencer:'赌场�
 const KSTAT={candidate:'候选',shortlisted:'入围',contacted:'已联系',rejected:'不合适'}
 const fmtN=n=>n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':String(n||0)
 function credPill(v){v=v||0;const c=v>=70?'#5ff0b0':v>=50?'#ffd479':'#ffb24a';return '<span class="pill" style="color:'+c+';border-color:'+c+'55;background:'+c+'14" title="可信分(受众质量)0-100">信用 '+v+'</span>'}
+function kolContacts(k){let h='📇 ',any=false
+  if(k.email){any=true;h+='<a class="pill" style="color:#9fe7c6;border-color:#1c5240" href="mailto:'+esc(k.email)+'">📧 '+esc(k.email)+'</a>'}
+  if(k.telegram){any=true;const tg=esc(String(k.telegram).replace(/^@/,''));h+='<a class="pill" style="color:#5fb0ff;border-color:#1f3a5c" href="https://t.me/'+tg+'" target="_blank">✈️ '+esc(k.telegram)+'</a>'}
+  if(k.discord){any=true;h+='<span class="pill" style="color:#b9a7ff;border-color:#352a5c">🎮 '+esc(k.discord)+'</span>'}
+  if(k.website){any=true;h+='<a class="pill" href="'+esc(k.website)+'" target="_blank">🔗 官网</a>'}
+  if(k.can_dm)h+='<span class="pill" style="color:#5fb0ff">✉️ 可私信</span>'
+  if(!any)h+='<span class="dim" style="font-size:12px">暂无邮箱/TG/Discord · 点"🔎 找联系方式"深挖主页</span>'
+  return h}
 async function renderKol(){
   const opt=(v,l,sel)=>'<option value="'+v+'"'+(sel===v?' selected':'')+'>'+l+'</option>'
   const qs=new URLSearchParams({product:kolF.product,platform:kolF.platform,status:kolF.status,all:kolF.all}).toString()
@@ -579,9 +589,11 @@ async function renderKol(){
       (k.bio?'<div class="body">'+esc(k.bio)+'</div>':'')+
       (k.fit_reason?'<div class="zh">🎯 '+esc(k.fit_reason)+'</div>':'')+
       (k.sample_text?'<div class="dim" style="font-size:12px;margin-top:6px">代表帖：'+esc(k.sample_text.slice(0,160))+(k.sample_url?' <a href="'+esc(k.sample_url)+'" target="_blank">↗</a>':'')+'</div>':'')+
+      '<div class="crow" id="ct-'+esc(k.id)+'" style="margin-top:8px;gap:6px">'+kolContacts(k)+'</div>'+
       (k.dm_draft?'<div class="zh" id="dm-'+esc(k.id)+'" style="white-space:pre-wrap;border-left:2px solid var(--accent);padding-left:8px;margin-top:8px">✉️ '+esc(k.dm_draft)+'</div>':'<div id="dm-'+esc(k.id)+'"></div>')+
       '<div class="crow" style="margin-top:10px"><a href="'+esc(k.profile_url)+'" target="_blank">主页 ↗</a>'+
       '<button class="btn sm pri right" data-act="koldm" data-id="'+esc(k.id)+'">✉️ 生成合作 DM</button>'+
+      '<button class="btn sm ghost" data-act="kct" data-id="'+esc(k.id)+'" title="抓主页/linktree 找邮箱/TG/Discord">🔎 找联系方式</button>'+
       '<button class="btn sm ghost" data-act="kshort" data-id="'+esc(k.id)+'" title="加入入围">⭐ 入围</button>'+
       '<button class="btn sm ghost" data-act="kcontact" data-id="'+esc(k.id)+'" title="标记已联系">✅ 已联系</button>'+
       '<button class="btn sm ghost" data-act="kreject" data-id="'+esc(k.id)+'" title="不合适，移出推荐">🚫 不合适</button></div></div>'
@@ -592,6 +604,7 @@ async function renderKol(){
   $('#k-apply').onclick=()=>{kolF={product:$('#k-product').value,platform:$('#k-platform').value,status:$('#k-status').value,all:$('#k-all').value};renderKol()}
 }
 H.koldm=async(id,btn)=>{if(btn){btn.textContent='生成中…';btn.disabled=true}const r=await api('/api/internal/social/kol/'+encodeURIComponent(id)+'/dm',{method:'POST'});if(r.ok&&r.draft){const box=$('#dm-'+id);if(box)box.innerHTML='✉️ '+esc(r.draft);box.style.cssText='white-space:pre-wrap;border-left:2px solid var(--accent);padding-left:8px;margin-top:8px';toast('已生成合作 DM')}else toast(r.error||r.message||'生成失败');if(btn){btn.textContent='✉️ 生成合作 DM';btn.disabled=false}}
+H.kct=async(id,btn)=>{if(btn){btn.textContent='查找中…';btn.disabled=true}const r=await api('/api/internal/social/kol/'+encodeURIComponent(id)+'/contacts',{method:'POST'});if(r.ok){const box=$('#ct-'+id);if(box&&r.contacts)box.innerHTML=kolContacts(r.contacts);toast(r.message||'已查找')}else toast(r.error||r.message||'查找失败');if(btn){btn.textContent='🔎 找联系方式';btn.disabled=false}}
 H.kshort=async id=>{await api('/api/internal/social/kol/'+encodeURIComponent(id)+'/status',{method:'POST',body:JSON.stringify({status:'shortlisted'})});toast('已入围');renderKol()}
 H.kcontact=async id=>{await api('/api/internal/social/kol/'+encodeURIComponent(id)+'/status',{method:'POST',body:JSON.stringify({status:'contacted'})});toast('已标记已联系');renderKol()}
 H.kreject=async id=>{await api('/api/internal/social/kol/'+encodeURIComponent(id)+'/status',{method:'POST',body:JSON.stringify({status:'rejected'})});toast('已移出推荐');renderKol()}

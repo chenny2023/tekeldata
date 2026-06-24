@@ -65,7 +65,7 @@ import { registerSocialIntel } from './internal/api.ts'
 import { startSocialIntel } from './internal/socialintel.ts'
 import { startTranslator } from './internal/translate.ts'
 import { startClassifier } from './internal/classify.ts'
-import { startKolScorer } from './internal/kol.ts'
+import { startKolScorer, startKolContacts } from './internal/kol.ts'
 import { startAppWatch, startAppAnalyzer, startBuildClassifier, startPlayWatch } from './internal/appwatch.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -254,6 +254,7 @@ async function main() {
   startTranslator() // 内部社媒情报：每条信号的中文解读后台批量回填（需 OPENROUTER_API_KEY）
   startClassifier() // 内部社媒情报：LLM 信号分类（actor/tier/pain/solvable）+ 清理不符合（需 OPENROUTER_API_KEY）
   startKolScorer() // 内部社媒情报：潜在合作 KOL 评分（领域契合 + 是否靠谱，需 OPENROUTER_API_KEY）
+  startKolContacts() // 内部社媒情报：KOL 触达方式补全（抓主页/linktree 挖 邮箱/TG/Discord）
   startAppWatch() // 产品观察室：全球主要市场 App Store 低分高流量榜（iTunes 免费榜单+评分）
   startAppAnalyzer() // 产品观察室：AI 分析每个 app（做什么/差评集中点/潜在机会，需 OPENROUTER_API_KEY）
   startBuildClassifier() // 产品观察室：可复刻性分类（vibe coding 机会，排除政府/重研发，需 OPENROUTER_API_KEY）

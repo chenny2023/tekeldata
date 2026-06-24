@@ -7,7 +7,7 @@ import { PANEL_HTML } from './panel.ts'
 import { generateContent, openrouterEnabled } from '../content/openrouter.ts'
 import { translateOne, translateBatch } from './translate.ts'
 import { registerWgAuth, requireTeam } from './wgauth.ts'
-import { listKols, kolStats, setKolStatus, generateKolDm } from './kol.ts'
+import { listKols, kolStats, setKolStatus, generateKolDm, enrichKolContacts } from './kol.ts'
 import { listAppWatch, refreshAppWatch, refreshPlayWatch, analyzeApp } from './appwatch.ts'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -354,6 +354,12 @@ export function registerSocialIntel(app: FastifyInstance): void {
   app.post('/api/internal/social/kol/:id/dm', async (req, reply) => {
     if (!requireAdmin(req, reply)) return
     const r = await generateKolDm((req.params as any).id)
+    return r.ok ? r : reply.code(400).send(r)
+  })
+  // 补全触达方式（邮箱/TG/Discord，抓主页/linktree）
+  app.post('/api/internal/social/kol/:id/contacts', async (req, reply) => {
+    if (!requireAdmin(req, reply)) return
+    const r = await enrichKolContacts((req.params as any).id)
     return r.ok ? r : reply.code(400).send(r)
   })
 

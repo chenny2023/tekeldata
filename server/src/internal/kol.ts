@@ -1,4 +1,5 @@
 import { db } from '../db.ts'
+import { webFetch } from '../net.ts'
 import { generateContent, openrouterEnabled } from '../content/openrouter.ts'
 import { productByKey, PRODUCTS } from './products.ts'
 
@@ -55,6 +56,22 @@ CREATE INDEX IF NOT EXISTS idx_kol_followers ON social_kol(followers DESC);
 CREATE INDEX IF NOT EXISTS idx_kol_scored ON social_kol(scored_ts);
 CREATE INDEX IF NOT EXISTS idx_kol_status ON social_kol(status);
 `)
+// 触达方式（补全 DM 之外的建联渠道）：从 bio + 主页(linktree 等)抽取。
+for (const col of ['website TEXT', 'email TEXT', 'telegram TEXT', 'discord TEXT', 'contacts_ts INTEGER']) {
+  try { db.exec(`ALTER TABLE social_kol ADD COLUMN ${col}`) } catch { /* 列已存在 */ }
+}
+
+// 从一段文本(bio / 主页 HTML)里抽取邮箱 / Telegram / Discord。
+export function extractContacts(text: string): { email: string; telegram: string; discord: string } {
+  const t = (text || '').replace(/&amp;/g, '&')
+  const email = (t.match(/[\w.+-]+@[\w-]+\.[a-z]{2,}/i) || [])[0] || ''
+  let telegram = (t.match(/(?:t\.me|telegram\.me)\/(?:joinchat\/)?([\w]{3,})/i) || [])[1] || ''
+  if (!telegram) { const m = t.match(/(?:telegram|tg)\s*[:：@]\s*@?([a-z0-9_]{4,})/i); if (m) telegram = m[1] }
+  let discord = (t.match(/discord(?:\.gg|\.com\/invite|app\.com\/invite)\/([\w-]+)/i) || [])[1] || ''
+  if (discord) discord = 'discord.gg/' + discord
+  if (!discord) { const m = t.match(/discord\s*[:：]\s*([\w.#]{2,32})/i); if (m) discord = m[1] }
+  return { email: email.slice(0, 120), telegram: telegram ? '@' + telegram : '', discord: discord.slice(0, 120) }
+}
 
 // Threads 作者「已查粉丝」标记——profile 查询耗 credit，避免对同一 handle 反复查（含粉丝不足者）。
 db.exec(`CREATE TABLE IF NOT EXISTS kol_seen (id TEXT PRIMARY KEY, ts INTEGER NOT NULL)`)
@@ -97,6 +114,7 @@ export interface KolProfile {
   createdTs?: number
   location?: string
   profileUrl?: string
+  website?: string
 }
 
 // 启发式可信分（受众质量），透明可解释，0-100。按平台分开算：
@@ -174,10 +192,19 @@ export function upsertKol(p: KolProfile, product: string, post?: { text?: string
     }
     if (prev) updKol.run({ ...row, sample_url: keepNewSample ? (post?.url || '') : '', followers_prev: 0 } as any)
     else insKol.run(row as any)
+    // 触达方式：website 用最新的；email/tg/discord 从 bio 抽取，只在当前为空时填（不覆盖网页深挖到的）。
+    const c = extractContacts(p.bio || '')
+    setContacts.run({ id, website: (p.website || '').slice(0, 200), email: c.email, telegram: c.telegram, discord: c.discord })
   } catch (e) {
     console.warn('[kol] upsert failed:', (e as Error).message)
   }
 }
+const setContacts = db.prepare(`UPDATE social_kol SET
+  website=COALESCE(NULLIF(@website,''), website),
+  email=COALESCE(NULLIF(email,''), NULLIF(@email,'')),
+  telegram=COALESCE(NULLIF(telegram,''), NULLIF(@telegram,'')),
+  discord=COALESCE(NULLIF(discord,''), NULLIF(@discord,''))
+  WHERE id=@id`)
 
 // ── LLM 评分：领域契合 + 是否靠谱（排除 scam）。每轮取若干未评分 KOL 批量判定。 ───────────
 const SCORE_BATCH = Number(process.env.SOCIAL_KOL_SCORE_BATCH) || 8
@@ -243,6 +270,67 @@ export function startKolScorer(): void {
     setTimeout(loop, Number(process.env.SOCIAL_KOL_SCORE_MS) || 60_000)
   }
   setTimeout(loop, 95_000)
+}
+
+// ── 触达方式补全：抓 KOL 主页/linktree，从页面挖邮箱/TG/Discord（bio 之外的渠道）。 ──────────
+const upContacts = db.prepare(`UPDATE social_kol SET
+  email=COALESCE(NULLIF(email,''), NULLIF(@email,'')),
+  telegram=COALESCE(NULLIF(telegram,''), NULLIF(@telegram,'')),
+  discord=COALESCE(NULLIF(discord,''), NULLIF(@discord,'')),
+  contacts_ts=@now WHERE id=@id`)
+
+async function scrapeContacts(website: string): Promise<{ email: string; telegram: string; discord: string }> {
+  try {
+    const res = await webFetch(website.startsWith('http') ? website : 'https://' + website, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; outreach-bot)', Accept: 'text/html' }, signal: AbortSignal.timeout(15_000),
+    })
+    if (!res.ok) return { email: '', telegram: '', discord: '' }
+    const html = (await res.text()).slice(0, 300_000)
+    const c = extractContacts(html)
+    if (!c.email) { const m = html.match(/mailto:([\w.+-]+@[\w-]+\.[a-z]{2,})/i); if (m) c.email = m[1] }
+    return c
+  } catch { return { email: '', telegram: '', discord: '' } }
+}
+
+/** 后台：给「有主页但联系方式不全」的优质 KOL 抓主页补全触达方式（限量、抓过即标记不重复）。 */
+export async function enrichKolContactsBatch(): Promise<number> {
+  const N = Number(process.env.SOCIAL_KOL_CONTACT_BATCH) || 4
+  const rows = db.prepare(`SELECT id, website FROM social_kol
+    WHERE contacts_ts IS NULL AND website IS NOT NULL AND website!=''
+      AND (email IS NULL OR email='' OR telegram IS NULL OR telegram='' OR discord IS NULL OR discord='')
+    ORDER BY (cred_score * (0.5 + fit_score)) DESC LIMIT ?`).all(N) as { id: string; website: string }[]
+  let n = 0
+  for (const r of rows) {
+    const c = await scrapeContacts(r.website)
+    upContacts.run({ id: r.id, email: c.email, telegram: c.telegram, discord: c.discord, now: Date.now() })
+    if (c.email || c.telegram || c.discord) n++
+    await sleep(700)
+  }
+  if (n) console.log(`[kol] 触达方式补全 ${n} 个 KOL`)
+  return n
+}
+
+/** 单个 KOL 即时补全触达方式（bio + 抓主页）。面板按钮用。 */
+export async function enrichKolContacts(id: string): Promise<{ ok: boolean; message: string; contacts?: any }> {
+  const k = db.prepare('SELECT id, website, bio FROM social_kol WHERE id=?').get(id) as { id: string; website: string; bio: string } | undefined
+  if (!k) return { ok: false, message: '未找到该 KOL' }
+  const c = extractContacts(k.bio || '')
+  if (k.website && (!c.email || !c.telegram || !c.discord)) {
+    const w = await scrapeContacts(k.website)
+    c.email = c.email || w.email; c.telegram = c.telegram || w.telegram; c.discord = c.discord || w.discord
+  }
+  upContacts.run({ id, email: c.email, telegram: c.telegram, discord: c.discord, now: Date.now() })
+  const row = db.prepare('SELECT email, telegram, discord, website FROM social_kol WHERE id=?').get(id)
+  return { ok: true, message: (c.email || c.telegram || c.discord) ? '已补全触达方式' : '未找到额外联系方式（可看主页/DM）', contacts: row }
+}
+
+export function startKolContacts(): void {
+  if ((process.env.SOCIAL_INTEL_ENABLED ?? '1') === '0') return
+  const loop = async () => {
+    try { await enrichKolContactsBatch() } catch (e) { console.warn('[kol] contacts failed:', (e as Error).message) }
+    setTimeout(loop, Number(process.env.SOCIAL_KOL_CONTACT_MS) || 120_000)
+  }
+  setTimeout(loop, 130_000)
 }
 
 // ── 列表查询（供面板）。默认只出「靠谱推荐」：cred 达标 + fit≥0.5 + 非 scam + 未被抑制。 ──────

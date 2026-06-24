@@ -520,12 +520,15 @@ export async function scThreadsProfile(handle: string): Promise<KolProfile | nul
   const u = j.user ?? j
   const followers = Number(u.follower_count ?? u.followers ?? 0)
   if (!followers && !u.username) return null
+  const bio = u.biography ?? u.bio ?? ''
+  // bio_links 常含官网/linktree；其次把 bio 里出现的链接当 website（供触达方式深挖）
+  const website = u.bio_links?.[0]?.url ?? (bio.match(/https?:\/\/[^\s]+/) || [])[0] ?? ''
   return {
     platform: 'threads', handle,
-    name: u.full_name ?? '', bio: u.biography ?? u.bio ?? '',
+    name: u.full_name ?? '', bio,
     followers, following: 0, verified: !!u.is_verified, canDm: false,
     statuses: 0, createdTs: 0, location: '',
-    profileUrl: `https://www.threads.net/@${handle}`,
+    profileUrl: `https://www.threads.net/@${handle}`, website,
   }
 }
 
@@ -588,12 +591,14 @@ async function twitterApiSearch(query: string): Promise<XItem[] | null> {
           prof: handle
             ? {
                 platform: 'x', handle,
-                name: a.name ?? '', bio: a.description ?? a.profile_bio?.description ?? '',
+                name: a.name ?? '', bio: a.profile_bio?.description ?? a.description ?? '',
                 followers: Number(a.followers ?? 0), following: Number(a.following ?? 0),
                 verified: !!(a.isVerified || a.isBlueVerified), canDm: !!a.canDm,
                 statuses: Number(a.statusesCount ?? 0),
                 createdTs: Date.parse(a.createdAt ?? '') || 0,
                 location: a.location ?? '', profileUrl: a.twitterUrl ?? a.url ?? `https://x.com/${handle}`,
+                // 主页/官网（常是 linktree 等聚合页，含邮箱/TG/Discord）→ 触达方式补全
+                website: a.profile_bio?.entities?.url?.urls?.[0]?.expanded_url ?? a.entities?.url?.urls?.[0]?.expanded_url ?? '',
               }
             : undefined,
         })
