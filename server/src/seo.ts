@@ -139,9 +139,17 @@ footer{border-top:1px solid var(--line);margin-top:30px}footer .wrap{display:fle
 ${body}
 <p class="note"><strong>Methodology &amp; disclaimer.</strong> Figures are derived from on-chain transfers attributed to wallets we associate with each operator, plus third-party ratings shown with their source. Blockchain attribution carries inherent uncertainty, and reserves are an all-chain best-effort estimate from mapped wallets — coverage varies by operator. These pages describe <em>observed activity and third-party data only</em>; they are not a statement on any operator's solvency, legality, fairness, or safety, and nothing here is financial advice. See <a href="/methodology/address-attribution">how we attribute on-chain activity</a>. Data updates roughly every 30 minutes.</p>
 </main>
+<section style="border-top:1px solid var(--line);margin-top:30px;padding:24px 20px;text-align:center">
+  <div style="font-weight:600;font-size:15px;color:var(--fg)">Get the daily on-chain report</div>
+  <div style="color:var(--mut);font-size:13px;margin:6px 0 12px">The whole crypto-casino market in one email — verified flow, reserve watch, chain breakdown. No account, one-click unsubscribe.</div>
+  <form method="POST" action="/subscribe" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:440px;margin:0 auto">
+    <input type="email" name="email" required placeholder="you@email.com" style="flex:1;min-width:200px;background:#ffffff08;border:1px solid var(--line);border-radius:9px;padding:10px 12px;color:var(--fg);font-size:14px">
+    <button type="submit" style="background:linear-gradient(135deg,#ffe27a,#f5b100);border:0;border-radius:9px;padding:10px 20px;font-weight:600;font-size:14px;color:#1a1205;cursor:pointer">Subscribe</button>
+  </form>
+</section>
 <footer><div class="wrap">
 <span>© 2026 WCOIN.CASINO — the on-chain intelligence layer for iGaming</span>
-<span><a href="/rankings">Rankings</a> · <a href="/daily">Daily report</a> · <a href="/app">Live data</a> · <a href="/methodology/proof-of-reserves">Reserves methodology</a></span>
+<span><a href="/rankings">Rankings</a> · <a href="/daily">Daily report</a> · <a href="/streamers">Streamers</a> · <a href="/app">Live data</a> · <a href="/methodology/proof-of-reserves">Reserves methodology</a></span>
 </div></footer>
 </body></html>`
 }

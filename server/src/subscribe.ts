@@ -45,6 +45,31 @@ export function registerSubscribe(app: FastifyInstance) {
     return { sent: true, delivered, ...(devCode ? { devCode } : {}) }
   })
 
+  // form-friendly subscribe for the server-rendered SEO pages (no JS): a plain
+  // <form> POST → branded HTML reply (the SPA still uses the JSON /api/subscribe).
+  const htmlPage = (heading: string, msg: string) =>
+    `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${heading} — WCOIN.CASINO</title><body style="background:#0a0a0f;color:#e8e8ee;font:16px/1.6 system-ui,sans-serif;text-align:center;padding:72px 20px"><h1 style="color:#f5b100;font-size:22px">${heading}</h1><p style="color:#aab;max-width:440px;margin:12px auto">${msg}</p><p style="margin-top:24px"><a style="color:#f5b100" href="/">← Back to WCOIN.CASINO</a></p></body>`
+  app.post('/subscribe', async (req, reply) => {
+    const email = String((req.body as { email?: string })?.email ?? '').trim().toLowerCase()
+    const send = (h: string, m: string) => reply.type('text/html; charset=utf-8').send(htmlPage(h, m))
+    if (!EMAIL_RE.test(email)) return send('Invalid email', 'Please enter a valid email and try again.')
+    const now = Date.now()
+    const existing = db.prepare('SELECT status FROM email_subscriber WHERE email=?').get(email) as { status: string } | undefined
+    if (existing?.status === 'active') return send('Already subscribed', "You're already getting the daily on-chain report.")
+    const recent = (db.prepare('SELECT COUNT(*) n FROM verification_codes WHERE email=? AND created_at > ?').get(email, now - CODE_TTL_MS) as any).n
+    if (recent >= MAX_CODES_PER_WINDOW) return send('Too many requests', 'Please wait a few minutes and try again.')
+    const confirmToken = randomBytes(24).toString('hex')
+    db.prepare(
+      `INSERT INTO email_subscriber(email, status, frequency, unsubscribe_token, confirm_token, created_at, updated_at)
+       VALUES(?, 'pending', 'daily', ?, ?, ?, ?)
+       ON CONFLICT(email) DO UPDATE SET status='pending', confirm_token=excluded.confirm_token, updated_at=excluded.updated_at`,
+    ).run(email, randomBytes(24).toString('hex'), confirmToken, now, now)
+    const code = String(randomInt(0, 1_000_000)).padStart(6, '0')
+    db.prepare('INSERT INTO verification_codes(email, code, expires_at, attempts, created_at) VALUES(?, ?, ?, 0, ?)').run(email, code, now + CODE_TTL_MS, now)
+    await sendEmail(email, subscribeConfirmBody(code, `${SITE}/api/subscribe/confirm?token=${confirmToken}`))
+    return send('Almost there', 'Check your inbox and click the confirmation link to start the daily report.')
+  })
+
   // step 2 — confirm the code → activate the subscriber
   app.post('/api/subscribe/verify', async (req, reply) => {
     const b = req.body as { email?: string; code?: string }
