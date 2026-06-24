@@ -22,8 +22,17 @@ const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
 
 // 只采近 N 个月（默认 180 天）。有真实发帖时间的源据此过滤；论坛/文章站无时间戳(ts=now)默认放行。
-const RECENT_DAYS = Number(process.env.SOCIAL_RECENT_DAYS) || 180
+const RECENT_DAYS = Number(process.env.SOCIAL_RECENT_DAYS) || 120
 const recentCutoff = () => Date.now() - RECENT_DAYS * 86_400_000
+// 零互动过滤：完全没有互动/热度(score≤0)的帖子视为噪音丢弃——但豁免「新发布(FRESH_H 内)且高意图」的，
+// 以免误杀刚冒头的高意图机会贴。只用于有互动指标的平台(reddit/threads/bluesky/hn)；评论源/论坛/X 各有其逻辑。
+const MIN_INTENT_KEEP = () => Number(process.env.SOCIAL_MIN_INTENT_KEEP ?? 0.5)
+const FRESH_H = () => Number(process.env.SOCIAL_FRESH_H ?? 24)
+function deadPost(score: number, intent: number, ts: number): boolean {
+  if ((score || 0) > 0) return false
+  const fresh = Date.now() - (ts || Date.now()) < FRESH_H() * 3600_000
+  return !(fresh && intent >= MIN_INTENT_KEEP())
+}
 
 // ⚠️ 这些建表/迁移在 import 期执行（早于 server.ts main() 把 busy_timeout 调到 30s）。
 // 部署切换时旧容器 litestream 占写锁，5s 默认超时会让迁移抛 "database is locked" → 启动崩溃、部署失败。
@@ -826,6 +835,7 @@ async function runRedditJob(j: Extract<Job, { platform: 'reddit' }>): Promise<nu
         if (e.ts && e.ts < cutoff) continue
         const text = `${e.title} ${e.content}`
         const intent = j.kind === 'demand' ? intentScore(text) : intentScore(text) * 0.5
+        if (deadPost(0, intent, e.ts)) continue // search.rss 无互动数据；零热度且非新+高意图 → 丢
         const id = `reddit_${e.id}_${j.product}_${j.kind}`
         const r = insertSignal.run({ id, product: j.product, platform: 'reddit', kind: j.kind, query: j.query, author: e.author.slice(0, 120), title: e.title.slice(0, 300), body: e.content, url: e.link, score: 0, sentiment: senti(text), intent, ts: e.ts, collected_ts: now })
         added += r.changes
@@ -849,6 +859,7 @@ async function runRedditJob(j: Extract<Job, { platform: 'reddit' }>): Promise<nu
         const text = `${title} ${body}`.trim()
         if (!text || !permalink) continue
         const intent = j.kind === 'demand' ? intentScore(text) : intentScore(text) * 0.5
+        if (deadPost(Number(p.score || 0), intent, ts)) continue // 零互动且非新+高意图 → 丢
         const id = `reddit_${strHash(permalink)}_${j.product}_${j.kind}`
         const r = insertSignal.run({
           id, product: j.product, platform: 'reddit', kind: j.kind, query: j.query,
@@ -966,6 +977,7 @@ async function runBlueskyJob(j: Extract<Job, { platform: 'bluesky' }>): Promise<
       if (bts && bts < recentCutoff()) continue
       const handle: string = p?.author?.handle ?? ''
       const intent = j.kind === 'demand' ? intentScore(text) : intentScore(text) * 0.5
+      if (deadPost(Number(p?.likeCount ?? 0), intent, bts)) continue // 零互动且非新+高意图 → 丢
       const id = `bs_${rkey}_${j.product}_${j.kind}`
       const url = handle ? `https://bsky.app/profile/${handle}/post/${rkey}` : ''
       const r = insertSignal.run({
@@ -999,6 +1011,7 @@ async function runHnJob(j: Extract<Job, { platform: 'hn' }>): Promise<number> {
       if (hts && hts < recentCutoff()) continue
       const clean = text.replace(/<[^>]+>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, ' ').trim()
       const intent = j.kind === 'demand' ? intentScore(clean) : intentScore(clean) * 0.5
+      if (deadPost(Number(h?.points ?? 0), intent, hts)) continue // 零互动且非新+高意图 → 丢
       const id = `hn_${oid}_${j.product}_${j.kind}`
       const url = `https://news.ycombinator.com/item?id=${oid}`
       const r = insertSignal.run({
@@ -1027,6 +1040,7 @@ async function runThreadsJob(j: Extract<Job, { platform: 'threads' }>): Promise<
     for (const p of posts) {
       if (p.ts && p.ts < recentCutoff()) continue
       const intent = j.kind === 'demand' ? intentScore(p.text) : intentScore(p.text) * 0.5
+      if (deadPost(p.likes, intent, p.ts)) continue // 零点赞且非新+高意图 → 丢
       const id = `th_${p.id}_${j.product}_${j.kind}`
       const url = p.url
       const r = insertSignal.run({
