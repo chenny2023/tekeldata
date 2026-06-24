@@ -204,6 +204,42 @@ export const PANEL_HTML = `<!doctype html>
   .login .logo{color:#fff;background:var(--grad);box-shadow:0 8px 26px #8b5cff55}
   .login{box-shadow:0 30px 80px #00000066}.login h1{font-family:var(--font-disp);letter-spacing:.3px}
   @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+  /* ── 炫动效 强化层 ───────────────────────────────────────────────── */
+  @property --ang{syntax:'<angle>';inherits:false;initial-value:0deg}
+  /* 极光缓慢漂移 */
+  body::before{animation:auroraDrift 22s ease-in-out infinite}
+  @keyframes auroraDrift{0%{transform:translate3d(0,0,0) scale(1)}33%{transform:translate3d(2%,1.5%,0) scale(1.06)}66%{transform:translate3d(-1.6%,2%,0) scale(1.03)}100%{transform:translate3d(0,0,0) scale(1)}}
+  /* hero 玻璃面板：旋转霓虹光弧描边 */
+  .glass::after{content:"";position:absolute;inset:0;border-radius:16px;padding:1.5px;pointer-events:none;z-index:1;
+    background:conic-gradient(from var(--ang),transparent 0deg,#8b5cff 40deg,#3fe0ff 80deg,transparent 150deg,transparent 360deg);
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;
+    opacity:.6;animation:angSpin 6s linear infinite}
+  @keyframes angSpin{to{--ang:360deg}}
+  /* 卡片高光扫过 */
+  .kpi,.kc,.card{position:relative;overflow:hidden}
+  .kpi::after,.kc::after,.card::after{content:"";position:absolute;top:0;left:-75%;width:55%;height:100%;pointer-events:none;z-index:1;
+    background:linear-gradient(100deg,transparent,#ffffff14 42%,#ffffff24 50%,transparent 60%);transform:skewX(-20deg);transition:left .7s ease}
+  .kpi:hover::after,.kc:hover::after,.card:hover::after{left:135%}
+  .kpi .k-val{text-shadow:0 0 24px rgba(110,168,255,.28)}
+  .kpi.accent .k-val{text-shadow:0 0 28px rgba(110,168,255,.45)}
+  /* 管道：流光进度条 + 呼吸状态点 */
+  .pstep .pbar i{background:linear-gradient(90deg,#8b5cff,#3fe0ff,#8b5cff);background-size:200% 100%;animation:barFlow 2.4s linear infinite;box-shadow:0 0 12px #8b5cff88}
+  @keyframes barFlow{to{background-position:-200% 0}}
+  .pstep .pdot{animation:dotPulse 1.7s ease-in-out infinite}
+  @keyframes dotPulse{0%,100%{transform:scale(1);opacity:.8}50%{transform:scale(1.4);opacity:1}}
+  .pstep .pico{transition:transform .2s}.pstep:hover .pico{transform:scale(1.12) rotate(-4deg)}
+  /* 导航激活项呼吸光 */
+  .navi.on::before{animation:navBreath 2.6s ease-in-out infinite}
+  @keyframes navBreath{0%,100%{box-shadow:0 0 10px #8b5cff99}50%{box-shadow:0 0 20px #8b5cffee,0 0 5px #3fe0ff}}
+  /* logo 呼吸辉光 + 品牌流动渐变字 */
+  .rail .logo,.login .logo{animation:logoGlow 3.4s ease-in-out infinite}
+  @keyframes logoGlow{0%,100%{box-shadow:0 6px 20px #8b5cff55,inset 0 0 0 1px #ffffff26}50%{box-shadow:0 6px 26px #8b5cffaa,0 0 20px #3fe0ff66,inset 0 0 0 1px #ffffff40}}
+  .bword b{background-size:200% auto;animation:hueShift 6s linear infinite}
+  @keyframes hueShift{to{background-position:200% center}}
+  /* 主操作按钮：渐变流动 + 悬停辉光脉冲 */
+  .btn.pri{background:linear-gradient(120deg,#8b5cff,#3fe0ff,#8b5cff);background-size:200% auto;animation:hueShift 5s linear infinite}
+  .livedot .live{box-shadow:0 0 10px var(--good)}
 </style></head>
 <body>
 <div id="app"></div>
@@ -599,8 +635,23 @@ function initSwarm(canvas,tip,data){
   }
   function draw(){
     ctx.setTransform(DPR,0,0,DPR,0,0);ctx.clearRect(0,0,w,h)
-    for(const e of E){const a=e[0],b=e[1];ctx.strokeStyle=a.type==='whale'?'rgba(255,178,74,.16)':'rgba(110,168,255,.1)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();const fp=((t*0.5+(a.x+a.y))%70)/70,fx=a.x+(b.x-a.x)*fp,fy=a.y+(b.y-a.y)*fp;ctx.fillStyle=a.type==='whale'?'rgba(255,200,90,.55)':'rgba(120,200,255,.4)';ctx.beginPath();ctx.arc(fx,fy,1.5,0,7);ctx.fill()}
-    for(const n of N){const c=COL[n.type];const pr=n.type==='whale'?n.r+Math.sin(t*0.05+n.x*0.1)*1.6:n.r;const g=ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,pr*2.6);g.addColorStop(0,c);g.addColorStop(.45,c+'55');g.addColorStop(1,c+'00');ctx.fillStyle=g;ctx.beginPath();ctx.arc(n.x,n.y,pr*2.6,0,7);ctx.fill();ctx.fillStyle=c;ctx.beginPath();ctx.arc(n.x,n.y,pr,0,7);ctx.fill();if(n===hover||n.type==='core'||n.type==='product'){ctx.fillStyle='#eaf0fb';ctx.font='600 11px -apple-system,sans-serif';ctx.textAlign='center';ctx.fillText(String(n.label).slice(0,18),n.x,n.y-pr-5)}}
+    ctx.globalCompositeOperation='lighter' // 叠加发光，bloom 质感
+    // 连线（渐变）+ 流动光粒
+    for(const e of E){const a=e[0],b=e[1];const wh=a.type==='whale';
+      const lg=ctx.createLinearGradient(a.x,a.y,b.x,b.y);lg.addColorStop(0,wh?'rgba(255,178,74,.30)':'rgba(110,168,255,.20)');lg.addColorStop(1,'rgba(120,200,255,.02)');
+      ctx.strokeStyle=lg;ctx.lineWidth=wh?1.3:0.8;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke()
+      const pc=wh?'255,210,110':'130,210,255';
+      for(let k=0;k<2;k++){const fp=((t*0.6+(a.x+a.y)+k*35)%70)/70;const fx=a.x+(b.x-a.x)*fp,fy=a.y+(b.y-a.y)*fp;const pr=(wh?2.2:1.6)*3;const pg=ctx.createRadialGradient(fx,fy,0,fx,fy,pr);pg.addColorStop(0,'rgba('+pc+',.85)');pg.addColorStop(1,'rgba('+pc+',0)');ctx.fillStyle=pg;ctx.beginPath();ctx.arc(fx,fy,pr,0,7);ctx.fill()}}
+    // 中枢脉冲环
+    for(let i=0;i<3;i++){const rr=(t*0.9+i*42)%126;const al=Math.max(0,1-rr/126)*0.22;ctx.strokeStyle='rgba(150,180,255,'+al+')';ctx.lineWidth=1.3;ctx.beginPath();ctx.arc(core.x,core.y,rr,0,7);ctx.stroke()}
+    // 节点辉光
+    for(const n of N){const c=COL[n.type];const pr=n.type==='whale'?n.r+Math.sin(t*0.05+n.x*0.1)*1.8:n.r+(n.type==='signal'?Math.sin(t*0.09+n.y)*0.7:0);const g=ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,pr*2.5);g.addColorStop(0,c);g.addColorStop(.4,c+'4d');g.addColorStop(1,c+'00');ctx.fillStyle=g;ctx.beginPath();ctx.arc(n.x,n.y,pr*2.5,0,7);ctx.fill()}
+    // 实心核 + 高光环（正常混合）
+    ctx.globalCompositeOperation='source-over'
+    for(const n of N){const c=COL[n.type];const pr=n.type==='whale'?n.r+Math.sin(t*0.05+n.x*0.1)*1.8:n.r;ctx.fillStyle=c;ctx.beginPath();ctx.arc(n.x,n.y,pr,0,7);ctx.fill();
+      if(n.type==='whale'||n.type==='core'||n.type==='product'){ctx.strokeStyle='rgba(255,255,255,.55)';ctx.lineWidth=1;ctx.beginPath();ctx.arc(n.x,n.y,pr+1.5,0,7);ctx.stroke()}
+      if(n===hover){ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.arc(n.x,n.y,pr+4.5,0,7);ctx.stroke()}
+      if(n===hover||n.type==='core'||n.type==='product'){ctx.fillStyle='#eaf0fb';ctx.font='600 11px Inter,-apple-system,sans-serif';ctx.textAlign='center';ctx.shadowColor='#000';ctx.shadowBlur=6;ctx.fillText(String(n.label).slice(0,18),n.x,n.y-pr-6);ctx.shadowBlur=0}}
     t++
   }
   const loop=()=>{stepSim();stepSim();draw();raf=requestAnimationFrame(loop)};loop()
