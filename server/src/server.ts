@@ -50,6 +50,7 @@ import { startRetention } from './retention.ts'
 import { startReserveHistory } from './reservehistory.ts'
 import { startSnapshots } from './snapshot.ts'
 import { registerSeo, startSeo } from './seo.ts'
+import { registerIndexNow } from './indexnow.ts'
 import { startBrandStore } from './brandstore.ts'
 import { startDailyInsight } from './content/dailyinsight.ts'
 import { startDirectory } from './directory.ts'
@@ -106,6 +107,7 @@ async function main() {
   // registered BEFORE fastifyStatic/notFoundHandler so /casino, /rankings, /chains,
   // /methodology and /sitemap.xml are served as real HTML, not the SPA shell.
   registerSeo(app)
+  registerIndexNow(app) // serve the IndexNow key file (search-engine ownership proof)
   registerSocialIntel(app) // 内部社媒情报面板 /internal/social + 管理员 API（注册在 SPA 兜底前）
 
   // Serve the built SPA in production (single-process deploy). Vite emits

@@ -6,6 +6,7 @@ import { brandKey, brandName, matchCasinoMeta, type CasinoMeta } from './casinom
 import { reviewScores, type ReviewScore } from './collectors/reviews.ts'
 import { reserveSeries } from './reservehistory.ts'
 import { brandRiskEvents, recentRiskEvents, type RiskEvent } from './riskevents.ts'
+import { pingIndexNow } from './indexnow.ts'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Phase 2 — data-led SEO pages. We pre-render REAL, indexable HTML for high-value
@@ -1547,7 +1548,10 @@ export function registerSeo(app: FastifyInstance) {
 }
 
 export function startSeo() {
-  const run = () => generateSeoPages().catch((e) => console.warn('[seo] generation failed:', (e as Error).message))
+  const run = () =>
+    generateSeoPages()
+      .then(() => pingIndexNow())
+      .catch((e) => console.warn('[seo] generation failed:', (e as Error).message))
   // run after the snapshot warms the aggregate cache (snapshot fires at +150s)
   setTimeout(run, 210_000)
   setInterval(run, 30 * 60_000).unref?.()
