@@ -13,7 +13,12 @@ import { unlockedFetch, tierName } from './unlocker.ts'
 // ─────────────────────────────────────────────────────────────────────────────
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
-const RECHECK_MS = 21 * 24 * 3600_000 // refresh a rating every ~3 weeks
+// Each fetch spends ~30 ScraperAPI credits (Trustpilot needs the ultra tier — it
+// fingerprint-blocks even residential IPs, so we can't downgrade or use the free
+// proxy here). Across the whole directory this is the dominant credit consumer, so
+// recheck infrequently — Trustpilot ratings move over months, not weeks. ~45 days
+// roughly halves the monthly spend vs the old 21. Env-overridable for tuning.
+const RECHECK_MS = Number(process.env.TRUSTPILOT_RECHECK_DAYS ?? 45) * 24 * 3600_000
 
 // Reachable casinos first (site_ok), then never-checked before stale ones.
 const pickNext = db.prepare(

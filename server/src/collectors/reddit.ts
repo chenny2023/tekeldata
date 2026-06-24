@@ -72,12 +72,20 @@ export async function runRedditOnce() {
   for (let attempt = 0; attempt < 2 && !xml; attempt++) {
     try {
       const init = { headers: { 'User-Agent': UA, Accept: 'application/atom+xml,application/xml,text/xml' }, signal: AbortSignal.timeout(70_000) }
-      const res = (await unlockedFetch('reddit', url, init)) ?? (await webFetch(url, { ...init, signal: AbortSignal.timeout(20_000) }))
-      if (res.ok) {
+      // Try the FREE residential proxy first — the RSS search feed comes through it,
+      // and reddit is by far the highest-frequency unlocker caller, so unlocker-first
+      // here was the bulk of the monthly ScraperAPI spend on data the proxy already
+      // returns. Only spend an unlocker credit if the proxy is actually blocked.
+      let res = await webFetch(url, { ...init, signal: AbortSignal.timeout(20_000) }).catch(() => null)
+      if (!res || !res.ok) {
+        const u = unlockedFetch('reddit', url, init)
+        if (u) res = await u
+      }
+      if (res && res.ok) {
         xml = await res.text()
         break
       }
-      lastErr = new Error(`HTTP ${res.status}`)
+      lastErr = new Error(`HTTP ${res?.status ?? 'fetch-failed'}`)
     } catch (e) {
       lastErr = e as Error
     }

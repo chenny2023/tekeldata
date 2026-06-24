@@ -257,8 +257,13 @@ async function redditSearch(query: string, subreddits: string[]): Promise<string
   const url = `https://www.reddit.com/search.rss?q=${q}&sort=new&limit=25`
   const init = { headers: { 'User-Agent': UA, Accept: 'application/atom+xml,application/xml,text/xml' }, signal: AbortSignal.timeout(70_000) }
   try {
-    const res = (await unlockedFetch('reddit', url, init)) ?? (await webFetch(url, { ...init, signal: AbortSignal.timeout(20_000) }))
-    if (res.ok) return await res.text()
+    // free residential proxy first; unlocker credit only if the proxy is blocked
+    let res = await webFetch(url, { ...init, signal: AbortSignal.timeout(20_000) }).catch(() => null)
+    if (!res || !res.ok) {
+      const u = unlockedFetch('reddit', url, init)
+      if (u) res = await u
+    }
+    if (res && res.ok) return await res.text()
   } catch {
     /* swallow — caller backs off */
   }

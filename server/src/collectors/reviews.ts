@@ -15,7 +15,14 @@ import { brandKey, brandName, matchCasinoMeta } from '../casinometa.ts'
 // ─────────────────────────────────────────────────────────────────────────────
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
-const REFRESH_DAYS = 3
+// Review scores move on a scale of weeks, not days. The paid-unlocker sources
+// (Trustpilot, AskGamblers) each cost ~30 ScraperAPI credits per fetch, so a tight
+// re-fetch interval is what exhausts the monthly quota — refresh them rarely. The
+// free sources (casino.guru / casino.org, fetched through the residential proxy
+// pool, no credit cost) can refresh more often. Env-overridable.
+const REFRESH_DAYS_PAID = Number(process.env.REVIEWS_REFRESH_DAYS_PAID ?? 30) // trustpilot, askgamblers (ScraperAPI credits)
+const REFRESH_DAYS_FREE = Number(process.env.REVIEWS_REFRESH_DAYS_FREE ?? 7) // casino.guru, casino.org (free proxy)
+const PAID_SOURCES = new Set(['trustpilot', 'askgamblers'])
 
 const upsert = db.prepare(`
   INSERT INTO reviews(brand_key, source, score, score_max, url, updated_at)
@@ -308,7 +315,8 @@ export async function runReviewsOnce() {
   const { key, name } = queue[cursor++]
   const fresh = (src: string) => {
     const row = db.prepare('SELECT updated_at FROM reviews WHERE brand_key=? AND source=?').get(key, src) as any
-    return row && Date.now() - row.updated_at < REFRESH_DAYS * 86_400_000
+    const days = PAID_SOURCES.has(src) ? REFRESH_DAYS_PAID : REFRESH_DAYS_FREE
+    return row && Date.now() - row.updated_at < days * 86_400_000
   }
 
   // 1) casino.guru Safety Index (skip if recently fetched)
