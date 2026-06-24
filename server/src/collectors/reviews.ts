@@ -247,8 +247,13 @@ async function fetchCasinoOrg(slug: string): Promise<{ score: number; reviewed: 
 async function fetchAskGamblers(slug: string): Promise<{ score: number; reviewed: string } | null> {
   const url = `https://www.askgamblers.com/casino-reviews/${slug}-casino-review`
   const init = { headers: { 'User-Agent': UA, 'Accept-Encoding': 'gzip, deflate' }, signal: AbortSignal.timeout(150_000) }
+  // AskGamblers Cloudflare-blocks keyless/datacenter, so the residential path always
+  // 403s — it's only reachable via the unlocker. When that's unavailable (no key, or
+  // the breaker is open because ScraperAPI's quota is exhausted) skip quietly instead
+  // of hammering a guaranteed-403 residential fetch.
   const p = unlockedFetch('askgamblers', url, init)
-  const res = p ? await p : await webFetch(url, init)
+  if (!p) return null
+  const res = await p
   if (res.status === 404) return null
   if (res.status !== 200) throw new Error(`askgamblers HTTP ${res.status}`)
   const t = await res.text()

@@ -36,7 +36,13 @@ const upsert = db.prepare(`
 `)
 
 function parseSubs(html: string): number | null {
-  const m = html.match(/([\d.,]+)\s*([KMB]?)\s*subscribers/i)
+  // older layout renders the count as visible text ("1.2M subscribers"); newer
+  // layouts only embed it in ytInitialData JSON (subscriberCountText.simpleText or
+  // metadataParts content) — try the text form first, then the JSON form, so
+  // channels that stopped exposing the visible string don't fall to "? subs".
+  const m =
+    html.match(/([\d.,]+)\s*([KMB]?)\s*subscribers/i) ??
+    html.match(/"(?:simpleText|content)":"([\d.,]+)\s*([KMB]?)\s*subscribers"/i)
   if (!m) return null
   let n = parseFloat(m[1].replace(/,/g, ''))
   if (!Number.isFinite(n)) return null

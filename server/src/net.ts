@@ -171,13 +171,28 @@ export function webFetchProxied(url: string, init: FetchInit = {}) {
 // null when unconfigured so callers fall back to the normal residential path.
 // Works with any ScraperAPI-compatible endpoint via SCRAPER_API_ENDPOINT
 // (default https://api.scraperapi.com/), e.g. ScrapingBee with the same shape.
+// Circuit breaker: ScraperAPI replies 403 once the monthly request quota is
+// exhausted, so without a breaker we'd keep firing (and burning the already-over
+// quota) on every collector cycle while every call 403s. On a 403 we open the
+// breaker for a cooldown and return null — callers fall back to their residential/
+// Wayback path (or skip). The next call after the cooldown probes again, so it
+// self-closes when the quota resets.
+let unlockerOpenUntil = 0
+const UNLOCKER_BACKOFF_MS = 2 * 3600_000
+export function unlockerTripped(): boolean {
+  return Date.now() < unlockerOpenUntil
+}
 export function webFetchUnlocked(targetUrl: string, init: FetchInit = {}, extra = ''): Promise<Response> | null {
   const key = process.env.SCRAPER_API_KEY
   if (!key) return null
+  if (Date.now() < unlockerOpenUntil) return null // breaker open (quota exhausted) → fall back / skip
   const endpoint = process.env.SCRAPER_API_ENDPOINT || 'https://api.scraperapi.com/'
   const api = `${endpoint}?api_key=${key}&url=${encodeURIComponent(targetUrl)}${extra}`
   // direct from Railway → the unlocker API (it does the proxying); no local dispatcher
-  return undiciFetch(api, init)
+  return undiciFetch(api, init).then((res) => {
+    if (res.status === 403) unlockerOpenUntil = Date.now() + UNLOCKER_BACKOFF_MS // quota exhausted
+    return res
+  })
 }
 
 // Arkham Intelligence API — on-chain entity attribution (maps addresses ↔ named
