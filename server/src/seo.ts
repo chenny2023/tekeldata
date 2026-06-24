@@ -27,6 +27,32 @@ import { pingIndexNow } from './indexnow.ts'
 // ─────────────────────────────────────────────────────────────────────────────
 
 const SITE = 'https://wcoin.casino'
+// current year for rolling leaderboard titles (variable, never hard-coded) — §3.3
+const YEAR = new Date().getUTCFullYear()
+
+// §3.2 JSON-LD helpers. Dataset = highest information-gain schema for a data site;
+// ItemList = leaderboards. Only VERIFIED on-chain figures feed these (never claimed).
+function datasetLd(name: string, description: string, url: string, modified: number, variableMeasured: string[]): object {
+  return {
+    '@type': 'Dataset',
+    name,
+    description,
+    url,
+    dateModified: new Date(modified).toISOString(),
+    creator: { '@id': SITE + '/#org' },
+    isAccessibleForFree: true,
+    license: 'https://wcoin.casino/methodology/address-attribution',
+    variableMeasured,
+  }
+}
+function itemListLd(items: { url: string; name: string }[]): object {
+  return {
+    '@type': 'ItemList',
+    itemListOrder: 'https://schema.org/ItemListOrderDescending',
+    numberOfItems: items.length,
+    itemListElement: items.map((it, i) => ({ '@type': 'ListItem', position: i + 1, url: it.url, name: it.name })),
+  }
+}
 
 // ── formatting ────────────────────────────────────────────────────────────────
 const esc = (s: string) =>
@@ -468,6 +494,7 @@ function casinoPage(
 
   const body = `${limitedNote}${suspectNote}${sub}${trustLine}${stats}${solvency}${riskSection}${chainTable}${ratingsTable}${refTable}${website}${rel}${compareLinks}${chainBestLinks}${faqHtml}${alertForm}${cta}`
 
+  const pageUpdated = Date.now()
   const jsonLd: object[] = [
     ...(oc
       ? [
@@ -476,8 +503,10 @@ function casinoPage(
             name: `${v.name} on-chain activity dataset`,
             description,
             url,
-            creator: { '@type': 'Organization', name: 'WCOIN.CASINO', url: SITE },
+            dateModified: new Date(pageUpdated).toISOString(),
+            creator: { '@id': SITE + '/#org' },
             isAccessibleForFree: true,
+            license: SITE + '/methodology/address-attribution',
             variableMeasured: ['all-chain tracked reserves (USD)', '7d on-chain volume', 'net flow', 'active counterparties'],
           },
         ]
@@ -498,7 +527,7 @@ function casinoPage(
         { name: v.name, url },
       ],
       h1: oc ? `${v.name} — on-chain data` : `${v.name} — trust ratings & data`,
-      updated: Date.now(),
+      updated: pageUpdated,
       body,
       noindex,
     }),
@@ -585,8 +614,8 @@ function bestOnChainPage(chain: string, entries: { v: CasinoView; slug: string }
   const cslug = slugify(chain)
   const path = `/rankings/best-on-${cslug}`
   const url = SITE + path
-  const title = `Best Crypto Casinos on ${cn} — Ranked by Independent Trust | WCOIN.CASINO`
-  const description = `The most independently-trusted crypto casinos settling on ${cn}, ranked by a blend of third-party trust ratings (not volume). On-chain volume and reserves shown for context. Updated continuously.`
+  const title = `Best ${cn} Crypto Casinos ${YEAR} — Ranked by Independent Trust | WCOIN.CASINO`
+  const description = `The most independently-trusted crypto casinos settling on ${cn} in ${YEAR}, ranked by a blend of third-party trust ratings (not volume). On-chain volume and reserves shown for context. Updated continuously.`
   const rows = entries
     .map((x, i) => {
       const bt = blendedTrust(x.v)
@@ -607,13 +636,13 @@ function bestOnChainPage(chain: string, entries: { v: CasinoView; slug: string }
       title,
       description,
       canonical: url,
-      jsonLd: [],
+      jsonLd: [itemListLd(entries.map((x) => ({ url: `${SITE}/casino/${x.slug}`, name: x.v.name })))],
       breadcrumb: [
         { name: 'Home', url: SITE + '/' },
         { name: 'Rankings', url: SITE + '/rankings' },
         { name: `Best on ${cn}`, url },
       ],
-      h1: `Best crypto casinos on ${cn}`,
+      h1: `Best ${cn} crypto casinos ${YEAR}`,
       updated: Date.now(),
       body,
     }),
@@ -944,9 +973,8 @@ function chainPage(chain: string, brands: BrandAgg[], slugOfBrand: (b: BrandAgg)
 <p class="upd">${onChain.length} operators · ${fmtUsd(total)} total 7d volume · <a href="/rankings">all rankings</a></p>
 <table><thead><tr><th>#</th><th>Operator</th><th style="text-align:right">7d volume on ${esc(name)}</th><th></th></tr></thead><tbody>${trows}</tbody></table>
 <p class="prose" style="margin-top:22px">This is on-chain settlement volume attributed to casino wallets on ${esc(name)} — see the <a href="/methodology/on-chain-volume">volume methodology</a> for how it's measured, or the live <a href="/app/blockchain">on-chain feed</a>.</p>`
-  const jsonLd = [
-    { '@type': 'Dataset', name: `${name} crypto-casino on-chain volume`, description, url, creator: { '@type': 'Organization', name: 'WCOIN.CASINO', url: SITE }, isAccessibleForFree: true },
-  ]
+  const chUpdated = Date.now()
+  const jsonLd = [datasetLd(`${name} crypto-casino on-chain volume`, description, url, chUpdated, ['7d on-chain volume', 'per-operator settlement'])]
   return {
     title,
     description,
@@ -961,7 +989,7 @@ function chainPage(chain: string, brands: BrandAgg[], slugOfBrand: (b: BrandAgg)
         { name, url },
       ],
       h1: `${name} crypto casinos`,
-      updated: Date.now(),
+      updated: chUpdated,
       body,
     }),
   }
