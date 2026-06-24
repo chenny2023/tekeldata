@@ -40,7 +40,8 @@ function parseJson(s: string): any | null {
   }
 }
 
-async function callModel(model: string, system: string, user: string): Promise<any | null> {
+async function callModel(model: string, system: string, user: string, maxTokens?: number): Promise<any | null> {
+  const mt = maxTokens ?? Number(env.OPENROUTER_MAX_TOKENS ?? 2000)
   const res = await webFetch(`${BASE()}/chat/completions`, {
     method: 'POST',
     headers: headers(),
@@ -48,7 +49,7 @@ async function callModel(model: string, system: string, user: string): Promise<a
       model,
       temperature: Number(env.OPENROUTER_TEMPERATURE ?? 0.4),
       top_p: Number(env.OPENROUTER_TOP_P ?? 0.8),
-      max_tokens: Number(env.OPENROUTER_MAX_TOKENS ?? 2000),
+      max_tokens: mt,
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: system },
@@ -57,6 +58,13 @@ async function callModel(model: string, system: string, user: string): Promise<a
     }),
     signal: AbortSignal.timeout(90_000),
   })
+  // 余额不足时 OpenRouter 返回 402 并告知「最多能负担 N tokens」——降额重试一次，避免整条功能直接不可用。
+  if (res.status === 402 && maxTokens == null) {
+    const txt = await res.text()
+    const afford = Number((txt.match(/can only afford (\d+)/i) || [])[1] || 0)
+    if (afford >= 256) { console.warn(`[content] OpenRouter 余额偏低，降额到 ${afford - 64} tokens 重试（请尽快充值）`); return callModel(model, system, user, afford - 64) }
+    throw new Error(`OpenRouter 余额不足，请充值：${txt.slice(0, 140)}`)
+  }
   if (!res.ok) throw new Error(`HTTP ${res.status} ${(await res.text()).slice(0, 200)}`)
   const j = (await res.json()) as any
   const text = j?.choices?.[0]?.message?.content ?? ''
