@@ -1,6 +1,7 @@
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import fastifyStatic from '@fastify/static'
+import { parse as qsParse } from 'node:querystring'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { existsSync } from 'node:fs'
@@ -86,6 +87,16 @@ async function main() {
   seedWatchlist()
 
   const app = Fastify({ logger: false })
+  // Parse HTML form posts. The server-rendered SEO pages submit the email digest
+  // (/subscribe) + per-casino reserve-alert (/api/casino-alert) forms as
+  // application/x-www-form-urlencoded; without a parser Fastify replies 415.
+  app.addContentTypeParser('application/x-www-form-urlencoded', { parseAs: 'string' }, (_req, body, done) => {
+    try {
+      done(null, qsParse(body as string))
+    } catch (e) {
+      done(e as Error)
+    }
+  })
   // Lock CORS to our own origins in production (auth is a Bearer token, but there's
   // no reason to reflect arbitrary origins). Dev allows localhost.
   const allowedOrigins = (process.env.CORS_ORIGINS ||
