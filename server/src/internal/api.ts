@@ -8,7 +8,7 @@ import { generateContent, openrouterEnabled } from '../content/openrouter.ts'
 import { translateOne, translateBatch } from './translate.ts'
 import { registerWgAuth, requireTeam } from './wgauth.ts'
 import { listKols, kolStats, setKolStatus, generateKolDm, enrichKolContacts } from './kol.ts'
-import { generateChannelPosts, listChannelPosts, regenChannelImage } from './channelposts.ts'
+import { generateChannelPost, listChannelPosts, regenChannelImage, channelList } from './channelposts.ts'
 import { listAppWatch, refreshAppWatch, refreshPlayWatch, analyzeApp } from './appwatch.ts'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -231,11 +231,14 @@ export function registerSocialIntel(app: FastifyInstance): void {
   // B2. 选题 → 多渠道帖子（X/Reddit/LinkedIn/公众号/小红书 + 配图）
   app.get('/api/internal/social/topic/:id/posts', async (req, reply) => {
     if (!requireAdmin(req, reply)) return
-    return { posts: listChannelPosts(Number((req.params as any).id)) }
+    return { posts: listChannelPosts(Number((req.params as any).id)), channels: channelList() }
   })
+  // 按平台逐个生成：必须指定 channel
   app.post('/api/internal/social/topic/:id/posts', async (req, reply) => {
     if (!requireAdmin(req, reply)) return
-    const r = await generateChannelPosts(Number((req.params as any).id))
+    const b = req.body as { channel?: string }
+    if (!b?.channel) return reply.code(400).send({ error: '请指定渠道 channel' })
+    const r = await generateChannelPost(Number((req.params as any).id), b.channel)
     return r.ok ? r : reply.code(400).send(r)
   })
   app.post('/api/internal/social/topic/:id/image', async (req, reply) => {

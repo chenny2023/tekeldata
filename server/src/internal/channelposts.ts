@@ -57,44 +57,43 @@ export function listChannelPosts(topicId: number): any[] {
     .map((r) => ({ ...r, hashtags: r.hashtags ? JSON.parse(r.hashtags) : [], name: CHANNELS.find((c) => c.key === r.channel)?.name || r.channel }))
 }
 
-export async function generateChannelPosts(topicId: number): Promise<{ ok: boolean; message: string; posts?: any[] }> {
+export function channelList(): { key: string; name: string }[] { return CHANNELS.map((c) => ({ key: c.key, name: c.name })) }
+
+// 生成单个渠道的帖子（按平台逐个生成）。
+export async function generateChannelPost(topicId: number, channel: string): Promise<{ ok: boolean; message: string; post?: any }> {
   if (!openrouterEnabled()) return { ok: false, message: 'OPENROUTER_API_KEY 未配置' }
+  const spec = CHANNELS.find((c) => c.key === channel)
+  if (!spec) return { ok: false, message: `未知渠道 ${channel}` }
   const t = db.prepare('SELECT * FROM social_topics WHERE id=?').get(topicId) as
     | { id: number; product: string; topic: string; question: string; angle: string; keyword: string } | undefined
   if (!t) return { ok: false, message: '未找到该选题' }
   const prod = productByKey(t.product)
   if (!prod) return { ok: false, message: `未知产品 ${t.product}` }
 
-  const specs = CHANNELS.map((c) => `- ${c.key} (${c.name}, 语言:${c.lang === 'zh' ? '中文' : 'English'}): ${c.guide}`).join('\n')
   const system =
-    '你是资深多渠道内容运营。给定一个选题，为以下每个渠道分别产出【可直接发布】的帖子，严格符合各渠道的规范、内容风格与流量打法（hook/结构/长度/话题标签）。\n' +
-    `渠道规范：\n${specs}\n` +
-    '语言务必遵守每个渠道标注（x/reddit/linkedin 用英文，公众号/小红书 用中文）。每个渠道再给一个英文 image_prompt（描述该帖配图，画面具体、无文字/无水印、适合该平台调性）。\n' +
-    '只返回 JSON：{"posts":[{"channel":"x|reddit|linkedin|wechat|xiaohongshu","title":"","body":"","hashtags":["..."],"image_prompt":"..."}]}（5 个渠道各一条）。'
+    `你是资深内容运营。为【${spec.name}】这一个渠道产出一条【可直接发布】的帖子，严格符合该渠道的规范、风格与流量打法。\n` +
+    `渠道规范（语言：${spec.lang === 'zh' ? '中文' : 'English'}）：${spec.guide}\n` +
+    '再给一个英文 image_prompt（描述该帖配图，画面具体、无文字/无水印、契合该平台调性）。\n' +
+    '只返回 JSON：{"title":"","body":"","hashtags":["..."],"image_prompt":"..."}'
   const user = `产品：${prod.name} — ${prod.pitch}\n选题：${t.topic}\n用户在问：${t.question || '(无)'}\n切入角度：${t.angle || '(无)'}\n核心关键词：${t.keyword || '(无)'}`
 
   const res = await generateContent(system, user)
-  const posts = (res?.data?.posts ?? []) as any[]
-  if (!Array.isArray(posts) || posts.length === 0) return { ok: false, message: 'AI 未返回有效帖子，请重试（或检查 OpenRouter 余额）' }
+  const p = (res?.data ?? {}) as { title?: string; body?: string; hashtags?: any; image_prompt?: string }
+  if (!p.body && !p.title) return { ok: false, message: 'AI 未返回有效内容，请重试（或检查 OpenRouter 余额）' }
 
-  const doImages = (process.env.SOCIAL_POST_IMAGES ?? '1') !== '0'
-  const now = Date.now()
-  for (const p of posts) {
-    const spec = CHANNELS.find((c) => c.key === p.channel)
-    if (!spec) continue
-    let image = ''
-    if (doImages && p.image_prompt) {
-      try { image = (await generateImage(String(p.image_prompt).slice(0, 500), spec.aspect)) || '' } catch { image = '' }
-    }
-    upsert.run({
-      topic_id: topicId, product: t.product, channel: spec.key,
-      title: String(p.title || '').slice(0, 400), body: String(p.body || '').slice(0, 6000),
-      hashtags: JSON.stringify(Array.isArray(p.hashtags) ? p.hashtags.slice(0, 15) : []),
-      image_url: image.slice(0, 1_500_000), image_prompt: String(p.image_prompt || '').slice(0, 500),
-      model: res?.model || '', created_ts: now,
-    })
+  let image = ''
+  if ((process.env.SOCIAL_POST_IMAGES ?? '1') !== '0' && p.image_prompt) {
+    try { image = (await generateImage(String(p.image_prompt).slice(0, 500), spec.aspect)) || '' } catch { image = '' }
   }
-  return { ok: true, message: '已生成多渠道帖子', posts: listChannelPosts(topicId) }
+  upsert.run({
+    topic_id: topicId, product: t.product, channel: spec.key,
+    title: String(p.title || '').slice(0, 400), body: String(p.body || '').slice(0, 6000),
+    hashtags: JSON.stringify(Array.isArray(p.hashtags) ? p.hashtags.slice(0, 15) : []),
+    image_url: image.slice(0, 1_500_000), image_prompt: String(p.image_prompt || '').slice(0, 500),
+    model: res?.model || '', created_ts: Date.now(),
+  })
+  const post = listChannelPosts(topicId).find((x) => x.channel === spec.key)
+  return { ok: true, message: `已生成 ${spec.name} 帖子`, post }
 }
 
 // 单独(重)生成某渠道配图（面板"换图"按钮）。

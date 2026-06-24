@@ -51,7 +51,6 @@ import { startReserveHistory } from './reservehistory.ts'
 import { startSnapshots } from './snapshot.ts'
 import { registerSeo, startSeo } from './seo.ts'
 import { startBrandStore } from './brandstore.ts'
-import { startContent } from './content/pipeline.ts'
 import { startDailyInsight } from './content/dailyinsight.ts'
 import { startDirectory } from './directory.ts'
 import { startGuruSpider } from './collectors/guruspider.ts'
@@ -243,7 +242,6 @@ async function main() {
   startDigest() // 1.0 daily email digest scheduler (sends at DIGEST_SEND_HOUR_UTC)
   startSeo() // Phase 2: rebuild stored SEO landing pages from the warm aggregate cache
   startBrandStore() // 1.0: materialise the persistent brand layer (history / audit)
-  startContent() // automated X content pipeline (OpenRouter Grok → QA → publish) — off until CONTENT_ENABLED=1
   startDirectory() // casino directory crawler (site/X/email vetting for outreach)
   startGuruSpider() // casino.guru spider — fans the directory out to thousands of casinos
   startTrustpilotCategory() // Trustpilot casino-category sweep — merges consumer ratings onto the directory

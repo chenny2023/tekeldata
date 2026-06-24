@@ -4,9 +4,7 @@ import { bus, TransferEvent } from './bus.ts'
 import { aggregateEntities, aggregateBrands, maintainedPlayers } from './aggregate.ts'
 import { runDataQualityChecks, lastDataQuality } from './dataquality.ts'
 import { brandHistory } from './brandstore.ts'
-import { previewContent, previewRankingCard, runContent } from './content/pipeline.ts'
 import { renderDailyShareCard } from './content/card.ts'
-import { xEnabled } from './content/xclient.ts'
 import { reserveSeries } from './reservehistory.ts'
 import { twitchEnabled } from './collectors/twitch.ts'
 import { redditEnabled } from './collectors/reddit.ts'
@@ -1175,37 +1173,7 @@ export async function registerApi(app: FastifyInstance) {
     return { items: db.prepare('SELECT * FROM risk_event ORDER BY observed_at DESC LIMIT 300').all() }
   })
 
-  // automated content pipeline (gated): dry-run preview (generate + QA, never posts)
-  // + recent run log. Lets you verify Grok output + QA before enabling auto-publish.
-  app.get('/api/content/preview', async (req, reply) => {
-    if (!requireAdmin(req, reply)) return
-    const type = (req.query as { type?: string })?.type ?? 'daily_market_thread'
-    return previewContent(type)
-  })
-  app.get('/api/content/log', async (req, reply) => {
-    if (!requireAdmin(req, reply)) return
-    return { items: db.prepare('SELECT date, content_type, status, risk_level, model, published_url, skipped_reason, error, created_at FROM content_log ORDER BY created_at DESC LIMIT 100').all() }
-  })
-  // rendered ranking card PNG (exact snapshot data, branded) — eyeball before publishing
-  app.get('/api/content/card-preview.png', async (req, reply) => {
-    if (!requireAdmin(req, reply)) return
-    const png = await previewRankingCard()
-    if (!png) return reply.code(503).send({ error: 'no snapshot or renderer unavailable' })
-    return reply.header('Content-Type', 'image/png').header('Cache-Control', 'no-store').send(png)
-  })
-  // gated: publish ONE content item to X right now (manual trigger from the Social
-  // admin page). This is an irreversible PUBLIC post — login-gated, explicit type.
-  // Fire-and-forget: publishing retries with backoff (up to ~16min) on X errors, so
-  // we never hang the request. Poll /api/content/log for the result + published_url.
-  const PUBLISHABLE = new Set(['top_ranking_image_post', 'daily_market_thread', 'rotating_signal_post'])
-  app.post('/api/content/publish', async (req, reply) => {
-    if (!requireAdmin(req, reply)) return
-    const type = (req.body as { type?: string })?.type ?? 'top_ranking_image_post'
-    if (!PUBLISHABLE.has(type)) return reply.code(400).send({ error: 'invalid content type' })
-    if (!xEnabled()) return reply.code(503).send({ error: 'X keys not configured — cannot publish' })
-    void runContent(type, true).catch((e) => console.error('[content] manual publish error:', e))
-    return { started: true, type, note: 'publishing to X — poll /api/content/log (Recent runs) for the result + post link' }
-  })
+  // (X auto-publish content pipeline removed — automated social posting retired.)
 
   // ── alerts: user-defined rules + fired events ────────────────────────────────
   app.get('/api/alerts/rules', async (req, reply) => {

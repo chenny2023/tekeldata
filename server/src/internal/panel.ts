@@ -196,7 +196,8 @@ const EN={
 '对方未开放私信':'DMs not open',
 '生成合作 DM':'Generate collaboration DM','🔎 找联系方式':'🔎 Find contacts','官网':'Site','可私信':'DM open','查找中…':'Searching…',
 '✍️ 多渠道帖子':'✍️ Multi-channel posts','🔄 重新生成':'🔄 Regenerate','🖼 换图':'🖼 New image','加载中…':'Loading…','生成中…(含配图)':'Generating… (with image)','生成中…':'Generating…',
-'X · Reddit · LinkedIn · 公众号 · 小红书（按渠道规范 + 配图）':'X · Reddit · LinkedIn · WeChat · RED (per-channel format + image)','已换图':'Image regenerated','换图失败':'Image failed',
+'已换图':'Image regenerated','换图失败':'Image failed',
+'选平台逐个生成 →':'Generate per platform →','🔄 重写':'🔄 Rewrite','重写中…':'Rewriting…','已重写':'Rewritten','处理中…':'Working…','公众号':'WeChat','小红书':'RED',
 '暂无邮箱/TG/Discord · 点"🔎 找联系方式"深挖主页':'No email/TG/Discord yet · click “🔎 Find contacts” to dig the homepage',
 '已补全触达方式':'Contacts updated','未找到额外联系方式（可看主页/DM）':'No extra contacts found (use homepage/DM)',
 '为产品生成选题':'Generate topics for product',
@@ -722,6 +723,7 @@ function chPostHtml(tid,p){
   return '<div class="card" style="margin:8px 0">'+
     '<div class="crow"><span class="pill plat">'+esc(p.name||p.channel)+'</span>'+
       '<button class="btn sm right" data-act="cpcopy" data-id="'+tid+':'+esc(p.channel)+'">📋 复制</button>'+
+      '<button class="btn sm ghost" data-act="tpostre" data-id="'+tid+':'+esc(p.channel)+'" title="重新生成这条">🔄 重写</button>'+
       '<button class="btn sm ghost" data-act="cpimg" data-id="'+tid+':'+esc(p.channel)+'" title="重新生成配图">🖼 换图</button></div>'+
     '<div id="cpimg-'+tid+'-'+esc(p.channel)+'">'+(p.image_url?'<img src="'+esc(p.image_url)+'" style="max-width:240px;border-radius:8px;margin-top:8px;display:block">':'')+'</div>'+
     (p.title?'<div class="title">'+esc(p.title)+'</div>':'')+
@@ -729,9 +731,17 @@ function chPostHtml(tid,p){
     (tags?'<div class="dim" style="font-size:12px;margin-top:6px">'+esc(tags)+'</div>':'')+
     '<textarea id="cp-'+tid+'-'+esc(p.channel)+'" readonly style="position:absolute;left:-9999px;top:-9999px">'+esc(full)+'</textarea></div>'
 }
-function chPostsBlock(id,posts){return '<div class="crow" style="margin:6px 0"><button class="btn sm ghost" data-act="tregen" data-id="'+id+'">🔄 重新生成</button></div>'+posts.map(p=>chPostHtml(id,p)).join('')}
-H.tposts=async(id,btn)=>{if(btn){btn.textContent='加载中…';btn.disabled=true}let r=await api('/api/internal/social/topic/'+id+'/posts');if(!(r.posts&&r.posts.length)){if(btn)btn.textContent='生成中…(含配图)';r=await api('/api/internal/social/topic/'+id+'/posts',{method:'POST'})}if(r.posts&&r.posts.length)$('#tp-posts-'+id).innerHTML=chPostsBlock(id,r.posts);else toast(r.error||r.message||'生成失败');if(btn){btn.textContent='✍️ 多渠道帖子';btn.disabled=false}}
-H.tregen=async(id,btn)=>{if(btn){btn.textContent='生成中…(含配图)';btn.disabled=true}const r=await api('/api/internal/social/topic/'+id+'/posts',{method:'POST'});if(r.ok&&r.posts)$('#tp-posts-'+id).innerHTML=chPostsBlock(id,r.posts);else toast(r.error||r.message||'失败');if(btn){btn.textContent='🔄 重新生成';btn.disabled=false}}
+const CHN={x:'X',reddit:'Reddit',linkedin:'LinkedIn',wechat:'公众号',xiaohongshu:'小红书'}
+function setChannelCard(tid,ch,post){let w=$('#cp-card-'+tid+'-'+ch);if(!w){w=document.createElement('div');w.id='cp-card-'+tid+'-'+ch;$('#tp-posts-'+tid).appendChild(w)}w.innerHTML=chPostHtml(tid,post)}
+// 按平台逐个生成：先 GET（已生成则直接展示，不重复花钱），没有再 POST 生成该渠道
+H.tpost=async(raw,btn)=>{const i=raw.lastIndexOf(':');const tid=raw.slice(0,i),ch=raw.slice(i+1)
+  if($('#cp-card-'+tid+'-'+ch)){$('#cp-card-'+tid+'-'+ch).scrollIntoView({block:'nearest'});return}
+  if(btn){btn.textContent='处理中…';btn.disabled=true}
+  let r=await api('/api/internal/social/topic/'+tid+'/posts');let post=(r.posts||[]).find(p=>p.channel===ch)
+  if(!post){if(btn)btn.textContent='生成中…(含配图)';const g=await api('/api/internal/social/topic/'+tid+'/posts',{method:'POST',body:JSON.stringify({channel:ch})});post=g.post;if(!post)toast(g.error||g.message||'生成失败')}
+  if(post)setChannelCard(tid,ch,post)
+  if(btn){btn.textContent='✍️ '+(CHN[ch]||ch);btn.disabled=false}}
+H.tpostre=async(raw,btn)=>{const i=raw.lastIndexOf(':');const tid=raw.slice(0,i),ch=raw.slice(i+1);if(btn){btn.textContent='重写中…';btn.disabled=true}const g=await api('/api/internal/social/topic/'+tid+'/posts',{method:'POST',body:JSON.stringify({channel:ch})});if(g.ok&&g.post){setChannelCard(tid,ch,g.post);toast('已重写')}else toast(g.error||g.message||'失败');if(btn){btn.textContent='🔄 重写';btn.disabled=false}}
 H.cpcopy=raw=>{const i=raw.lastIndexOf(':');const ta=$('#cp-'+raw.slice(0,i)+'-'+raw.slice(i+1));if(ta){ta.select();navigator.clipboard.writeText(ta.value);toast('已复制到剪贴板')}}
 H.cpimg=async(raw,btn)=>{const i=raw.lastIndexOf(':');const tid=raw.slice(0,i),ch=raw.slice(i+1);if(btn){btn.textContent='生成中…';btn.disabled=true}const r=await api('/api/internal/social/topic/'+tid+'/image',{method:'POST',body:JSON.stringify({channel:ch})});if(r.ok&&r.image_url){const w=$('#cpimg-'+tid+'-'+ch);if(w)w.innerHTML='<img src="'+esc(r.image_url)+'" style="max-width:240px;border-radius:8px;margin-top:8px;display:block">';toast('已换图')}else toast(r.error||r.message||'换图失败');if(btn){btn.textContent='🖼 换图';btn.disabled=false}}
 async function renderTopics(){
@@ -748,7 +758,8 @@ async function renderTopics(){
     '<div class="title">'+esc(t.topic)+'</div>'+
     (t.question?'<div class="mut" style="font-size:13px">❓ 用户在问：'+esc(t.question)+'</div>':'')+
     (t.angle?'<div class="rationale">✍️ 切入角度：'+esc(t.angle)+'</div>':'')+
-    '<div class="crow" style="margin-top:10px"><button class="btn sm pri" data-act="tposts" data-id="'+t.id+'">✍️ 多渠道帖子</button><span class="dim" style="font-size:12px">X · Reddit · LinkedIn · 公众号 · 小红书（按渠道规范 + 配图）</span></div>'+
+    '<div class="crow" style="margin-top:10px"><span class="dim" style="font-size:12px">选平台逐个生成 →</span>'+
+      [['x','X'],['reddit','Reddit'],['linkedin','LinkedIn'],['wechat','公众号'],['xiaohongshu','小红书']].map(c=>'<button class="btn sm ghost" data-act="tpost" data-id="'+t.id+':'+c[0]+'">✍️ '+c[1]+'</button>').join('')+'</div>'+
     '<div id="tp-posts-'+t.id+'"></div></div>').join('')
     :'<div class="empty"><div class="big">💡</div>还没有选题。<br><span class="mut">选一个产品点"AI 归纳选题"，会从该产品近期需求贴里聚类出可排名/可转化的内容选题。</span></div>'
   $('#app').innerHTML=shell('<p class="lead">把反复出现的用户需求，聚类成可以写文章/落地页去抢排名的选题。这是把社媒需求转成"24h 自动获客"的复利打法。</p>'+bar+cards)

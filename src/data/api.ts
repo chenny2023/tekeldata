@@ -181,30 +181,6 @@ export interface StreamerDetail {
   live: StreamerRow | null
 }
 
-export interface ContentPreview {
-  status: string // qa_pass | risk_high | qa_fail | generation_fail | disabled | qa_pass_no_x_keys
-  risk?: string
-  error?: string
-  data?: {
-    content_type?: string
-    tweets?: { text: string }[]
-    post_text?: string
-    image?: { title?: string; subtitle?: string; rows?: { rank: number; brand: string; value: string }[]; footer?: string }
-    data_notes?: string[]
-  }
-  qa?: { pass: boolean; riskLevel: string; failures: string[] }
-}
-export interface ContentLogRow {
-  date: string
-  content_type: string
-  status: string
-  risk_level: string | null
-  model: string | null
-  published_url: string | null
-  skipped_reason: string | null
-  error: string | null
-  created_at: number
-}
 
 export interface FavoriteItem {
   brandKey: string
@@ -432,16 +408,6 @@ export const api = {
   },
   series: (days = 7, category = 'casino') =>
     getJson<SeriesPoint[]>(`/series?days=${days}` + (category && category !== 'all' ? `&category=${category}` : '')),
-  // automated X content pipeline — dry-run preview (generate + QA, never posts) + run log
-  contentPreview: (type: string) => getJson<ContentPreview>(`/content/preview?type=${encodeURIComponent(type)}`),
-  contentLog: () => getJson<{ items: ContentLogRow[] }>('/content/log'),
-  contentCardImage: async (): Promise<string> => {
-    const res = await fetch(`${BASE}/content/card-preview.png`, { headers: authHeaders() })
-    if (!res.ok) throw new Error('card unavailable')
-    return URL.createObjectURL(await res.blob())
-  },
-  contentPublish: (type: string) =>
-    sendJson<{ started?: boolean; type?: string; note?: string; error?: string }>('/content/publish', 'POST', { type }),
   submit: (body: { type: 'attribution' | 'correction'; brand?: string; email?: string; message: string; evidenceUrl?: string }) =>
     sendJson<{ ok?: boolean; error?: string }>('/submit', 'POST', body),
   entitySeries: (id: number, days = 30) =>

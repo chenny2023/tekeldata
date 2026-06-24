@@ -20,7 +20,6 @@ const Watchlist = lazy(() => import('./pages/Watchlist'))
 const Alerts = lazy(() => import('./pages/Alerts'))
 const Reports = lazy(() => import('./pages/Reports'))
 const Daily = lazy(() => import('./pages/Daily'))
-const Content = lazy(() => import('./pages/Content'))
 
 // Gate the whole dashboard behind a valid login: no token → straight to /login;
 // a token is verified against /auth/me so an expired/invalid one also redirects.
@@ -64,7 +63,6 @@ function Dashboard() {
         <Route path="watchlist" element={<Watchlist />} />
         <Route path="alerts" element={<Alerts />} />
         <Route path="reports" element={<Reports />} />
-        <Route path="content" element={<Content />} />
         {/* API Access retired (1.0): not productizing a public API. Redirect old links. */}
         <Route path="api" element={<Navigate to="/app" replace />} />
         </Routes>
