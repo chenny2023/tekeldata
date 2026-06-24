@@ -1,6 +1,5 @@
-import { Suspense, lazy, useEffect, useState } from 'react'
+import { Suspense, lazy } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { api, getToken, setToken } from './data/api'
 import Layout from './components/Layout'
 import { BrandLoader } from './components/BrandLoader'
 import Landing from './pages/Landing'
@@ -21,31 +20,8 @@ const Alerts = lazy(() => import('./pages/Alerts'))
 const Reports = lazy(() => import('./pages/Reports'))
 const Daily = lazy(() => import('./pages/Daily'))
 
-// Gate the whole dashboard behind a valid login: no token → straight to /login;
-// a token is verified against /auth/me so an expired/invalid one also redirects.
-function RequireAuth({ children }: { children: React.ReactNode }) {
-  const [ok, setOk] = useState<boolean | null>(getToken() ? null : false)
-  useEffect(() => {
-    if (!getToken()) {
-      setOk(false)
-      return
-    }
-    let alive = true
-    api
-      .me()
-      .then(() => alive && setOk(true))
-      .catch(() => {
-        setToken(null) // stale/invalid token — drop it
-        if (alive) setOk(false)
-      })
-    return () => {
-      alive = false
-    }
-  }, [])
-  if (ok === null) return <BrandLoader full label="Verifying your session…" />
-  if (!ok) return <Navigate to="/login" replace />
-  return <>{children}</>
-}
+// Open-access: the dashboard and all data are public (no login). Email is only
+// collected at the point of subscribing to reports / per-casino alerts.
 
 function Dashboard() {
   return (
@@ -84,7 +60,7 @@ export default function App() {
         }
       />
       <Route path="/login" element={<Login />} />
-      <Route path="/app/*" element={<RequireAuth><Dashboard /></RequireAuth>} />
+      <Route path="/app/*" element={<Dashboard />} />
       <Route path="*" element={<Landing />} />
     </Routes>
   )
