@@ -8,6 +8,7 @@ import { generateContent, openrouterEnabled } from '../content/openrouter.ts'
 import { translateOne, translateBatch } from './translate.ts'
 import { registerWgAuth, requireTeam } from './wgauth.ts'
 import { listKols, kolStats, setKolStatus, generateKolDm, enrichKolContacts } from './kol.ts'
+import { generateChannelPosts, listChannelPosts, regenChannelImage } from './channelposts.ts'
 import { listAppWatch, refreshAppWatch, refreshPlayWatch, analyzeApp } from './appwatch.ts'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -164,7 +165,8 @@ export function registerSocialIntel(app: FastifyInstance): void {
       `你是产品策略分析师。下面是用户对【${prod.name} 的竞品】的真实吐槽/差评（${prod.pitch}）。` +
       `请综合成给我们「产品和服务改进」的洞察——不是用来回复，而是反哺我们做得更好。` +
       `归纳 5-8 条，每条：theme(痛点主题) / gap(竞品在这块的具体短板) / implication(对我们产品或服务的启示或机会) / severity(high|med|low)。` +
-      `只返回 JSON：{"insights":[{"theme":"...","gap":"...","implication":"...","severity":"high|med|low"}]}`
+      `‼️ theme/gap/implication 三个字段的值必须用【中文】书写（severity 用 high|med|low）。` +
+      `只返回 JSON：{"insights":[{"theme":"中文","gap":"中文","implication":"中文","severity":"high|med|low"}]}`
     const res = await generateContent(system, `竞品吐槽样本：\n${sample}`)
     const ins = (res?.data?.insights ?? []) as any[]
     if (!Array.isArray(ins) || ins.length === 0) return reply.code(502).send({ error: 'AI 未返回有效洞察，请重试' })
@@ -224,6 +226,24 @@ export function registerSocialIntel(app: FastifyInstance): void {
     })
     tx()
     return { ok: true, added: Math.min(8, topics.length) }
+  })
+
+  // B2. 选题 → 多渠道帖子（X/Reddit/LinkedIn/公众号/小红书 + 配图）
+  app.get('/api/internal/social/topic/:id/posts', async (req, reply) => {
+    if (!requireAdmin(req, reply)) return
+    return { posts: listChannelPosts(Number((req.params as any).id)) }
+  })
+  app.post('/api/internal/social/topic/:id/posts', async (req, reply) => {
+    if (!requireAdmin(req, reply)) return
+    const r = await generateChannelPosts(Number((req.params as any).id))
+    return r.ok ? r : reply.code(400).send(r)
+  })
+  app.post('/api/internal/social/topic/:id/image', async (req, reply) => {
+    if (!requireAdmin(req, reply)) return
+    const b = req.body as { channel?: string }
+    if (!b?.channel) return reply.code(400).send({ error: 'channel required' })
+    const r = await regenChannelImage(Number((req.params as any).id), b.channel)
+    return r.ok ? r : reply.code(400).send(r)
   })
 
   // 信号列表（可按产品/类别/平台/最小意图分/状态/关键词过滤）
