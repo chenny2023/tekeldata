@@ -623,8 +623,9 @@ export async function registerApi(app: FastifyInstance) {
   const dirWhere = (filter?: string) =>
     filter === 'withEmail' ? 'email_ok=1' : filter === 'withX' ? 'x_ok=1' : filter === 'included' ? 'site_ok=1 AND x_ok=1 AND email_ok=1' : filter === 'live' ? 'site_ok=1' : '1=1'
 
-  app.get('/api/directory', async (req, reply) => {
-    if (!userFromRequest(req)) return reply.code(401).send({ error: 'login required' })
+  app.get('/api/directory', async (req) => {
+    // open-access: the casino directory is public data (this 401 gate was a leftover
+    // from the login era and was silently blanking the /app/directory page)
     const { filter, q } = req.query as { filter?: string; q?: string }
     const args: any[] = []
     let sql = `SELECT domain,name,website,twitter,email,site_ok,x_ok,email_ok,source,status,tp_rating,tp_reviews,last_checked FROM casino_directory WHERE ${dirWhere(filter)}`
@@ -646,7 +647,7 @@ export async function registerApi(app: FastifyInstance) {
   })
 
   app.get('/api/directory/export.csv', async (req, reply) => {
-    if (!userFromRequest(req)) return reply.code(401).send({ error: 'login required' })
+    // open-access: same public directory data, CSV form (export button on the page)
     const { filter } = req.query as { filter?: string }
     const rows = db.prepare(`SELECT name,website,twitter,email,tp_rating,tp_reviews FROM casino_directory WHERE ${dirWhere(filter ?? 'live')} ORDER BY name`).all() as any[]
     const esc = (s: any) => `"${String(s ?? '').replace(/"/g, '""')}"`
