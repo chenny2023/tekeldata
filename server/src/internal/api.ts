@@ -8,7 +8,7 @@ import { generateContent, openrouterEnabled } from '../content/openrouter.ts'
 import { translateOne, translateBatch } from './translate.ts'
 import { registerWgAuth, requireTeam } from './wgauth.ts'
 import { listKols, kolStats, setKolStatus, generateKolDm } from './kol.ts'
-import { listAppWatch, refreshAppWatch, analyzeApp } from './appwatch.ts'
+import { listAppWatch, refreshAppWatch, refreshPlayWatch, analyzeApp } from './appwatch.ts'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 内部社媒情报 — 管理员鉴权 API + 面板。所有数据接口仅 admin 可访问。
@@ -365,7 +365,9 @@ export function registerSocialIntel(app: FastifyInstance): void {
   })
   app.post('/api/internal/social/appwatch/refresh', async (req, reply) => {
     if (!requireAdmin(req, reply)) return
-    void refreshAppWatch() // 后台跑，不阻塞响应
+    const q = req.query as Record<string, string>
+    if (q.store === 'googleplay') void refreshPlayWatch()
+    else void refreshAppWatch() // 后台跑，不阻塞响应
     return { ok: true, message: '已触发刷新，约 1-2 分钟后数据更新' }
   })
   // 单个 app 的 AI 分析（做什么 / 差评集中点 / 潜在机会）—— 即时生成

@@ -146,6 +146,109 @@ export async function refreshAppWatch(): Promise<{ ok: boolean; kept: number }> 
   return { ok: true, kept }
 }
 
+// ── Google Play（ScrapingBee）────────────────────────────────────────────────
+// Play 没有免费榜单接口 + 公开榜单页已下线。类目页(category/APPLICATION|GAME)默认渲染的就是
+// 「Top free（下载榜）」标签页，含 app 包名 + 评分（aria "Rated X stars"），一次渲染即得排名+评分。
+// 「Top grossing（畅销榜）」是标签页切换后才加载、DOM 混淆且不稳定 → Play 暂只做下载榜；畅销榜靠 App Store。
+// ScrapingBee 抓 google.com 系需 custom_google=true（每次 20 credits），故国家数/频率保守、可配。
+const SB_KEY = () => (process.env.scrapingbee || process.env.SCRAPINGBEE_API_KEY || '').trim()
+export const playEnabled = () => !!SB_KEY()
+const PLAY_COUNTRIES = () => (process.env.SOCIAL_PLAY_COUNTRIES || 'us,gb,jp,kr,br,in').split(',').map((c) => c.trim().toLowerCase()).filter(Boolean)
+const PLAY_CATEGORIES = () => (process.env.SOCIAL_PLAY_CATEGORIES || 'APPLICATION,GAME').split(',').map((c) => c.trim()).filter(Boolean)
+const PLAY_LIMIT = () => Number(process.env.SOCIAL_PLAY_LIMIT) || 120
+
+async function sbFetch(targetUrl: string): Promise<string | null> {
+  const key = SB_KEY()
+  if (!key) return null
+  const u = new URL('https://app.scrapingbee.com/api/v1/')
+  u.searchParams.set('api_key', key)
+  u.searchParams.set('url', targetUrl)
+  u.searchParams.set('custom_google', 'true') // google.com 系必须，20 credits/次
+  u.searchParams.set('render_js', 'true')
+  try {
+    const r = await webFetch(u.toString(), { signal: AbortSignal.timeout(45_000) })
+    if (!r.ok) { console.warn('[appwatch] scrapingbee HTTP', r.status); return null }
+    return await r.text()
+  } catch (e) { console.warn('[appwatch] scrapingbee failed:', (e as Error).message); return null }
+}
+
+// 解析 Play 渲染后的 HTML：按出现顺序取每个 app 卡片的 包名 + 名称 + 评分（顺序=名次）。
+function parsePlay(html: string): { app_id: string; name: string; rating: number; rank: number }[] {
+  const ids = [...html.matchAll(/\/store\/apps\/details\?id=([\w.]+)/g)]
+  const out: { app_id: string; name: string; rating: number; rank: number }[] = []
+  const seen = new Set<string>()
+  for (let k = 0; k < ids.length; k++) {
+    const id = ids[k][1]
+    if (!id || seen.has(id)) continue
+    const start = ids[k].index ?? 0
+    const next = k + 1 < ids.length ? (ids[k + 1].index ?? start + 900) : start + 900
+    const seg = html.slice(start, Math.min(next, start + 900))
+    const rating = Number((seg.match(/Rated ([0-9.]+) star/i) || [])[1] || 0)
+    const name = ((seg.match(/>([^<>]{1,60})<\/div>/) || [])[1] || '').trim()
+      .replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&gt;/g, '>').replace(/&lt;/g, '<')
+    seen.add(id)
+    out.push({ app_id: id, name, rating, rank: seen.size })
+  }
+  return out
+}
+
+async function fetchPlayChart(cc: string, category: string): Promise<{ app_id: string; name: string; rating: number }[]> {
+  const html = await sbFetch(`https://play.google.com/store/apps/category/${category}?hl=en&gl=${cc}`)
+  if (!html) return []
+  return parsePlay(html).slice(0, PLAY_LIMIT())
+}
+
+async function refreshOnePlay(cc: string): Promise<number> {
+  const max = MAX_RATING()
+  const all: { app_id: string; name: string; rating: number; genre: string }[] = []
+  const seen = new Set<string>()
+  for (const cat of PLAY_CATEGORIES()) {
+    const list = await fetchPlayChart(cc, cat)
+    for (const a of list) { if (seen.has(a.app_id)) continue; seen.add(a.app_id); all.push({ ...a, genre: cat === 'GAME' ? 'Game' : 'Application' }) }
+    await sleep(800)
+  }
+  if (all.length === 0) return 0
+  const now = Date.now()
+  const rows = all
+    .map((a, i) => ({ ...a, rank: i + 1 })) // 合并后的真实榜单位置（先 Application 后 Game，类内保序）
+    .filter((a) => a.rating > 0 && a.rating < max) // 只留评分 < 3.5（Play 列表页不含评分数，故不卡 count）
+    .map((a) => ({
+      id: `googleplay_${cc}_free_${a.app_id}`, store: 'googleplay', country: cc, chart: 'free', rank: a.rank, app_id: a.app_id,
+      name: (a.name || a.app_id).slice(0, 200), publisher: '', genre: a.genre, rating: a.rating, rating_count: 0,
+      icon: '', url: `https://play.google.com/store/apps/details?id=${a.app_id}`, description: '', now,
+    }))
+  const tx = db.transaction(() => { delChart.run('googleplay', cc, 'free'); for (const row of rows) insApp.run(row) })
+  for (let a = 0; a < 4; a++) { try { tx(); break } catch (e) { if (!/locked|busy/i.test((e as Error).message) || a === 3) throw e; await sleep(800 * (a + 1)) } }
+  return rows.length
+}
+
+let playRunning = false
+export async function refreshPlayWatch(): Promise<{ ok: boolean; kept: number }> {
+  if (!playEnabled()) return { ok: false, kept: 0 }
+  if (playRunning) return { ok: false, kept: 0 }
+  playRunning = true
+  let kept = 0
+  try {
+    for (const cc of PLAY_COUNTRIES()) {
+      try { kept += await refreshOnePlay(cc) } catch (e) { console.warn(`[appwatch] play/${cc} failed:`, (e as Error).message) }
+      await sleep(1000)
+    }
+    db.prepare('INSERT INTO sync_state(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run('playwatch_last_ts', String(Date.now()))
+    console.log(`[appwatch] Google Play 刷新完成：留存 ${kept} 个低分高流量 app`)
+  } finally { playRunning = false }
+  return { ok: true, kept }
+}
+
+export function startPlayWatch(): void {
+  if ((process.env.APPWATCH_ENABLED ?? '1') === '0' || !playEnabled()) return
+  console.log('[appwatch] Google Play 观察室已启动（ScrapingBee 下载榜）')
+  const loop = async () => {
+    try { await refreshPlayWatch() } catch (e) { console.warn('[appwatch] play refresh failed:', (e as Error).message) }
+    setTimeout(loop, Number(process.env.SOCIAL_PLAY_REFRESH_MS) || 86_400_000) // 默认 24h（榜变化慢 + 省 credit）
+  }
+  setTimeout(loop, 30_000)
+}
+
 export interface AppWatchFilter { store?: string; country?: string; chart?: string; sort?: string; limit?: number; buildable?: boolean }
 export function listAppWatch(f: AppWatchFilter): { items: any[]; countries: string[]; lastUpdated: number } {
   const where: string[] = ['w.store = ?']
@@ -191,10 +294,11 @@ async function fetchNegReviews(appid: string, cc: string, want = 15): Promise<st
 
 export async function analyzeApp(appId: string): Promise<{ ok: boolean; message: string; analysis?: any }> {
   if (!openrouterEnabled()) return { ok: false, message: 'OPENROUTER_API_KEY 未配置' }
-  const row = db.prepare('SELECT app_id, name, country, genre, rating, description FROM app_watch WHERE app_id=? LIMIT 1').get(appId) as
-    | { app_id: string; name: string; country: string; genre: string; rating: number; description: string } | undefined
+  const row = db.prepare('SELECT app_id, name, country, genre, rating, description, store FROM app_watch WHERE app_id=? LIMIT 1').get(appId) as
+    | { app_id: string; name: string; country: string; genre: string; rating: number; description: string; store: string } | undefined
   if (!row) return { ok: false, message: '未找到该 app' }
-  const reviews = await fetchNegReviews(appId, row.country || 'us')
+  // 差评样本只对 App Store 有效（iTunes RSS）；Google Play 的包名不是 iTunes track id，故跳过取评论。
+  const reviews = row.store === 'appstore' ? await fetchNegReviews(appId, row.country || 'us') : []
   const system =
     '你是 App 市场分析师，服务一家做 ① AI 客服(hirecx，按消息计费、游戏/电商/SaaS 场景原生) ② 效果广告 AI 创意(wonix) 的公司。\n' +
     '给你一个「高流量但低评分」的 app（商店简介 + 差评样本），输出 JSON：\n' +

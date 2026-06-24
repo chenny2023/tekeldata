@@ -597,7 +597,7 @@ H.kcontact=async id=>{await api('/api/internal/social/kol/'+encodeURIComponent(i
 H.kreject=async id=>{await api('/api/internal/social/kol/'+encodeURIComponent(id)+'/status',{method:'POST',body:JSON.stringify({status:'rejected'})});toast('已移出推荐');renderKol()}
 
 // ── 产品观察室（App Store 低分高流量榜）──────────────────────────────────────
-let awF={country:'',chart:'free',sort:'rank',buildable:''}
+let awF={store:'appstore',country:'',chart:'free',sort:'rank',buildable:''}
 const CC={us:'🇺🇸 美国',gb:'🇬🇧 英国',jp:'🇯🇵 日本',kr:'🇰🇷 韩国',de:'🇩🇪 德国',fr:'🇫🇷 法国',br:'🇧🇷 巴西',in:'🇮🇳 印度',id:'🇮🇩 印尼',mx:'🇲🇽 墨西哥'}
 const ccName=c=>CC[c]||c
 function starRating(v){v=v||0;const c=v<2.5?'#ff5c5c':v<3?'#ff8a4a':'#ffb24a';return '<b style="color:'+c+'">★ '+v.toFixed(2)+'</b>'}
@@ -612,10 +612,12 @@ function awAi(a){
   return '<div class="aiv" style="font-size:12.5px;line-height:1.65">'+bl+deepHtml+'</div>'}
 async function renderAppWatch(){
   const opt=(v,l,sel)=>'<option value="'+v+'"'+(sel===v?' selected':'')+'>'+l+'</option>'
-  const qs=new URLSearchParams({store:'appstore',country:awF.country,chart:awF.chart,sort:awF.sort,buildable:awF.buildable}).toString()
+  const qs=new URLSearchParams({store:awF.store,country:awF.country,chart:awF.chart,sort:awF.sort,buildable:awF.buildable}).toString()
   const {items,countries,lastUpdated}=await api('/api/internal/social/appwatch?'+qs)
+  const charts=awF.store==='googleplay'?[['free','📥 下载榜(下载量大)']]:[['free','📥 下载榜(下载量大)'],['grossing','💰 畅销榜(营收高)']]
   const bar='<div class="toolbar">'+
-    '<select id="aw-chart">'+[['free','📥 下载榜(下载量大)'],['grossing','💰 畅销榜(营收高)']].map(o=>opt(o[0],o[1],awF.chart)).join('')+'</select>'+
+    '<select id="aw-store">'+[['appstore','🍎 App Store'],['googleplay','🤖 Google Play']].map(o=>opt(o[0],o[1],awF.store)).join('')+'</select>'+
+    '<select id="aw-chart">'+charts.map(o=>opt(o[0],o[1],awF.chart)).join('')+'</select>'+
     '<select id="aw-country">'+opt('','全部国家',awF.country)+countries.map(c=>opt(c,ccName(c),awF.country)).join('')+'</select>'+
     '<select id="aw-build">'+[['','全部应用'],['1','🛠 仅可复刻(vibe coding)']].map(o=>opt(o[0],o[1],awF.buildable)).join('')+'</select>'+
     '<select id="aw-sort">'+[['rank','按榜单名次(流量优先)'],['rating','按评分(最差优先)'],['reviews','按评分数(影响面大)']].map(o=>opt(o[0],o[1],awF.sort)).join('')+'</select>'+
@@ -638,11 +640,11 @@ async function renderAppWatch(){
     :'<tr><td colspan="7" class="dim" style="text-align:center;padding:30px">暂无数据。首次刷新约 1-2 分钟（启动后自动跑，也可点"刷新榜单"）。只列评分 < 3.5 的高流量 app。</td></tr>'
   const table='<table class="tbl"><tr><th>名次</th><th>应用</th><th>类别</th><th>评分</th><th>评分数</th><th>市场</th><th>AI 分析</th></tr>'+rows+'</table>'
   $('#app').innerHTML=shell('<p class="lead">全球主要市场 App Store「流量/营收大但口碑差」的 app（评分 < 3.5）——高需求却体验差 = 机会标的（产品/客服缺口，hirecx 切入线索 + 市场情报）。</p>'+bar+'<div class="panel">'+table+'</div>')
-  const syncAw=()=>{awF={country:$('#aw-country').value,chart:$('#aw-chart').value,sort:$('#aw-sort').value,buildable:$('#aw-build').value};renderAppWatch()}
-  ;['aw-chart','aw-country','aw-sort','aw-build'].forEach(id=>$('#'+id).onchange=syncAw)
+  const syncAw=()=>{const store=$('#aw-store').value;awF={store,country:$('#aw-country').value,chart:(store==='googleplay'?'free':$('#aw-chart').value),sort:$('#aw-sort').value,buildable:$('#aw-build').value};renderAppWatch()}
+  ;['aw-store','aw-chart','aw-country','aw-sort','aw-build'].forEach(id=>$('#'+id).onchange=syncAw)
   $('#aw-apply').onclick=syncAw
 }
-H.awrefresh=async()=>{toast('已触发刷新，约 1-2 分钟后回来看');await api('/api/internal/social/appwatch/refresh',{method:'POST'})}
+H.awrefresh=async()=>{toast('已触发刷新，约 1-2 分钟后回来看');await api('/api/internal/social/appwatch/refresh?store='+awF.store,{method:'POST'})}
 H.awtoggle=appId=>{const row=document.getElementById('awdet-'+appId);if(row)row.style.display=row.style.display==='none'?'':'none'}
 H.awan=async(appId,btn)=>{if(btn){btn.textContent='分析中…';btn.disabled=true}
   const r=await api('/api/internal/social/appwatch/analyze',{method:'POST',body:JSON.stringify({appId})})
