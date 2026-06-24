@@ -71,11 +71,6 @@ export default function Sentiment() {
         </Card>
       </Reveal>
 
-      {!loggedIn && (
-        <div className="mt-3 rounded-xl border border-gold-500/25 bg-gold-500/8 px-4 py-2.5 text-[13px] text-gold-400">
-          <Link to="/login" className="font-semibold underline">Sign in</Link> to cast community trust votes — votes feed directly into the blended trust score.
-        </div>
-      )}
 
       <Card spotlight className="mt-4 overflow-hidden">
         {loading ? (

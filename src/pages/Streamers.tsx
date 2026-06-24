@@ -217,12 +217,9 @@ export default function Streamers() {
             <span className="text-white/35">kick.com/</span>
             <input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="channel" className="w-32 bg-transparent placeholder:text-white/30 focus:outline-none" />
           </div>
-          <button type="submit" disabled={busy || !loggedIn} className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-gold-400 to-gold-600 px-4 py-2 text-sm font-semibold text-ink-950 hover:brightness-110 disabled:opacity-50">
+          <button type="submit" disabled={busy} className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-gold-400 to-gold-600 px-4 py-2 text-sm font-semibold text-ink-950 hover:brightness-110 disabled:opacity-50">
             {busy ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />} Track
           </button>
-          {!loggedIn && (
-            <span className="text-[12px] text-white/40"><Link to="/login" className="text-gold-400 underline">Sign in</Link> to add channels</span>
-          )}
           {msg && <span className="text-[12px] text-mint-400">{msg}</span>}
         </form>
       </Card>

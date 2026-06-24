@@ -203,9 +203,6 @@ export default function Landing() {
             <a href="#free" className="hover:text-white">Free Access</a>
           </nav>
           <div className="flex items-center gap-2">
-            <Link to="/login" className="rounded-lg px-3 py-2 text-sm font-medium text-white/70 hover:text-white">
-              Log in
-            </Link>
             <Link
               to="/app"
               className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-gold-400 to-gold-600 px-4 py-2 text-sm font-semibold text-ink-950 hover:brightness-110"
@@ -387,13 +384,13 @@ export default function Landing() {
             ))}
           </ul>
           <Link
-            to="/login"
+            to="/app"
             className="relative mt-8 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-gold-400 to-gold-600 px-7 py-3 text-sm font-semibold text-ink-950 hover:brightness-110"
           >
-            Create your free account <ArrowRight size={16} />
+            Open the dashboard <ArrowRight size={16} />
           </Link>
           <p className="relative mt-3 text-xs text-white/40">
-            Free forever — no password, no payment. Sign in with just your email.
+            All data is open — no account, no password. Drop your email only to get the daily report.
           </p>
         </Card>
       </section>
@@ -404,8 +401,8 @@ export default function Landing() {
           <Logo />
           <p className="text-sm text-white/40">© 2026 WCOIN.CASINO — The Intelligence Layer for iGaming</p>
           <div className="flex gap-5 text-sm text-white/50">
-            <Link to="/login" className="hover:text-white">Sign up free</Link>
-            <Link to="/login" className="hover:text-white">Sign in</Link>
+            <Link to="/app" className="hover:text-white">Dashboard</Link>
+            <Link to="/daily" className="hover:text-white">Daily report</Link>
           </div>
         </div>
       </footer>

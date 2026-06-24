@@ -463,6 +463,16 @@ export const api = {
   alertEvents: (limit = 50) => getJson<AlertEvent[]>(`/alerts/events?limit=${limit}`),
   marketSnapshot: () => getJson<MarketSnapshot>('/snapshot/market'),
   subscribe: (email: string) => sendJson<{ sent: boolean; delivered?: boolean; devCode?: string; alreadyActive?: boolean }>('/subscribe', 'POST', { email }),
+  // per-casino reserve-movement email alert (no login, double opt-in). The endpoint
+  // replies with HTML (built for SEO-page form posts); we just need the 200.
+  casinoAlert: async (email: string, brand: string): Promise<boolean> => {
+    const res = await fetch(`${BASE}/casino-alert`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, brand }),
+    })
+    return res.ok
+  },
   subscribeVerify: (email: string, code: string) =>
     sendJson<{ active: boolean; unsubscribeToken?: string; frequency?: string }>('/subscribe/verify', 'POST', { email, code }),
 }

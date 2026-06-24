@@ -3,7 +3,6 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import Layout from './components/Layout'
 import { BrandLoader } from './components/BrandLoader'
 import Landing from './pages/Landing'
-import Login from './pages/Login'
 
 // Code-split the dashboard pages: the landing/login load instantly, and each
 // dashboard view's JS is fetched on demand — a much smaller initial bundle.
@@ -59,7 +58,8 @@ export default function App() {
           </Suspense>
         }
       />
-      <Route path="/login" element={<Login />} />
+      {/* /login retired (open access) — redirect any stale links to home */}
+      <Route path="/login" element={<Navigate to="/" replace />} />
       <Route path="/app/*" element={<Dashboard />} />
       <Route path="*" element={<Landing />} />
     </Routes>

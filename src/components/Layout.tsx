@@ -16,10 +16,10 @@ import {
   Menu,
   X,
   ChevronLeft,
-  LogOut,
 } from 'lucide-react'
 import { Logo, LiveBadge } from './ui'
-import { api, usePoll, getToken, setToken, AuthUser, SearchResults } from '../data/api'
+import { api, usePoll, SearchResults } from '../data/api'
+import { Subscribe } from './Subscribe'
 
 function relTime(ts: number): string {
   const s = Math.max(0, (Date.now() - ts) / 1000)
@@ -119,15 +119,6 @@ function NotificationsBell() {
   )
 }
 
-// derive a friendly display name from an email (chennywang@live.com → chennywang)
-function nameFromEmail(email: string): string {
-  return (email.split('@')[0] || email).replace(/[._-]+/g, ' ').trim()
-}
-function initials(email: string): string {
-  const n = nameFromEmail(email)
-  const parts = n.split(/\s+/).filter(Boolean)
-  return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? parts[0]?.[1] ?? '')).toUpperCase() || 'WC'
-}
 
 const NAV = [
   { to: '/app', label: 'Overview', icon: LayoutDashboard, end: true },
@@ -138,31 +129,13 @@ const NAV = [
   { to: '/app/streamers', label: 'Streamers', icon: Radio },
   { to: '/app/sentiment', label: 'Trust & Reserves', icon: Gauge },
   { to: '/app/players', label: 'Flow Intel', icon: Users },
-  { to: '/app/watchlist', label: 'Watchlist', icon: Target },
-  { to: '/app/alerts', label: 'Alerts', icon: Bell },
+  { to: '/app/watchlist', label: 'Email Alerts', icon: Bell },
   { to: '/app/reports', label: 'Reports', icon: FileBarChart },
 ]
 
 export default function Layout({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false)
-  const [user, setUser] = useState<AuthUser | null>(null)
   const loc = useLocation()
-  const navigate = useNavigate()
-
-  useEffect(() => {
-    if (!getToken()) return
-    let alive = true
-    api.me().then((r) => alive && setUser(r.user)).catch(() => {})
-    return () => {
-      alive = false
-    }
-  }, [])
-
-  function logout() {
-    api.logout().catch(() => {})
-    setToken(null)
-    navigate('/login')
-  }
   const current = NAV.find((n) => (n.end ? loc.pathname === n.to : loc.pathname.startsWith(n.to)))
   useEffect(() => {
     document.title = current ? `${current.label} · WCOIN.CASINO — On-Chain iGaming Intelligence` : 'WCOIN.CASINO'
@@ -211,33 +184,16 @@ export default function Layout({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="absolute inset-x-3 bottom-4">
-          {user ? (
-            <div className="glass flex items-center gap-3 rounded-2xl p-3">
-              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-violet-500 to-violet-600 text-sm font-bold">
-                {initials(user.email)}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[13px] font-semibold capitalize">{nameFromEmail(user.email)}</div>
-                <div className="truncate text-[11px] text-white/40">{user.email}</div>
-              </div>
-              <button onClick={logout} title="Log out" className="shrink-0 text-white/40 hover:text-rose-400">
-                <LogOut size={16} />
-              </button>
+          <div className="glass rounded-2xl p-4">
+            <div className="flex items-center gap-2 text-[12px] font-semibold text-gold-400">
+              <span className="live-dot h-1.5 w-1.5 rounded-full bg-gold-400" />
+              FREE · NO SIGN-UP
             </div>
-          ) : (
-            <div className="glass rounded-2xl p-4">
-              <div className="flex items-center gap-2 text-[12px] font-semibold text-gold-400">
-                <span className="live-dot h-1.5 w-1.5 rounded-full bg-gold-400" />
-                100% FREE
-              </div>
-              <p className="mt-1.5 text-[12px] leading-snug text-white/50">
-                Every feature is free. Sign up with just your email to unlock alerts, votes & the full API.
-              </p>
-              <Link to="/login" className="mt-3 block rounded-lg bg-gradient-to-r from-gold-400 to-gold-600 py-1.5 text-center text-[13px] font-semibold text-ink-950 hover:brightness-110">
-                Sign up free
-              </Link>
-            </div>
-          )}
+            <p className="mb-2.5 mt-1.5 text-[12px] leading-snug text-white/50">
+              All data is open. Get the daily on-chain report in your inbox — just your email.
+            </p>
+            <Subscribe compact cta="Subscribe" />
+          </div>
         </div>
       </aside>
 
@@ -264,11 +220,8 @@ export default function Layout({ children }: { children: ReactNode }) {
             <SearchBox />
             <LiveBadge />
             <NotificationsBell />
-            <div
-              title={user?.email ?? ''}
-              className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-to-br from-violet-500 to-violet-600 font-display text-sm font-bold"
-            >
-              {user ? initials(user.email) : 'WC'}
+            <div className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-to-br from-violet-500 to-violet-600 font-display text-sm font-bold">
+              WC
             </div>
           </div>
         </header>
