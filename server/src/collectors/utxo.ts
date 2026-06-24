@@ -82,9 +82,16 @@ async function indexChain(ch: UtxoChain) {
   const lastSeen = stateGet(seenKey)
   const horizon = Date.now() - INDEX_HORIZON_DAYS * 86_400_000
 
-  // Esplora returns newest-first, 25/page. Paginate via /txs/chain/{last_txid}
-  // collecting every tx newer than lastSeen (resume point) — bounded by the horizon
-  // and a page cap so a fresh address with a huge history can't run away.
+  // One-time deep backfill per address: addresses indexed by the old (no-pagination)
+  // code have a lastSeen pointing at a recent tx, so a plain forward sync would never
+  // recover the historical gap it dropped. The first time we see an address we ignore
+  // lastSeen and walk all the way to the horizon; thereafter we stop at lastSeen. The
+  // flag is DB-persisted so it survives restarts and runs exactly once per address.
+  const bfKey = `${ch.key.toLowerCase()}:bf:${w.address}`
+  const backfilled = !!stateGet(bfKey)
+
+  // Esplora returns newest-first, 25/page. Paginate via /txs/chain/{last_txid},
+  // bounded by the horizon and a page cap so a huge history can't run away.
   const fresh: any[] = []
   let newest: string | null = null
   let cursor: string | null = null
@@ -96,7 +103,7 @@ async function indexChain(ch: UtxoChain) {
     if (!Array.isArray(txs) || txs.length === 0) break
     if (!newest) newest = txs[0].txid
     for (const tx of txs) {
-      if (tx.txid === lastSeen) { reached = true; break }
+      if (backfilled && tx.txid === lastSeen) { reached = true; break } // forward-sync stop
       const ts = (tx.status?.block_time ?? Math.floor(Date.now() / 1000)) * 1000
       if (tx.status?.block_time && ts < horizon) { reached = true; break } // far enough back
       fresh.push(tx)
@@ -130,8 +137,11 @@ async function indexChain(ch: UtxoChain) {
     }
     if (i % 50 === 49) await new Promise((res) => setImmediate(res)) // yield every 50 rows
   }
-  if (newest) stateSet(seenKey, newest)
-  if (added) console.log(`[${ch.key.toLowerCase()}] ${w.label}: +${added} transfers (${pages}p)`)
+  if (newest) {
+    stateSet(seenKey, newest)
+    if (!backfilled) stateSet(bfKey, '1') // mark the one-time deep backfill done (only if we got data)
+  }
+  if (added) console.log(`[${ch.key.toLowerCase()}] ${w.label}: +${added} transfers (${pages}p${backfilled ? '' : ' backfill'})`)
 }
 
 export function startUtxo() {
