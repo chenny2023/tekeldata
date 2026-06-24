@@ -17,13 +17,14 @@ interface UtxoChain {
   asset: string // price asset
   apis: string[] // esplora bases, rotated (spreads load + survives one host throttling)
   pollMs: number
+  batch: number // addresses processed per poll (clustering grew the BTC set to thousands)
 }
 
 const CHAINS: UtxoChain[] = [
   // mempool.space leads for BTC: 50 tx/page (vs blockstream's 25) and gentler rate
   // limits, so backfill catches up ~2× faster; blockstream is the rotation fallback.
-  { key: 'BTC', asset: 'BTC', apis: ['https://mempool.space/api', 'https://blockstream.info/api'], pollMs: 20_000 },
-  { key: 'LTC', asset: 'LTC', apis: ['https://litecoinspace.org/api'], pollMs: 20_000 },
+  { key: 'BTC', asset: 'BTC', apis: ['https://mempool.space/api', 'https://blockstream.info/api'], pollMs: 20_000, batch: Number(process.env.BTC_INDEX_BATCH ?? 5) },
+  { key: 'LTC', asset: 'LTC', apis: ['https://litecoinspace.org/api'], pollMs: 20_000, batch: 1 },
 ]
 
 const enabled = (key: string) => process.env[`${key}_ENABLED`] !== '0'
@@ -171,7 +172,9 @@ export function startUtxo() {
     if (!enabled(ch.key)) { console.log(`[${ch.key.toLowerCase()}] disabled`); continue }
     console.log(`[${ch.key.toLowerCase()}] ${ch.key} collector active (Esplora, historically priced)`)
     const loop = async () => {
-      try { await indexChain(ch) } catch (e) { console.warn(`[${ch.key.toLowerCase()}]`, (e as Error).message) }
+      // process `batch` addresses per poll — clustering grew the BTC watch set into
+      // the thousands, so one-per-poll couldn't keep the backfill queue moving
+      try { for (let k = 0; k < ch.batch; k++) await indexChain(ch) } catch (e) { console.warn(`[${ch.key.toLowerCase()}]`, (e as Error).message) }
       finally { setTimeout(loop, ch.pollMs) }
     }
     setTimeout(loop, 35_000)

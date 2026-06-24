@@ -26,9 +26,15 @@ import { webFetch } from '../net.ts'
 // throttling. (Railway egress is outside the GFW, so these resolve directly.)
 const ESPLORA_HOSTS = ['https://mempool.space/api', 'https://blockstream.info/api']
 
-const PER_CASINO_CAP = 150 // max addresses attached to one operator label (bounds blast radius)
+const PER_CASINO_CAP = Number(process.env.BTC_CLUSTER_CAP ?? 800) // max addresses per operator label
 const SCAN_PAGES = 6 // pages of a seed's history scanned per visit
-const MAX_INPUTS = 30 // skip txs with more inputs than this (consolidation noise / ambiguous ownership)
+// Casino deposit infra is HD wallets — one address per user, hundreds/thousands of
+// them — periodically SWEPT into a hot wallet in a single many-input consolidation
+// tx. Those big consolidations are exactly where the deposit-address cluster is
+// revealed (common-input-ownership: every input is co-owned, and MORE inputs = MORE
+// certainty, not less). The old cap of 30 was discarding the richest txs. Keep a
+// high ceiling only to bound JSON parsing; the CoinJoin guard handles false merges.
+const MAX_INPUTS = Number(process.env.BTC_CLUSTER_MAX_INPUTS ?? 2500)
 const COINJOIN_MIN_INPUTS = 5 // CoinJoin guard kicks in at/above this input count
 const RECLUSTER_COOLDOWN_MS = 30 * 60_000 // a fetch-failing seed is parked this long
 const CYCLE_MS = 90_000 // one seed per cycle (gentle)
@@ -161,6 +167,16 @@ export function startBtcCluster() {
   if (process.env.BTC_ENABLED === '0' || process.env.BTC_CLUSTER === '0') {
     console.log('[btcclu] disabled')
     return
+  }
+  // One-time re-open: operators previously hit the old 150 cap (and big consolidation
+  // txs were being skipped), so they're flagged done with their cursors spent. Bump
+  // the version to clear that progress and re-cluster from scratch under the new cap /
+  // MAX_INPUTS so the deposit-address clusters get fully expanded.
+  const CLUSTER_VERSION = 'v2-deep-2026-06'
+  if (stateGet('btcclu:version') !== CLUSTER_VERSION) {
+    const n = db.prepare("DELETE FROM sync_state WHERE key LIKE 'btcclu:done:%' OR key LIKE 'btcclu:cur:%' OR key LIKE 'btcclu:cd:%'").run().changes
+    stateSet('btcclu:version', CLUSTER_VERSION)
+    console.log(`[btcclu] re-open: cleared ${n} progress keys → re-clustering under cap ${PER_CASINO_CAP}, max-inputs ${MAX_INPUTS}`)
   }
   console.log('[btcclu] BTC address clustering active (common-input-ownership)')
   const loop = async () => {
