@@ -264,14 +264,14 @@ export async function refreshPlayWatch(): Promise<{ ok: boolean; kept: number }>
 // 需要更新时手动点「刷新榜单」(走 refreshPlayWatch)。强制重采：删 sync_state 的 playwatch_seeded。
 export function startPlayWatch(): void {
   if ((process.env.APPWATCH_ENABLED ?? '1') === '0' || !playEnabled()) return
-  if (db.prepare("SELECT 1 FROM sync_state WHERE key='playwatch_seeded_v2'").get()) {
+  if (db.prepare("SELECT 1 FROM sync_state WHERE key='playwatch_seeded_v3'").get()) {
     console.log('[appwatch] Google Play 已采集过，跳过（如需更新点"刷新榜单"）'); return
   }
   console.log('[appwatch] Google Play：首次全量采集…')
   setTimeout(async () => {
     try {
       const r = await refreshPlayWatch()
-      if (r.ok) db.prepare("INSERT INTO sync_state(key,value) VALUES('playwatch_seeded_v2',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(String(Date.now()))
+      if (r.ok) db.prepare("INSERT INTO sync_state(key,value) VALUES('playwatch_seeded_v3',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(String(Date.now()))
     } catch (e) { console.warn('[appwatch] play seed failed:', (e as Error).message) }
   }, 30_000)
 }
