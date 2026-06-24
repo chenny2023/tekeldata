@@ -1094,9 +1094,11 @@ export async function registerApi(app: FastifyInstance) {
     return { entities, total: tot, chains: rows.map((r) => ({ chain: r.chain, usd: r.v, casinos: r.casinos, share: +((100 * (r.v ?? 0)) / tot).toFixed(1) })) }
   })
 
-  // Tron casino capital flow — the clear daily/7d deposit + withdrawal statistic
-  // from our own indexed Tron casino wallets (the metric, not the reserve snapshot).
+  // Per-chain casino capital flow — the clear daily/Nd deposit + withdrawal
+  // statistic from our own indexed casino wallets (the metric, not reserves).
+  // ?chain=TRON|BTC|ETH|… (default TRON), ?days=N.
   app.get('/api/diag/tron-casino-flow', async (req) => {
+    const chain = String((req.query as any)?.chain || 'TRON').toUpperCase()
     const days = Math.min(30, Math.max(1, Number((req.query as any)?.days) || 1))
     const win = (d: number) => Date.now() - d * 86_400_000
     const q = (since: number) =>
@@ -1107,13 +1109,14 @@ export async function registerApi(app: FastifyInstance) {
              SUM(CASE WHEN direction='out' THEN usd ELSE 0 END) AS withdrawals,
              SUM(usd) AS total, COUNT(*) AS txns
            FROM transfers
-           WHERE chain='TRON' AND category='casino' AND ts>=?
+           WHERE chain=? AND category='casino' AND ts>=?
            GROUP BY label ORDER BY total DESC`,
         )
-        .all(since) as { label: string; deposits: number; withdrawals: number; total: number; txns: number }[]
+        .all(chain, since) as { label: string; deposits: number; withdrawals: number; total: number; txns: number }[]
     const rows = q(win(days))
     const sum = (k: 'deposits' | 'withdrawals' | 'total' | 'txns') => rows.reduce((s, r) => s + (r[k] ?? 0), 0)
     return {
+      chain,
       windowDays: days,
       casinos: rows.length,
       totalFlow: sum('total'),

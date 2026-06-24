@@ -62,6 +62,16 @@ function settle(tx: any, addr: string): { dir: 'in' | 'out'; coins: number; coun
   }
 }
 
+// how far back to backfill an address the first time we see it (and the cap on a
+// single poll's catch-up). High-activity casino wallets do hundreds of tx/week, so
+// without pagination we used to capture only the latest ~25 and lose the rest.
+const INDEX_HORIZON_DAYS = 14
+// Esplora pages are 25 tx. The normal stop is lastSeen (steady-state) or the 14d
+// horizon (first-sight backfill); this cap is just a runaway guard. It must clear
+// a busy casino wallet's 14d in ONE poll (else, since we resume from the newest
+// txid, the deeper history is never revisited) — ~60×25 = 1500 tx covers it.
+const MAX_PAGES_PER_POLL = 60
+
 let rr = 0
 async function indexChain(ch: UtxoChain) {
   const watched = (stmt.activeWatch.all() as WatchRow[]).filter((w) => w.chain === ch.key)
@@ -70,50 +80,58 @@ async function indexChain(ch: UtxoChain) {
   rr++
   const seenKey = `${ch.key.toLowerCase()}:seen:${w.address}`
   const lastSeen = stateGet(seenKey)
-  const txs = await esplora(ch.api, `/address/${w.address}/txs`)
-  if (!Array.isArray(txs) || txs.length === 0) return
+  const horizon = Date.now() - INDEX_HORIZON_DAYS * 86_400_000
 
-  let added = 0
-  let newest: string | null = null
-  // esplora returns newest-first; walk until we hit lastSeen, insert oldest-first
+  // Esplora returns newest-first, 25/page. Paginate via /txs/chain/{last_txid}
+  // collecting every tx newer than lastSeen (resume point) — bounded by the horizon
+  // and a page cap so a fresh address with a huge history can't run away.
   const fresh: any[] = []
-  for (const tx of txs) {
-    if (tx.txid === lastSeen) break
-    fresh.push(tx)
+  let newest: string | null = null
+  let cursor: string | null = null
+  let pages = 0
+  let reached = false
+  while (pages < MAX_PAGES_PER_POLL && !reached) {
+    const path = cursor ? `/address/${w.address}/txs/chain/${cursor}` : `/address/${w.address}/txs`
+    const txs = await esplora(ch.api, path)
+    if (!Array.isArray(txs) || txs.length === 0) break
+    if (!newest) newest = txs[0].txid
+    for (const tx of txs) {
+      if (tx.txid === lastSeen) { reached = true; break }
+      const ts = (tx.status?.block_time ?? Math.floor(Date.now() / 1000)) * 1000
+      if (tx.status?.block_time && ts < horizon) { reached = true; break } // far enough back
+      fresh.push(tx)
+    }
+    cursor = txs[txs.length - 1].txid
+    pages++
+    if (!reached) await new Promise((res) => setTimeout(res, 200)) // polite pacing on deep catch-up
   }
-  for (const tx of fresh.reverse()) {
+
+  // insert oldest-first, chunked + yield so a big catch-up never blocks the loop
+  let added = 0
+  fresh.reverse()
+  for (let i = 0; i < fresh.length; i++) {
+    const tx = fresh[i]
     const s = settle(tx, w.address)
-    if (!s) continue
-    const ts = (tx.status?.block_time ?? Math.floor(Date.now() / 1000)) * 1000
-    const price = priceForDay(ch.asset, ts)
-    const usd = s.coins * price
-    if (!(usd > 0)) continue
-    const rec = {
-      chain: ch.key,
-      tx_hash: tx.txid,
-      log_index: 0,
-      token: ch.asset,
-      from_addr: s.dir === 'in' ? s.counterparty : w.address,
-      to_addr: s.dir === 'in' ? w.address : s.counterparty,
-      counterparty: s.counterparty,
-      amount: s.coins,
-      usd,
-      watch_id: w.id,
-      label: w.label,
-      category: w.category,
-      direction: s.dir,
-      block: tx.status?.block_height ?? 0,
-      ts,
+    if (s) {
+      const ts = (tx.status?.block_time ?? Math.floor(Date.now() / 1000)) * 1000
+      const usd = s.coins * priceForDay(ch.asset, ts)
+      if (usd > 0) {
+        const rec = {
+          chain: ch.key, tx_hash: tx.txid, log_index: 0, token: ch.asset,
+          from_addr: s.dir === 'in' ? s.counterparty : w.address,
+          to_addr: s.dir === 'in' ? w.address : s.counterparty,
+          counterparty: s.counterparty, amount: s.coins, usd,
+          watch_id: w.id, label: w.label, category: w.category,
+          direction: s.dir, block: tx.status?.block_height ?? 0, ts,
+        }
+        const r = stmt.insertTransfer.run(rec)
+        if (r.changes > 0) { added++; if (Date.now() - ts < 600_000) emitTransfer(rec) }
+      }
     }
-    const r = stmt.insertTransfer.run(rec)
-    if (r.changes > 0) {
-      added++
-      if (Date.now() - ts < 600_000) emitTransfer(rec)
-    }
+    if (i % 50 === 49) await new Promise((res) => setImmediate(res)) // yield every 50 rows
   }
-  newest = txs[0]?.txid ?? null
   if (newest) stateSet(seenKey, newest)
-  if (added) console.log(`[${ch.key.toLowerCase()}] ${w.label}: +${added} transfers`)
+  if (added) console.log(`[${ch.key.toLowerCase()}] ${w.label}: +${added} transfers (${pages}p)`)
 }
 
 export function startUtxo() {
