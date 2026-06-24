@@ -168,11 +168,18 @@ async function sbFetch(targetUrl: string): Promise<string | null> {
   u.searchParams.set('url', targetUrl)
   u.searchParams.set('custom_google', 'true') // google.com 系必须，20 credits/次
   u.searchParams.set('render_js', 'true')
-  try {
-    const r = await webFetch(u.toString(), { signal: AbortSignal.timeout(45_000) })
-    if (!r.ok) { console.warn('[appwatch] scrapingbee HTTP', r.status); return null }
-    return await r.text()
-  } catch (e) { console.warn('[appwatch] scrapingbee failed:', (e as Error).message); return null }
+  u.searchParams.set('timeout', '55000') // 让 ScrapingBee 端也多等（Play 渲染重，默认易超时）
+  // Play 页重，渲染慢：重试一次，客户端超时给到 75s。
+  for (let a = 0; a < 2; a++) {
+    try {
+      const r = await webFetch(u.toString(), { signal: AbortSignal.timeout(75_000) })
+      if (r.ok) return await r.text()
+      console.warn('[appwatch] scrapingbee HTTP', r.status)
+      if (r.status !== 500 && r.status !== 504) return null // 非超时类错误不重试
+    } catch (e) { console.warn('[appwatch] scrapingbee try', a + 1, 'failed:', (e as Error).message) }
+    await sleep(1500)
+  }
+  return null
 }
 
 // 解析 Play 渲染后的 HTML：按出现顺序取每个 app 卡片的 包名 + 名称 + 评分（顺序=名次）。
