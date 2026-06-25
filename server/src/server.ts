@@ -59,6 +59,7 @@ import { startDirectory } from './directory.ts'
 import { startGuruSpider } from './collectors/guruspider.ts'
 import { startTrustpilotCategory } from './collectors/trustpilotcat.ts'
 import { startArkham } from './collectors/arkham.ts'
+import { startDune } from './collectors/dune.ts'
 import { startDefiLlama } from './collectors/defillama.ts'
 import { startPolymarket } from './collectors/polymarket.ts'
 import { startYouTube } from './collectors/youtube.ts'
@@ -258,6 +259,7 @@ async function main() {
   startGuruSpider() // casino.guru spider — fans the directory out to thousands of casinos
   startTrustpilotCategory() // Trustpilot casino-category sweep — merges consumer ratings onto the directory
   startArkham() // Arkham on-chain attribution — all-chain reserves/volume per casino entity
+  startDune() // Dune label harvester — authoritative EVM casino hot wallets (multi-chain)
   startDefiLlama() // DefiLlama — on-chain prediction markets / lotteries / betting protocols
   startPolymarket() // Polymarket — top prediction markets (live odds + volume)
   // ⚠️ 内部「Whale Growth」社媒情报的 10 个后台 job（采集/分类/KOL/翻译/观察室）已迁到独立服务
