@@ -381,7 +381,7 @@ async function computeBrands(): Promise<BrandAgg[]> {
     const edV = members.map((e) => e.editorial).find((s) => s != null) ?? null
     const ratingCount = [safetyV, tpV, agV, edV].filter((v) => v != null).length
     const attributed = !isUnattributed(bName) && !isUnattributed(head.label)
-    const volumeSuspect = attributed && isVolumeSuspect(bName, vol7, sum((e) => e.players), playersPassComplete)
+    const volumeSuspect = attributed && isVolumeSuspect(bName, vol7, sum((e) => e.players), playersPassComplete, sum((e) => e.txCount7d))
     const confidence: 'high' | 'medium' | 'low' = !attributed
       ? 'low'
       : metaV || ratingCount >= 2 || (vol7 > 0 && brReserves > 0)

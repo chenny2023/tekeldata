@@ -37,14 +37,22 @@ export const BRAND_ALIASES: BrandAlias[] = [
 export const VOLUME_SUSPECT_KEYS = new Set<string>([brandKey('Rain.gg')])
 const SUSPECT_VOL_FLOOR = Number(process.env.SUSPECT_VOL_FLOOR ?? 50_000_000) // only scrutinise large volume
 const SUSPECT_VOL_PER_CP = Number(process.env.SUSPECT_VOL_PER_CP ?? 50_000) // real casinos are well under this
+// Treasury / market-making churn signature: a huge AVERAGE transfer. Real player
+// deposits/withdrawals run ~$2K/tx; an operator averaging $50K+/tx on large volume
+// is moving treasury between exchanges/its own wallets, not taking player flow
+// (e.g. Rollbit ~$404K/tx). Caught here so it's demoted, not featured as real volume.
+const SUSPECT_AVG_TX = Number(process.env.SUSPECT_AVG_TX ?? 50_000)
 
 // `warm` = the background players count has completed its first full pass and is
 // reliable. Before that, `players` is ~0 for everyone, which would false-flag every
 // large casino — so the heuristic stays OFF until warm (the config list still fires).
-export function isVolumeSuspect(label: string, volume7d: number, players: number, warm: boolean): boolean {
+export function isVolumeSuspect(label: string, volume7d: number, players: number, warm: boolean, txCount = 0): boolean {
   if (VOLUME_SUSPECT_KEYS.has(brandKey(label))) return true
-  if (!warm) return false
   if (volume7d < SUSPECT_VOL_FLOOR) return false
+  // treasury/market-making churn — huge average transfer (independent of `warm`,
+  // since it doesn't rely on the players count)
+  if (txCount > 0 && volume7d / txCount > SUSPECT_AVG_TX) return true
+  if (!warm) return false
   return volume7d / Math.max(players, 1) > SUSPECT_VOL_PER_CP
 }
 
