@@ -1494,6 +1494,50 @@ ${form}
 
 // §4.2 — flagship hub. The central "Best Crypto Casinos {year}" page that targets
 // the top head term and hub-spokes out to per-casino, per-chain and metric pages.
+// High-intent topic leaderboards — each a distinct angle (verified volume / proof of
+// reserves / multi-chain) over the same ≥medium-confidence operator set, so they
+// don't duplicate the trust hub. Each ranks by its own metric and shows the column
+// that matters for that search intent.
+function topicListPage(cfg: {
+  path: string
+  h1: string
+  title: string
+  description: string
+  intro: string
+  metricHead: string
+  rows: { v: CasinoView; metric: string }[]
+  slugOfView: (v: CasinoView) => string
+  note?: string
+}): { title: string; description: string; html: string } {
+  const url = SITE + cfg.path
+  const rowsHtml = cfg.rows
+    .map((r, i) => {
+      const bt = blendedTrust(r.v)
+      return `<tr><td class="n">${i + 1}</td><td><a href="/casino/${cfg.slugOfView(r.v)}">${esc(r.v.name)}</a></td><td class="n">${r.metric}</td><td class="n gold">${bt ? `${bt.score} / 100` : '—'}</td></tr>`
+    })
+    .join('')
+  const body =
+    `<p class="sub">${cfg.intro}</p>` +
+    `<p class="upd">${cfg.rows.length} operators with ≥medium-confidence data · live on-chain data, refreshed ~every 30 min</p>` +
+    `<table><thead><tr><th>#</th><th>Casino</th><th style="text-align:right">${cfg.metricHead}</th><th style="text-align:right">Blended trust</th></tr></thead><tbody>${rowsHtml}</tbody></table>` +
+    (cfg.note ? `<p class="prose" style="margin-top:14px">${cfg.note}</p>` : '') +
+    `<h2>More rankings</h2><div class="chips"><a class="pill" href="/best-crypto-casinos">Best overall</a><a class="pill" href="/highest-volume-crypto-casinos">Highest volume</a><a class="pill" href="/crypto-casinos-with-proof-of-reserves">Proof of reserves</a><a class="pill" href="/multi-chain-crypto-casinos">Multi-chain</a><a class="pill" href="/rankings/trust">Most trusted</a></div>`
+  return {
+    title: cfg.title,
+    description: cfg.description,
+    html: layout({
+      title: cfg.title,
+      description: cfg.description,
+      canonical: url,
+      jsonLd: [itemListLd(cfg.rows.map((r) => ({ url: `${SITE}/casino/${cfg.slugOfView(r.v)}`, name: r.v.name })))],
+      breadcrumb: [{ name: 'Home', url: SITE + '/' }, { name: cfg.h1, url }],
+      h1: cfg.h1,
+      updated: Date.now(),
+      body,
+    }),
+  }
+}
+
 function bestCasinosHubPage(views: CasinoView[], slugOfView: (v: CasinoView) => string, chains: string[]): { title: string; description: string; html: string } {
   const url = `${SITE}/best-crypto-casinos`
   const top = views
@@ -1516,7 +1560,7 @@ function bestCasinosHubPage(views: CasinoView[], slugOfView: (v: CasinoView) => 
     `<p class="upd">${top.length} operators · ranked by blended independent trust · live on-chain data, refreshed ~every 30 min</p>` +
     `<table><thead><tr><th>#</th><th>Casino</th><th style="text-align:right">Blended trust</th><th style="text-align:right">7d on-chain vol</th><th style="text-align:right">Reserves</th></tr></thead><tbody>${rows}</tbody></table>` +
     `<h2>Best crypto casinos by blockchain</h2><div class="chips">${chainChips}</div>` +
-    `<h2>More ways to rank</h2><div class="chips"><a class="pill" href="/rankings/trust">Most trusted</a><a class="pill" href="/rankings/volume">By on-chain volume</a><a class="pill" href="/rankings/reserves">By reserves</a><a class="pill" href="/rankings">All rankings</a></div>` +
+    `<h2>More ways to rank</h2><div class="chips"><a class="pill" href="/rankings/trust">Most trusted</a><a class="pill" href="/highest-volume-crypto-casinos">Highest volume</a><a class="pill" href="/crypto-casinos-with-proof-of-reserves">Proof of reserves</a><a class="pill" href="/multi-chain-crypto-casinos">Multi-chain</a><a class="pill" href="/rankings">All rankings</a></div>` +
     `<p class="prose" style="margin-top:18px">Why trust over volume? On-chain volume is trivially wash-traded, so we lead with an independent <a href="/rankings/trust">trust ranking</a> and verify reserves on-chain (<a href="/proof-of-reserves">proof-of-reserves</a>). See <a href="/methodology/trust">how trust is scored</a> and the daily <a href="/daily">market report</a>.</p>`
   return {
     title,
@@ -1682,6 +1726,48 @@ export async function generateSeoPages(): Promise<void> {
   add('/rankings/trust', 'rankings', trustRankingPage(ranked, slugOfView))
   add('/rankings', 'rankings', rankingsIndexPage([...chainSet], unattributed.length > 0))
   add('/best-crypto-casinos', 'rankings', bestCasinosHubPage(ranked, slugOfView, chainBestGroups.map((g) => g.chain)), 'featured_core') // §4.2 flagship hub
+
+  // high-intent topic leaderboards (distinct angles; credible post de-distortion)
+  const topicBase = ranked.filter((v) => dataConfidence(v) !== 'low')
+  const volTop = topicBase
+    .filter((v) => !v.onchain?.volumeSuspect && (v.onchain?.volume7d ?? 0) > 0)
+    .sort((a, b) => (b.onchain?.volume7d ?? 0) - (a.onchain?.volume7d ?? 0))
+    .slice(0, 30)
+  if (volTop.length >= 5)
+    add('/highest-volume-crypto-casinos', 'rankings', topicListPage({
+      path: '/highest-volume-crypto-casinos', h1: `Highest-volume crypto casinos ${YEAR}`, slugOfView,
+      title: `Highest-Volume Crypto Casinos ${YEAR} — Verified On-Chain Deposits | WCOIN.CASINO`,
+      description: `Crypto casinos ranked by verified on-chain deposit/withdrawal volume in ${YEAR}. Internal hot-wallet churn, double-counts and wash/treasury flow are excluded, so the figures are real — not the inflated throughput most trackers publish.`,
+      intro: `Ranked by <strong>verified external on-chain volume</strong> — real deposits and withdrawals. We strip out internal hot-wallet churn, double-counts and treasury/market-making flow, so this is volume you can actually trust.`,
+      metricHead: '7d volume (verified)', rows: volTop.map((v) => ({ v, metric: fmtUsd(v.onchain?.volume7d ?? 0) })),
+      note: `Operators with anomalous (wash / treasury) volume are held <em>under review</em> and excluded here. See <a href="/methodology/address-attribution">how volume is measured</a>.`,
+    }), 'featured_core')
+  const porTop = topicBase
+    .filter((v) => (v.onchain?.reserves ?? 0) > 0)
+    .sort((a, b) => (b.onchain?.reserves ?? 0) - (a.onchain?.reserves ?? 0))
+    .slice(0, 30)
+  if (porTop.length >= 5)
+    add('/crypto-casinos-with-proof-of-reserves', 'rankings', topicListPage({
+      path: '/crypto-casinos-with-proof-of-reserves', h1: `Crypto casinos with proof of reserves ${YEAR}`, slugOfView,
+      title: `Crypto Casinos With Proof of Reserves ${YEAR} — On-Chain Reserves Tracked | WCOIN.CASINO`,
+      description: `Crypto casinos whose on-chain reserves we map and track, ranked by total all-chain reserves in ${YEAR}. Independently verifiable wallet balances — solvency you can check, not claims.`,
+      intro: `Crypto casinos whose reserves we map on-chain, ranked by <strong>total all-chain tracked reserves</strong>. These are wallet balances anyone can verify on the blockchain — solvency evidence, not marketing claims.`,
+      metricHead: 'Mapped reserves', rows: porTop.map((v) => ({ v, metric: fmtUsd(v.onchain?.reserves ?? 0) })),
+      note: `Reserves are a best-effort estimate from mapped wallets and may be partial by brand. See <a href="/proof-of-reserves">proof-of-reserves</a> and <a href="/methodology/proof-of-reserves">methodology</a>.`,
+    }), 'featured_core')
+  const mcTop = topicBase
+    .filter((v) => (v.onchain?.byChain?.length ?? 0) >= 2)
+    .sort((a, b) => (b.onchain?.byChain?.length ?? 0) - (a.onchain?.byChain?.length ?? 0) || (blendedTrust(b)?.score ?? 0) - (blendedTrust(a)?.score ?? 0))
+    .slice(0, 30)
+  if (mcTop.length >= 5)
+    add('/multi-chain-crypto-casinos', 'rankings', topicListPage({
+      path: '/multi-chain-crypto-casinos', h1: `Multi-chain crypto casinos ${YEAR}`, slugOfView,
+      title: `Multi-Chain Crypto Casinos ${YEAR} — Most Blockchains Supported | WCOIN.CASINO`,
+      description: `Crypto casinos settling across the most blockchains in ${YEAR}, by tracked on-chain activity — Bitcoin, Ethereum, Tron, Solana and more. Updated continuously.`,
+      intro: `Crypto casinos we observe settling across <strong>the most blockchains</strong> — a signal of operational scale and payment flexibility. Ranked by number of chains with tracked on-chain activity.`,
+      metricHead: 'Chains tracked', rows: mcTop.map((v) => ({ v, metric: String(v.onchain?.byChain?.length ?? 0) })),
+      note: `Chain count reflects networks where we currently track wallet activity for the operator; coverage expands over time.`,
+    }), 'featured_core')
   add('/risk', 'risk', riskIndexPage(recentRiskEvents(80)), 'featured_core') // neutral risk registry
   add('/proof-of-reserves', 'reserves', reservesHubPage(onchainBrands, slugOfBrand), 'featured_core') // on-chain moat: PoR guide + verified list
   // E-E-A-T + YMYL compliance pages (always indexable; linked from every page footer)
@@ -1850,6 +1936,9 @@ export function registerSeo(app: FastifyInstance) {
   app.get('/compare/:slug', serve('compare'))
   app.get('/rankings', serve('rankings'))
   app.get('/best-crypto-casinos', serve('rankings'))
+  app.get('/highest-volume-crypto-casinos', serve('rankings'))
+  app.get('/crypto-casinos-with-proof-of-reserves', serve('rankings'))
+  app.get('/multi-chain-crypto-casinos', serve('rankings'))
   app.get('/risk', serve('risk'))
   app.get('/proof-of-reserves', serve('reserves'))
   app.get('/rankings/:slug', serve('rankings'))
