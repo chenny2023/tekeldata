@@ -26,7 +26,8 @@ import { webFetch } from '../net.ts'
 // throttling. (Railway egress is outside the GFW, so these resolve directly.)
 const ESPLORA_HOSTS = ['https://mempool.space/api', 'https://blockstream.info/api']
 
-const PER_CASINO_CAP = Number(process.env.BTC_CLUSTER_CAP ?? 800) // max addresses per operator label
+const PER_CASINO_CAP = Number(process.env.BTC_CLUSTER_CAP ?? 5000) // max addresses per operator label
+const PER_CYCLE_MAX = Number(process.env.BTC_CLUSTER_CYCLE_MAX ?? 400) // cap rows inserted per cycle (avoid a big sync write)
 const SCAN_PAGES = 6 // pages of a seed's history scanned per visit
 // Casino deposit infra is HD wallets — one address per user, hundreds/thousands of
 // them — periodically SWEPT into a hot wallet in a single many-input consolidation
@@ -131,9 +132,12 @@ async function clusterOnce() {
     await new Promise((res) => setTimeout(res, 400))
   }
 
-  // attach the most-corroborated siblings first, up to the remaining cap
+  // attach the most-corroborated siblings first, up to the remaining cap — but no
+  // more than PER_CYCLE_MAX in one transaction, so a high cap can't insert thousands
+  // of rows in a single synchronous write and stall the event loop. The seed isn't
+  // marked done until its history is exhausted, so the rest land on later cycles.
   let added = 0
-  let budget = PER_CASINO_CAP - labelCount
+  let budget = Math.min(PER_CASINO_CAP - labelCount, PER_CYCLE_MAX)
   const ranked = [...siblings.entries()].sort((a, b) => b[1] - a[1])
   const txn = db.transaction(() => {
     for (const [addr] of ranked) {
@@ -172,7 +176,7 @@ export function startBtcCluster() {
   // txs were being skipped), so they're flagged done with their cursors spent. Bump
   // the version to clear that progress and re-cluster from scratch under the new cap /
   // MAX_INPUTS so the deposit-address clusters get fully expanded.
-  const CLUSTER_VERSION = 'v2-deep-2026-06'
+  const CLUSTER_VERSION = 'v3-open-2026-06'
   if (stateGet('btcclu:version') !== CLUSTER_VERSION) {
     const n = db.prepare("DELETE FROM sync_state WHERE key LIKE 'btcclu:done:%' OR key LIKE 'btcclu:cur:%' OR key LIKE 'btcclu:cd:%'").run().changes
     stateSet('btcclu:version', CLUSTER_VERSION)

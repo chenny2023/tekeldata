@@ -23,7 +23,7 @@ interface UtxoChain {
 const CHAINS: UtxoChain[] = [
   // mempool.space leads for BTC: 50 tx/page (vs blockstream's 25) and gentler rate
   // limits, so backfill catches up ~2× faster; blockstream is the rotation fallback.
-  { key: 'BTC', asset: 'BTC', apis: ['https://mempool.space/api', 'https://blockstream.info/api'], pollMs: 20_000, batch: Number(process.env.BTC_INDEX_BATCH ?? 5) },
+  { key: 'BTC', asset: 'BTC', apis: ['https://mempool.space/api', 'https://blockstream.info/api'], pollMs: 20_000, batch: Number(process.env.BTC_INDEX_BATCH ?? 8) },
   { key: 'LTC', asset: 'LTC', apis: ['https://litecoinspace.org/api'], pollMs: 20_000, batch: 1 },
 ]
 
@@ -77,8 +77,7 @@ const FWD_PAGES = 8 // forward-sync cap (steady state only needs a few)
 const RETRY_COOLDOWN_MS = 20 * 60_000 // a fetch-failing address is parked this long so it can't block the backfill queue
 
 let rr = 0
-async function indexChain(ch: UtxoChain) {
-  const watched = (stmt.activeWatch.all() as WatchRow[]).filter((w) => w.chain === ch.key)
+async function indexChain(ch: UtxoChain, watched: WatchRow[]) {
   if (watched.length === 0) return
   const cl = ch.key.toLowerCase()
   const now = Date.now()
@@ -173,8 +172,13 @@ export function startUtxo() {
     console.log(`[${ch.key.toLowerCase()}] ${ch.key} collector active (Esplora, historically priced)`)
     const loop = async () => {
       // process `batch` addresses per poll — clustering grew the BTC watch set into
-      // the thousands, so one-per-poll couldn't keep the backfill queue moving
-      try { for (let k = 0; k < ch.batch; k++) await indexChain(ch) } catch (e) { console.warn(`[${ch.key.toLowerCase()}]`, (e as Error).message) }
+      // the thousands, so one-per-poll couldn't keep the backfill queue moving. Read
+      // the watch list ONCE per poll (it can be tens of thousands of rows) instead of
+      // re-scanning it inside every indexChain call.
+      try {
+        const watched = (stmt.activeWatch.all() as WatchRow[]).filter((w) => w.chain === ch.key)
+        for (let k = 0; k < ch.batch; k++) await indexChain(ch, watched)
+      } catch (e) { console.warn(`[${ch.key.toLowerCase()}]`, (e as Error).message) }
       finally { setTimeout(loop, ch.pollMs) }
     }
     setTimeout(loop, 35_000)
