@@ -57,13 +57,20 @@ export async function generateMarketSnapshot(): Promise<void> {
   // exclude unattributed wallet labels from the raw 24h roll-ups (vol / flow / chain / whales)
   const NOT_UNATTR =
     "AND label NOT LIKE 'Casino-pattern%' AND label NOT LIKE '0x%' AND label NOT LIKE 'Unknown%' AND label NOT LIKE 'Unnamed%'"
+  // Count only EXTERNAL-facing flow: drop transfers whose counterparty is itself a
+  // watched casino address. Those are internal consolidations / hot-wallet churn AND
+  // they double-count (a casino-A→casino-B transfer is recorded once under each side),
+  // which is exactly what inflated ETH volume to a nonsensical ~$22B/7d and crushed
+  // every other chain's share. What's left ≈ real deposits + withdrawals (users/CEXs).
+  const EXTERNAL_ONLY =
+    "AND NOT EXISTS (SELECT 1 FROM watchlist cpw WHERE cpw.address = transfers.counterparty AND cpw.category='casino')"
 
   // 24h verified casino totals (worker)
   const tot = (await workerGet(
     `SELECT SUM(usd) vol,
             SUM(CASE WHEN direction='in'  THEN usd ELSE 0 END) inflow,
             SUM(CASE WHEN direction='out' THEN usd ELSE 0 END) outflow
-     FROM transfers WHERE category='casino' AND ts>=? ${NOT_UNATTR}`,
+     FROM transfers WHERE category='casino' AND ts>=? ${NOT_UNATTR} ${EXTERNAL_ONLY}`,
     [d1],
   )) as { vol: number; inflow: number; outflow: number }
   const trackedVol24 = tot?.vol ?? 0
@@ -74,13 +81,13 @@ export async function generateMarketSnapshot(): Promise<void> {
   // recent gap makes one chain look like ~96% when the true split is ETH ~55% / TRON
   // ~42%. 7d has complete data for every chain → an honest, professional breakdown.
   const chainRows = (await workerAll(
-    `SELECT chain, SUM(usd) v FROM transfers WHERE category='casino' AND ts>=? ${NOT_UNATTR} GROUP BY chain ORDER BY v DESC`,
+    `SELECT chain, SUM(usd) v FROM transfers WHERE category='casino' AND ts>=? ${NOT_UNATTR} ${EXTERNAL_ONLY} GROUP BY chain ORDER BY v DESC`,
     [d7],
   )) as { chain: string; v: number }[]
   // 24h per-chain too — the weekly report sums each day's per-chain value, which only
   // works with the (non-overlapping) DAILY figure. Carried alongside vol7d.
   const chainRows24 = (await workerAll(
-    `SELECT chain, SUM(usd) v FROM transfers WHERE category='casino' AND ts>=? ${NOT_UNATTR} GROUP BY chain`,
+    `SELECT chain, SUM(usd) v FROM transfers WHERE category='casino' AND ts>=? ${NOT_UNATTR} ${EXTERNAL_ONLY} GROUP BY chain`,
     [d1],
   )) as { chain: string; v: number }[]
   const vol24ByChain = new Map(chainRows24.map((c) => [c.chain, c.v ?? 0]))

@@ -613,6 +613,10 @@ for (const ddl of [
   }
 }
 
+// address-keyed lookup on the watchlist — powers the "is the counterparty itself a
+// watched casino address?" (internal-flow) exclusion used by the volume metrics.
+db.exec('CREATE INDEX IF NOT EXISTS idx_watchlist_address ON watchlist(address)')
+
 // ── sync_state helpers ────────────────────────────────────────────────────────
 const getState = db.prepare('SELECT value FROM sync_state WHERE key = ?')
 const setState = db.prepare(

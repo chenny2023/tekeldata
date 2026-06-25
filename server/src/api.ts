@@ -1109,6 +1109,7 @@ export async function registerApi(app: FastifyInstance) {
              SUM(usd) AS total, COUNT(*) AS txns
            FROM transfers
            WHERE chain=? AND category='casino' AND ts>=?
+             AND NOT EXISTS (SELECT 1 FROM watchlist cpw WHERE cpw.address = transfers.counterparty AND cpw.category='casino')
            GROUP BY label ORDER BY total DESC`,
         )
         .all(chain, since) as { label: string; deposits: number; withdrawals: number; total: number; txns: number }[]
