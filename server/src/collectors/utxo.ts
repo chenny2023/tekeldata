@@ -177,6 +177,10 @@ export function startUtxo() {
       // re-scanning it inside every indexChain call.
       try {
         const watched = (stmt.activeWatch.all() as WatchRow[]).filter((w) => w.chain === ch.key)
+        // Backfill curated/seed addresses BEFORE clustered ones: a hand-added high-value
+        // wallet (e.g. a casino's main hot wallet) must not wait behind tens of thousands
+        // of low-value clustered addresses in the queue.
+        watched.sort((a, b) => ((a as any).source === 'btc-cluster' ? 1 : 0) - ((b as any).source === 'btc-cluster' ? 1 : 0))
         for (let k = 0; k < ch.batch; k++) await indexChain(ch, watched)
       } catch (e) { console.warn(`[${ch.key.toLowerCase()}]`, (e as Error).message) }
       finally { setTimeout(loop, ch.pollMs) }

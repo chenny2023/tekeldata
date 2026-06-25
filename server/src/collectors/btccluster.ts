@@ -26,7 +26,10 @@ import { webFetch } from '../net.ts'
 // throttling. (Railway egress is outside the GFW, so these resolve directly.)
 const ESPLORA_HOSTS = ['https://mempool.space/api', 'https://blockstream.info/api']
 
-const PER_CASINO_CAP = Number(process.env.BTC_CLUSTER_CAP ?? 5000) // max addresses per operator label
+// Opening to 5000 proved the long tail beyond ~1k/operator is dust (no extra volume)
+// and it clogged the index queue, so a hand-seeded high-value wallet couldn't get
+// indexed. Cap at 1000 — enough to map the real deposit cluster, not the dust.
+const PER_CASINO_CAP = Number(process.env.BTC_CLUSTER_CAP ?? 1000) // max addresses per operator label
 const PER_CYCLE_MAX = Number(process.env.BTC_CLUSTER_CYCLE_MAX ?? 400) // cap rows inserted per cycle (avoid a big sync write)
 const SCAN_PAGES = 6 // pages of a seed's history scanned per visit
 // Casino deposit infra is HD wallets — one address per user, hundreds/thousands of
@@ -77,6 +80,9 @@ async function clusterOnce() {
   const all = stmt.activeWatch.all() as WatchRow[]
   const seeds = all.filter((w) => w.chain === 'BTC' && w.category === 'casino')
   if (seeds.length === 0) return
+  // cluster CURATED seeds (hand-added hot wallets) before cluster-discovered ones, so
+  // a freshly-seeded operator (e.g. Stake) expands ahead of re-scanning known clusters
+  seeds.sort((a, b) => ((a as any).source === 'btc-cluster' ? 1 : 0) - ((b as any).source === 'btc-cluster' ? 1 : 0))
   const now = Date.now()
 
   // Prefer a seed still being clustered (not done, not in cooldown); else round-robin
