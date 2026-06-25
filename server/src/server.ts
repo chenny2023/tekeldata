@@ -63,12 +63,9 @@ import { startDefiLlama } from './collectors/defillama.ts'
 import { startPolymarket } from './collectors/polymarket.ts'
 import { startYouTube } from './collectors/youtube.ts'
 import { startStatsMaintenance } from './aggregate.ts'
-import { registerSocialIntel } from './internal/api.ts'
-import { startSocialIntel, startLinkedinEnrich } from './internal/socialintel.ts'
-import { startTranslator } from './internal/translate.ts'
-import { startClassifier } from './internal/classify.ts'
-import { startKolScorer, startKolContacts } from './internal/kol.ts'
-import { startAppWatch, startAppAnalyzer, startBuildClassifier, startPlayWatch } from './internal/appwatch.ts'
+// ⚠️ 内部「Whale Growth」社媒情报工具已拆分为独立服务（wcoin-whale，自有 DB/进程/litestream），
+// 不再随主站运行 —— 杜绝采集/分类的重写入与主站抢同一把 SQLite 写锁。源码仍保留在 internal/ 仅供参考。
+// 面板新地址：https://wcoin-whale-production.up.railway.app/internal/social
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const distDir = join(__dirname, '../../dist')
@@ -120,7 +117,7 @@ async function main() {
   // /methodology and /sitemap.xml are served as real HTML, not the SPA shell.
   registerSeo(app)
   registerIndexNow(app) // serve the IndexNow key file (search-engine ownership proof)
-  registerSocialIntel(app) // 内部社媒情报面板 /internal/social + 管理员 API（注册在 SPA 兜底前）
+  // registerSocialIntel: 已拆到独立服务 wcoin-whale（/internal/social 不再由主站提供）
 
   // Serve the built SPA in production (single-process deploy). Vite emits
   // content-hashed asset filenames, so they're safe to cache hard (immutable);
@@ -263,16 +260,8 @@ async function main() {
   startArkham() // Arkham on-chain attribution — all-chain reserves/volume per casino entity
   startDefiLlama() // DefiLlama — on-chain prediction markets / lotteries / betting protocols
   startPolymarket() // Polymarket — top prediction markets (live odds + volume)
-  startSocialIntel() // 内部社媒情报：竞品/用户需求监听（Reddit 关键词 + X 账号），复用住宅代理
-  startTranslator() // 内部社媒情报：每条信号的中文解读后台批量回填（需 OPENROUTER_API_KEY）
-  startClassifier() // 内部社媒情报：LLM 信号分类（actor/tier/pain/solvable）+ 清理不符合（需 OPENROUTER_API_KEY）
-  startKolScorer() // 内部社媒情报：潜在合作 KOL 评分（领域契合 + 是否靠谱，需 OPENROUTER_API_KEY）
-  startKolContacts() // 内部社媒情报：KOL 触达方式补全（抓主页/linktree 挖 邮箱/TG/Discord）
-  startLinkedinEnrich() // 内部社媒情报：LinkedIn 信号全文补全（ScrapeCreators 拉全文+互动）
-  startAppWatch() // 产品观察室：全球主要市场 App Store 低分高流量榜（iTunes 免费榜单+评分）
-  startAppAnalyzer() // 产品观察室：AI 分析每个 app（做什么/差评集中点/潜在机会，需 OPENROUTER_API_KEY）
-  startBuildClassifier() // 产品观察室：可复刻性分类（vibe coding 机会，排除政府/重研发，需 OPENROUTER_API_KEY）
-  startPlayWatch() // 产品观察室：Google Play 下载榜（ScrapingBee，需 scrapingbee key）
+  // ⚠️ 内部「Whale Growth」社媒情报的 10 个后台 job（采集/分类/KOL/翻译/观察室）已迁到独立服务
+  //    wcoin-whale，主站不再运行 —— 这正是本次拆分的目的：消除采集重写入与主站抢 SQLite 写锁。
 
   // Second wave: the HEAVY deep-backfill indexers. Their bulk inserts (a catch-up can
   // be tens of thousands of rows/tick across several chains) saturate the single Node
