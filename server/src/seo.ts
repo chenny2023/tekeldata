@@ -1545,6 +1545,32 @@ function currencyReportPage(chainRows: { chain: string; v: number }[], total: nu
   }
 }
 
+// Reserves report — aggregate view of all-chain tracked reserves (total, by chain,
+// top operators). Distinct from the per-operator PoR list; a linkable data story.
+function reservesReportPage(chainRes: { chain: string; v: number; casinos: number }[], total: number, top: { v: CasinoView; slug: string }[]): { title: string; description: string; html: string } {
+  const path = '/data/crypto-casino-reserves'
+  const url = SITE + path
+  const title = `Crypto Casino Reserves Report ${YEAR} — All-Chain On-Chain Reserves | WCOIN.CASINO`
+  const description = `How much do crypto casinos actually hold? We track ${fmtUsd(total)} in all-chain on-chain reserves across the operators we map — by chain and by operator, independently verifiable.`
+  const chainRows = chainRes
+    .map((c) => `<tr><td><span class="pill">${esc(chainName(c.chain))}</span></td><td class="n">${fmtUsd(c.v)}</td><td class="n">${total > 0 ? ((100 * c.v) / total).toFixed(1) : '0'}%</td><td class="n">${c.casinos}</td></tr>`)
+    .join('')
+  const opRows = top
+    .map((x, i) => `<tr><td class="n">${i + 1}</td><td><a href="/casino/${x.slug}">${esc(x.v.name)}</a></td><td class="n">${fmtUsd(x.v.onchain?.reserves ?? 0)}</td></tr>`)
+    .join('')
+  const body =
+    `<p class="sub">Proof of reserves, aggregated. Across the casinos we map on-chain, we currently track <strong>${fmtUsd(total)}</strong> in reserves — wallet balances anyone can verify on a block explorer, not self-reported claims.</p>` +
+    `<p class="upd">Reserves are mapped from public wallet attribution and read live across every chain. Best-effort and partial by brand. Refreshed continuously.</p>` +
+    `<h2>Reserves by chain</h2><table><thead><tr><th>Chain</th><th style="text-align:right">Tracked reserves</th><th style="text-align:right">Share</th><th style="text-align:right">Operators</th></tr></thead><tbody>${chainRows}</tbody></table>` +
+    `<h2>Top operators by tracked reserves</h2><table><thead><tr><th>#</th><th>Operator</th><th style="text-align:right">Mapped reserves</th></tr></thead><tbody>${opRows}</tbody></table>` +
+    `<p class="prose" style="margin-top:14px">Reserves show assets, not liabilities — they signal an operator can likely honour withdrawals today, but aren't a full solvency proof. See <a href="/guide/crypto-casino-proof-of-reserves">how proof of reserves works</a>, the full <a href="/crypto-casinos-with-proof-of-reserves">operator list</a>, and our <a href="/methodology/proof-of-reserves">methodology</a>.</p>`
+  return {
+    title,
+    description,
+    html: layout({ title, description, canonical: url, jsonLd: [datasetLd('Crypto Casino On-Chain Reserves', description, url, Date.now(), ['all-chain tracked reserves (USD)', 'reserves by chain', 'reserves by operator'])], breadcrumb: [{ name: 'Home', url: SITE + '/' }, { name: 'Data', url }], h1: `Crypto casino reserves report ${YEAR}`, updated: Date.now(), body }),
+  }
+}
+
 // High-intent topic leaderboards — each a distinct angle (verified volume / proof of
 // reserves / multi-chain) over the same ≥medium-confidence operator set, so they
 // don't duplicate the trust hub. Each ranks by its own metric and shows the column
@@ -1848,6 +1874,18 @@ export async function generateSeoPages(): Promise<void> {
   const chainFlowTotal = chainFlowRows.reduce((s, c) => s + c.v, 0)
   if (chainFlowTotal > 0)
     add('/data/crypto-casino-deposit-currencies', 'data', currencyReportPage(chainFlowRows, chainFlowTotal), 'featured_core')
+  // reserves report (data story) — all-chain reserves total, by chain, top operators
+  const chainResRows = db
+    .prepare('SELECT chain, SUM(usd) v, COUNT(DISTINCT key) casinos FROM arkham_chain_reserves GROUP BY chain ORDER BY v DESC')
+    .all() as { chain: string; v: number; casinos: number }[]
+  const resTotal = chainResRows.reduce((s, c) => s + (c.v ?? 0), 0)
+  const resTop = ranked
+    .filter((v) => (v.onchain?.reserves ?? 0) > 0)
+    .sort((a, b) => (b.onchain?.reserves ?? 0) - (a.onchain?.reserves ?? 0))
+    .slice(0, 20)
+    .map((v) => ({ v, slug: slugOfView(v) }))
+  if (resTotal > 0 && resTop.length >= 3)
+    add('/data/crypto-casino-reserves', 'data', reservesReportPage(chainResRows, resTotal, resTop), 'featured_core')
   // Programmatic currency pages — one "Best {stablecoin} Casinos" per token with ≥5
   // operators (stablecoins are cross-chain, so not covered by the per-chain pages).
   const CURRENCIES: { token: string; slug: string; name: string; blurb: string }[] = [
@@ -1969,12 +2007,47 @@ export async function generateSeoPages(): Promise<void> {
     ],
     related: `See why fairness is separate from solvency in <a href="/guide/are-crypto-casinos-safe">are crypto casinos safe?</a> and the <a href="/rankings/trust">trust ranking</a>.`,
   }), 'featured_core')
+  add('/guide/what-is-a-crypto-casino', 'guide', guidePage({
+    path: '/guide/what-is-a-crypto-casino', h1: 'What is a crypto casino?',
+    title: `What Is a Crypto Casino? How They Work (${YEAR}) | WCOIN.CASINO`,
+    description: `What a crypto casino is, how it differs from a traditional online casino, how deposits and provably-fair games work, and the on-chain trade-offs — explained simply.`,
+    intro: `A crypto casino is an online casino that takes deposits and pays winnings in cryptocurrency rather than fiat. That one change has big consequences — here's how they actually work.`,
+    sections: [
+      { h: 'How a crypto casino works', body: `<p>You deposit crypto (most often <a href="/best-usdt-casinos">USDT</a>, sometimes Bitcoin or Ethereum) to an address the casino gives you, play games credited in that balance, and withdraw back on-chain. Because settlement is on a public blockchain, deposits and payouts are <strong>independently visible</strong> — the basis for the on-chain transparency this site is built on.</p>` },
+      { h: 'How it differs from a traditional online casino', body: `<p>Traditional casinos use banks and card processors, so they're tied to regulated payment rails, KYC and chargebacks. Crypto casinos settle peer-to-blockchain: faster payouts, fewer payment blocks, often lighter KYC — but also <strong>less regulatory protection</strong>. There's usually no deposit insurance and no regulator to recover funds from, which shifts the burden of due diligence onto you.</p>` },
+      { h: 'Provably fair', body: `<p>Many crypto casinos offer <a href="/guide/provably-fair-explained">provably-fair</a> games, where a cryptographic commitment lets you verify each outcome wasn't manipulated. That's a genuine advantage over traditional online casinos — though it proves game fairness, not that the operator will pay you.</p>` },
+      { h: 'The trade-off', body: `<p>The core trade-off is freedom for self-responsibility. You get fast, global, low-friction play; you give up the safety net. That's why verifiable signals — <a href="/proof-of-reserves">on-chain reserves</a>, independent trust ratings, real withdrawal activity — matter so much. 18+ only; <a href="/responsible-gambling">gamble responsibly</a>.</p>` },
+    ],
+    faqs: [
+      { q: 'What is a crypto casino?', a: 'An online casino that accepts deposits and pays winnings in cryptocurrency (commonly USDT) instead of fiat, settling on a public blockchain. This makes deposits and payouts independently verifiable.' },
+      { q: 'Are crypto casinos legal?', a: 'It varies by jurisdiction. Most operate under offshore licences (Curaçao, Anjouan) and many restrict certain countries. Legality depends on where you are — check your local rules.' },
+    ],
+    related: `Next: <a href="/guide/how-to-choose-a-crypto-casino">how to choose a crypto casino</a>, or browse the <a href="/best-crypto-casinos">best crypto casinos</a>.`,
+  }), 'featured_core')
+  add('/guide/how-to-choose-a-crypto-casino', 'guide', guidePage({
+    path: '/guide/how-to-choose-a-crypto-casino', h1: 'How to choose a crypto casino',
+    title: `How to Choose a Crypto Casino (${YEAR}) — A Data-Driven Checklist | WCOIN.CASINO`,
+    description: `A practical, data-driven checklist for choosing a crypto casino: solvency and reserves, independent trust, withdrawal track record, deposit currency, and bonus fine print.`,
+    intro: `Choosing a crypto casino comes down to one question — will it still pay you next month? Here's a checklist that puts solvency and evidence first.`,
+    sections: [
+      { h: '1. Solvency first', body: `<p>Before anything else, check the operator can cover what it owes. Look for verifiable <a href="/crypto-casinos-with-proof-of-reserves">on-chain reserves</a> that comfortably exceed withdrawal demand and stay stable over time. An operator with thin or opaque reserves is the single biggest risk, regardless of its bonuses.</p>` },
+      { h: '2. Independent trust, not affiliate hype', body: `<p>Weigh ratings that aren't paid for — casino.guru, Trustpilot, AskGamblers — and prefer operators where multiple sources agree. We blend these into one <a href="/rankings/trust">independent trust score</a>. Be skeptical of "top casino" lists that are really affiliate placements.</p>` },
+      { h: '3. Withdrawal track record', body: `<p>Fast, consistent withdrawals are the truest test. Check <a href="/guide/crypto-casino-withdrawal-times">withdrawal-time</a> reports and on-chain outflow activity — steady payouts to many counterparties are a good sign; stalled outflows or a wave of complaints are not.</p>` },
+      { h: '4. Practical fit', body: `<p>Then the practical bits: does it support your preferred deposit currency and network (<a href="/best-usdt-casinos">USDT-TRC20</a> for low fees), are the games provably fair, and read the bonus fine print — high wagering requirements can lock funds. Match the casino to how you actually play. 18+; <a href="/responsible-gambling">play responsibly</a>.</p>` },
+    ],
+    faqs: [
+      { q: 'What is the most important thing when choosing a crypto casino?', a: 'Solvency — whether the operator can actually pay withdrawals. Verifiable on-chain reserves and a consistent payout history matter more than bonus size or game selection.' },
+      { q: 'How do I avoid crypto casino scams?', a: 'Favour operators with verifiable reserves, agreement across independent rating sources, and a clean recent withdrawal record. Avoid those with anomalous on-chain volume or unverifiable reserves.' },
+    ],
+    related: `Use the <a href="/best-crypto-casinos">best crypto casinos</a> ranking, <a href="/crypto-casinos-with-proof-of-reserves">proof-of-reserves list</a>, and <a href="/data/crypto-casino-reserves">reserves report</a>.`,
+  }), 'featured_core')
   add('/guide', 'guide', guidePage({
     path: '/guide', h1: 'Crypto casino guides',
     title: `Crypto Casino Guides — On-Chain Data, Reserves & Deposits (${YEAR}) | WCOIN.CASINO`,
     description: `Practical, data-backed guides to crypto casinos: proof of reserves, deposit currencies (USDT vs Bitcoin), how to verify an operator on-chain, and how to judge safety.`,
     intro: `Practical guides built on verifiable on-chain data — not affiliate marketing. Learn how to read reserves, choose a deposit currency, and check an operator yourself.`,
     sections: [
+      { h: 'Getting started', body: `<p><a href="/guide/what-is-a-crypto-casino">What is a crypto casino?</a> — how they work and differ from traditional ones. <a href="/guide/how-to-choose-a-crypto-casino">How to choose a crypto casino</a> — a data-driven checklist that puts solvency first.</p>` },
       { h: 'Safety & solvency', body: `<p><a href="/guide/are-crypto-casinos-safe">Are crypto casinos safe?</a> — the real risks and how to judge an operator. <a href="/guide/crypto-casino-proof-of-reserves">Proof of reserves explained</a> — what it proves and how we measure it. <a href="/guide/how-to-verify-a-crypto-casino">How to verify a crypto casino on-chain</a> — a step-by-step you can follow yourself.</p>` },
       { h: 'Deposits & currencies', body: `<p><a href="/guide/usdt-vs-bitcoin-casino-deposits">USDT vs Bitcoin for casino deposits</a> — what the on-chain data shows and which to use. See live data in the <a href="/data/crypto-casino-deposit-currencies">deposit currency breakdown</a>, and operators in the <a href="/best-usdt-casinos">best USDT casinos</a> ranking.</p>` },
       { h: 'Games & withdrawals', body: `<p><a href="/guide/provably-fair-explained">Provably fair, explained</a> — how to verify game outcomes, and why fairness isn't safety. <a href="/guide/crypto-casino-withdrawal-times">Crypto casino withdrawal times</a> — what to expect by network, and the on-chain signals of a slow-payout operator.</p>` },
@@ -2156,6 +2229,9 @@ export function registerSeo(app: FastifyInstance) {
   app.get('/best-usdt-casinos', serve('rankings'))
   app.get('/best-usdc-casinos', serve('rankings'))
   app.get('/data/crypto-casino-deposit-currencies', serve('data'))
+  app.get('/data/crypto-casino-reserves', serve('data'))
+  app.get('/guide/what-is-a-crypto-casino', serve('guide'))
+  app.get('/guide/how-to-choose-a-crypto-casino', serve('guide'))
   app.get('/guide', serve('guide'))
   app.get('/guide/crypto-casino-proof-of-reserves', serve('guide'))
   app.get('/guide/usdt-vs-bitcoin-casino-deposits', serve('guide'))
