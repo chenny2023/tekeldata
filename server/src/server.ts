@@ -49,6 +49,7 @@ import { startXrp } from './collectors/xrp.ts'
 import { startAggregation } from './aggregate.ts'
 import { startAlerts } from './alerts.ts'
 import { startRetention } from './retention.ts'
+import { startInternalFlow } from './internalflow.ts'
 import { startReserveHistory } from './reservehistory.ts'
 import { startSnapshots } from './snapshot.ts'
 import { registerSeo, startSeo } from './seo.ts'
@@ -247,6 +248,7 @@ async function main() {
   startAggregation()
   startAlerts() // user-defined alert rules: whale stream + net-flow / reserve checks
   startRetention() // periodic prune of transfers past the retention window
+  startInternalFlow() // mark casino↔casino internal transfers (cp_internal) for fast credible volume
   startReserveHistory() // daily solvency snapshots → reserve-adequacy trend
   startCasinoAlerts() // per-casino reserve-drop alert emails to public subscribers
   startRiskEvents() // risk-event registry: auto on-chain signals + curated incidents

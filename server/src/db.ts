@@ -605,6 +605,11 @@ for (const ddl of [
   // provenance of a watched address — NULL/'curated' = hand-seeded; 'btc-cluster' =
   // discovered by common-input-ownership clustering (auditable + bulk-reversible)
   'ALTER TABLE watchlist ADD COLUMN source TEXT',
+  // 1 = the counterparty is itself a watched casino address (internal/double-counted
+  // flow). Set by a background marker (internalflow.ts) so volume queries can filter
+  // cp_internal=0 cheaply instead of a per-row NOT EXISTS (which blocked the loop).
+  // ADD COLUMN with a default is instant in SQLite (no table rewrite).
+  'ALTER TABLE transfers ADD COLUMN cp_internal INTEGER NOT NULL DEFAULT 0',
 ]) {
   try {
     db.exec(ddl)
