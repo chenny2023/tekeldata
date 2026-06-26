@@ -29,7 +29,7 @@ const ESPLORA_HOSTS = ['https://mempool.space/api', 'https://blockstream.info/ap
 // Opening to 5000 proved the long tail beyond ~1k/operator is dust (no extra volume)
 // and it clogged the index queue, so a hand-seeded high-value wallet couldn't get
 // indexed. Cap at 1000 — enough to map the real deposit cluster, not the dust.
-const PER_CASINO_CAP = Number(process.env.BTC_CLUSTER_CAP ?? 1000) // max addresses per operator label
+const PER_CASINO_CAP = Number(process.env.BTC_CLUSTER_CAP ?? 300) // max addresses per operator label (kept low — the long tail is dust)
 const PER_CYCLE_MAX = Number(process.env.BTC_CLUSTER_CYCLE_MAX ?? 400) // cap rows inserted per cycle (avoid a big sync write)
 const SCAN_PAGES = 6 // pages of a seed's history scanned per visit
 // Casino deposit infra is HD wallets — one address per user, hundreds/thousands of
@@ -173,9 +173,41 @@ async function clusterOnce() {
   }
 }
 
+// One-time cleanup: opening the cluster cap to thousands added tens of thousands of
+// dust addresses (no on-chain flow) that bloated the casino watchlist and slowed
+// aggregateBrands. Drop cluster-discovered addresses with no observed transfers,
+// keeping seeds and any address that actually moved BTC. Chunked + yielded; runs once.
+async function pruneClusterDust() {
+  if (stateGet('btcclu:pruned') === 'v1') return
+  try {
+    const active = new Set<number>(
+      (db.prepare("SELECT DISTINCT watch_id FROM transfers WHERE chain='BTC'").all() as { watch_id: number }[]).map((r) => r.watch_id),
+    )
+    const dust = (db.prepare("SELECT id FROM watchlist WHERE chain='BTC' AND category='casino' AND source='btc-cluster'").all() as { id: number }[])
+      .filter((r) => !active.has(r.id))
+      .map((r) => r.id)
+    const del = db.prepare('DELETE FROM watchlist WHERE id=?')
+    let removed = 0
+    for (let i = 0; i < dust.length; i += 500) {
+      const slice = dust.slice(i, i + 500)
+      db.transaction(() => {
+        for (const id of slice) removed += del.run(id).changes
+      })()
+      await new Promise((r) => setImmediate(r)) // yield every 500 deletes — never blocks the loop
+    }
+    stateSet('btcclu:pruned', 'v1')
+    console.log(`[btcclu] pruned ${removed} dust cluster addresses (kept seeds + on-chain-active addresses)`)
+  } catch (e) {
+    console.warn('[btcclu] prune failed:', (e as Error).message)
+  }
+}
+
 export function startBtcCluster() {
-  if (process.env.BTC_ENABLED === '0' || process.env.BTC_CLUSTER === '0') {
-    console.log('[btcclu] disabled')
+  setTimeout(() => void pruneClusterDust(), 90_000) // one-time dust cleanup, after boot settles
+  // Clustering is now OPT-IN (BTC_CLUSTER=1): it had done its job and kept re-bloating
+  // the watchlist. The dust prune above still runs so the cleanup happens regardless.
+  if (process.env.BTC_ENABLED === '0' || process.env.BTC_CLUSTER !== '1') {
+    console.log('[btcclu] clustering idle (set BTC_CLUSTER=1 to re-enable); dust prune scheduled')
     return
   }
   // One-time re-open: operators previously hit the old 150 cap (and big consolidation
