@@ -1746,6 +1746,7 @@ function bestCasinosHubPage(views: CasinoView[], slugOfView: (v: CasinoView) => 
     `<p class="upd">${top.length} operators · ranked by blended independent trust · live on-chain data, refreshed ~every 30 min</p>` +
     `<table><thead><tr><th>#</th><th>Casino</th><th style="text-align:right">Blended trust</th><th style="text-align:right">7d on-chain vol</th><th style="text-align:right">Reserves</th></tr></thead><tbody>${rows}</tbody></table>` +
     `<h2>Best crypto casinos by blockchain</h2><div class="chips">${chainChips}</div>` +
+    `<h2>Best crypto casinos by deposit asset</h2><div class="chips"><a class="pill" href="/best-bitcoin-casinos">Bitcoin</a><a class="pill" href="/best-ethereum-casinos">Ethereum</a><a class="pill" href="/best-tron-casinos">Tron</a><a class="pill" href="/best-solana-casinos">Solana</a><a class="pill" href="/best-usdt-casinos">USDT</a><a class="pill" href="/best-usdc-casinos">USDC</a></div>` +
     `<h2>More ways to rank</h2><div class="chips"><a class="pill" href="/rankings/trust">Most trusted</a><a class="pill" href="/highest-volume-crypto-casinos">Highest volume</a><a class="pill" href="/crypto-casinos-with-proof-of-reserves">Proof of reserves</a><a class="pill" href="/multi-chain-crypto-casinos">Multi-chain</a><a class="pill" href="/rankings">All rankings</a></div>` +
     `<p class="prose" style="margin-top:18px">Why trust over volume? On-chain volume is trivially wash-traded, so we lead with an independent <a href="/rankings/trust">trust ranking</a> and verify reserves on-chain (<a href="/proof-of-reserves">proof-of-reserves</a>). See <a href="/methodology/trust">how trust is scored</a> and the daily <a href="/daily">market report</a>.</p>`
   return {
@@ -2501,6 +2502,10 @@ export function registerSeo(app: FastifyInstance) {
   app.get('/multi-chain-crypto-casinos', serve('rankings'))
   app.get('/best-usdt-casinos', serve('rankings'))
   app.get('/best-usdc-casinos', serve('rankings'))
+  app.get('/best-bitcoin-casinos', serve('rankings'))
+  app.get('/best-ethereum-casinos', serve('rankings'))
+  app.get('/best-tron-casinos', serve('rankings'))
+  app.get('/best-solana-casinos', serve('rankings'))
   app.get('/data/crypto-casino-deposit-currencies', serve('data'))
   app.get('/data/crypto-casino-reserves', serve('data'))
   app.get('/data/crypto-casino-net-flow', serve('data'))
@@ -2517,6 +2522,7 @@ export function registerSeo(app: FastifyInstance) {
   app.get('/guide/how-to-verify-a-crypto-casino', serve('guide'))
   app.get('/guide/crypto-casino-withdrawal-times', serve('guide'))
   app.get('/guide/provably-fair-explained', serve('guide'))
+  app.get('/guide/:slug', serve('guide')) // catch-all so new guides need no per-slug route
   app.get('/risk', serve('risk'))
   app.get('/proof-of-reserves', serve('reserves'))
   app.get('/rankings/:slug', serve('rankings'))
