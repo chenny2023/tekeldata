@@ -477,6 +477,15 @@ function casinoPage(
       : `${v.name} has ${fmtUsd(oc.volume7d)} of tracked on-chain volume over the last 7 days across ${oc.byChain?.length || 1} chain${(oc.byChain?.length || 1) === 1 ? '' : 's'}, with ${fmtNum(oc.players)} active counterparties.` })
     faqs.push({ q: `Is ${v.name} legit or safe to use?`, a: `WCOIN is an independent on-chain data site and does not rate operators as legit, safe or unsafe. We surface verifiable signals — on-chain reserves, tracked volume and independent third-party ratings${bt ? ` (blended trust ${bt.score}/100 from ${bt.sources} sources)` : ''} — so you can assess for yourself. Always do your own research.` })
     faqs.push({ q: `How is ${v.name}'s data verified?`, a: `Figures come from on-chain transfers attributed to wallets associated with ${v.name}, plus published third-party ratings shown with their source. Attribution carries inherent uncertainty; see our methodology.` })
+    const chainsSettled = (oc.byChain ?? []).filter((c) => c.value > 0).map((c) => chainName(c.chain))
+    if (chainsSettled.length) {
+      const list = chainsSettled.join(', ').replace(/, ([^,]*)$/, chainsSettled.length > 1 ? ' and $1' : '$1')
+      faqs.push({ q: `Which blockchains and cryptocurrencies does ${v.name} use?`, a: `We observe ${v.name} settling on-chain across ${chainsSettled.length} network${chainsSettled.length === 1 ? '' : 's'} — ${list}. That means it processes the assets native to those chains (for example USDT on Tron and Ethereum, or BTC on Bitcoin). Always confirm the supported deposit options on the operator's own site before depositing.` })
+    }
+    if (bt) faqs.push({ q: `What is ${v.name}'s trust rating?`, a: `${v.name} has a blended independent-trust score of ${bt.score}/100, aggregated from ${bt.sources} third-party source${bt.sources === 1 ? '' : 's'} such as casino.guru, Trustpilot and AskGamblers. It reflects reputation and is independent of on-chain volume, which is easily inflated by wash trading. See how trust is scored in our methodology.` })
+    faqs.push({ q: `Does ${v.name} have proof of reserves?`, a: oc.reserves > 0
+      ? `We map and track approximately ${fmtUsd(oc.reserves)} in on-chain reserves for ${v.name} — wallet balances anyone can verify on a public block explorer. This is observed proof of reserves, not a self-reported claim, and may be partial by brand.`
+      : `We don't yet map verifiable on-chain reserves for ${v.name}. That isn't evidence of insolvency — it usually means we haven't attributed enough of its wallets yet. Check back as coverage expands.` })
   }
   const faqHtml = faqs.length ? `<h2>Frequently asked questions</h2>${faqs.map((f) => `<div style="margin:10px 0"><p style="font-weight:600;margin:0 0 2px">${esc(f.q)}</p><p class="prose" style="margin:0;font-size:14px">${esc(f.a)}</p></div>`).join('')}` : ''
 
