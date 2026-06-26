@@ -653,6 +653,15 @@ export function externalFlowClause(): string {
   return 'AND cp_internal=0'
 }
 
+// Attributed-only filter: drops auto-detected 'Casino-pattern 0x…' / raw-address /
+// unnamed wallets — on-chain activity we can't tie to a named operator and therefore
+// never include in a credible headline figure. The SQL proxy for `attributed`, used
+// alongside externalFlowClause() so every public aggregate shares one universe
+// (attributed + external-facing + non-suspect). Appended to a `WHERE …` over transfers.
+export function attributedClause(): string {
+  return "AND label NOT LIKE 'Casino-pattern%' AND label NOT LIKE '0x%' AND label NOT LIKE 'Unknown%' AND label NOT LIKE 'Unnamed%'"
+}
+
 // ── prepared statements reused by collectors/api ──────────────────────────────
 export const stmt = {
   insertTransfer: db.prepare(`

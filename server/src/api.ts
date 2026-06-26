@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify'
-import { db, stmt, stateGet, stateSet, externalFlowClause } from './db.ts'
+import { db, stmt, stateGet, stateSet, externalFlowClause, attributedClause } from './db.ts'
 import { bus, TransferEvent } from './bus.ts'
 import { aggregateEntities, aggregateBrands, maintainedPlayers } from './aggregate.ts'
 import { runDataQualityChecks, lastDataQuality } from './dataquality.ts'
@@ -550,8 +550,7 @@ export async function registerApi(app: FastifyInstance) {
         const rows = db
           .prepare(
             `SELECT label, chain, direction, usd, ts FROM transfers
-             WHERE ts >= ? AND category='casino' AND usd >= 50000 ${externalFlowClause()}
-               AND label NOT LIKE 'Casino-pattern%' AND label NOT LIKE '0x%' AND label NOT LIKE 'Unknown%' AND label NOT LIKE 'Unnamed%'
+             WHERE ts >= ? AND category='casino' AND usd >= 50000 ${externalFlowClause()} ${attributedClause()}
              ORDER BY ts DESC LIMIT 80`,
           )
           .all(since) as any[]
@@ -720,7 +719,7 @@ export async function registerApi(app: FastifyInstance) {
       `SELECT CAST((ts - ?) / ? AS INTEGER) AS b,
               SUM(CASE WHEN direction='in'  THEN usd ELSE 0 END) deposits,
               SUM(CASE WHEN direction='out' THEN usd ELSE 0 END) withdrawals
-       FROM transfers WHERE ts >= ?${catFilter} ${externalFlowClause()} ${suspectNotIn} GROUP BY b ORDER BY b`,
+       FROM transfers WHERE ts >= ?${catFilter} ${externalFlowClause()} ${attributedClause()} ${suspectNotIn} GROUP BY b ORDER BY b`,
       [from, bucketMs, from, ...catArg, ...suspectArr],
     )) as any[]
     const map = new Map(rows.map((r) => [r.b, r]))
@@ -837,7 +836,7 @@ export async function registerApi(app: FastifyInstance) {
     const rows = (await workerAll(
       `SELECT CASE WHEN usd >= 100000 THEN 0 WHEN usd >= 10000 THEN 1 WHEN usd >= 500 THEN 2 ELSE 3 END AS b,
               COUNT(*) cnt, SUM(usd) vol, COUNT(DISTINCT counterparty) players
-       FROM transfers WHERE ts >= ?${catFilter} ${externalFlowClause()} ${suspectNotIn}
+       FROM transfers WHERE ts >= ?${catFilter} ${externalFlowClause()} ${attributedClause()} ${suspectNotIn}
        GROUP BY b`,
       [d7, ...catArg, ...suspectArr],
     )) as any[]
