@@ -2,53 +2,49 @@ import { db, stateGet, stateSet } from './db.ts'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Internal-flow marker. A transfer is "internal" when its counterparty is itself a
-// watched casino address — i.e. casino↔casino consolidation/churn, and the same
-// transfer recorded once under each watched side (double-count). Volume metrics want
-// these EXCLUDED, but doing it with a per-row `NOT EXISTS` over 57M rows blocked the
-// event loop for tens of seconds on the hot path.
+// watched casino address — casino↔casino consolidation/churn, plus the same transfer
+// recorded once under each watched side (double-count). Volume metrics want these
+// EXCLUDED, but doing it with a per-row `NOT EXISTS` over 57M rows blocked the hot path.
 //
-// Instead we precompute a `cp_internal` flag: this job walks the casino-address list
-// and, for each address, marks every transfer whose counterparty equals it (one
-// indexed UPDATE via idx_transfers_counterparty). Cursor-based + chunked + yields
-// every batch, so it never blocks the loop. It loops forever, re-evaluating as new
-// casino addresses are added (clustering, Dune, curated) — idempotent (sets 1 once).
-//
-// Once the first full pass is done, volume queries can filter `cp_internal=0` (a cheap
-// column check) instead of the NOT EXISTS — fast AND credible.
+// We precompute a `cp_internal` flag instead. This job walks casino addresses and
+// marks their counterparty transfers (idx_transfers_counterparty). CRITICAL: it marks
+// at most CHUNK rows per cycle and yields, so a hot counterparty (a main hot wallet
+// referenced by tens of thousands of internal transfers) is spread over many cycles
+// rather than one huge UPDATE that bloats the WAL and stalls the loop. Idempotent;
+// loops to re-evaluate as addresses are added. Once `firstpass` is set, phase 2 can
+// switch volume queries to the cheap `cp_internal=0` filter.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BATCH = Number(process.env.INTERNAL_MARK_BATCH ?? 60) // casino addresses per cycle
-const CYCLE_MS = 8_000
-const markStmt = db.prepare('UPDATE transfers SET cp_internal=1 WHERE counterparty=? AND cp_internal=0')
+const CHUNK = Number(process.env.INTERNAL_MARK_CHUNK ?? 3000) // max rows marked per cycle (bounds WAL/block)
+const CYCLE_MS = 3_000
+const pickIds = db.prepare('SELECT id FROM transfers WHERE counterparty=? AND cp_internal=0 LIMIT ?')
+const markId = db.prepare('UPDATE transfers SET cp_internal=1 WHERE id=?')
 
-let cursor = 0
-let passMarked = 0
+let cursor = 0 // OFFSET into the casino-address list
 
 async function markOnce() {
-  // walk active casino addresses in id order; wrap around at the end for re-evaluation
-  const rows = db
-    .prepare("SELECT address FROM watchlist WHERE category='casino' AND active=1 ORDER BY id LIMIT ? OFFSET ?")
-    .all(BATCH, cursor) as { address: string }[]
-  if (rows.length === 0) {
-    // completed a full pass
-    if (cursor > 0) {
+  const row = db
+    .prepare("SELECT address FROM watchlist WHERE category='casino' AND active=1 ORDER BY id LIMIT 1 OFFSET ?")
+    .get(cursor) as { address: string } | undefined
+  if (!row) {
+    // wrapped the whole list → a full pass is done; restart for incremental re-eval
+    if (cursor > 0 && stateGet('internalflow:firstpass') !== '1') {
       stateSet('internalflow:firstpass', '1')
-      stateSet('internalflow:lastpass_marked', String(passMarked))
-      if (passMarked) console.log(`[internal] full pass complete — ${passMarked} transfers newly marked internal`)
+      console.log('[internal] first full pass complete — cp_internal is now authoritative')
     }
     cursor = 0
-    passMarked = 0
     return
   }
-  let marked = 0
-  // each UPDATE is a single indexed lookup on counterparty; group a few per micro-tx
-  const tx = db.transaction((batch: { address: string }[]) => {
-    for (const r of batch) marked += markStmt.run(r.address).changes
-  })
-  tx(rows)
-  cursor += rows.length
-  passMarked += marked
-  if (marked > 0) console.log(`[internal] +${marked} internal transfers marked (cursor ${cursor})`)
+  const ids = pickIds.all(row.address, CHUNK) as { id: number }[]
+  if (ids.length) {
+    db.transaction((batch: { id: number }[]) => {
+      for (const x of batch) markId.run(x.id)
+    })(ids)
+    if (ids.length >= 100) console.log(`[internal] marked ${ids.length} for ${row.address.slice(0, 10)}… (cursor ${cursor})`)
+  }
+  // advance only when this address is fully drained (< CHUNK left); else re-process it
+  // next cycle so a hot address is marked in bounded chunks, never one giant UPDATE.
+  if (ids.length < CHUNK) cursor++
 }
 
 export function startInternalFlow() {
@@ -57,7 +53,7 @@ export function startInternalFlow() {
     return
   }
   const done = stateGet('internalflow:firstpass') === '1'
-  console.log(`[internal] internal-flow marker active${done ? ' (first pass already done — re-evaluating)' : ' (first pass pending)'}`)
+  console.log(`[internal] internal-flow marker active${done ? ' (first pass done — incremental re-eval)' : ' (first pass pending)'}`)
   const loop = async () => {
     try {
       await markOnce()
