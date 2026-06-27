@@ -138,6 +138,10 @@ function insightInput(): { input: any; brands: string[]; values: string[]; repor
   const volWoW = weekAgo ? pct(today.tracked_volume_24h, weekAgo.tracked_volume_24h) : null
   const resDoD = prev ? pct(today.reserves_total, prev.reserves_total) : null
   const acDelta = prev != null ? (today.active_casinos ?? 0) - (prev.active_casinos ?? 0) : null
+  // absolute deltas too — the model often expresses a change in $ rather than %, and
+  // every figure it cites must be pre-registered or qaCheck rejects the whole insight
+  const volAbsDoD = prev ? (today.tracked_volume_24h ?? 0) - (prev.tracked_volume_24h ?? 0) : null
+  const resAbsDoD = prev ? (today.reserves_total ?? 0) - (prev.reserves_total ?? 0) : null
 
   // mover dynamics from today's verified top movers (change24h is already a percent)
   const movers = (tp.topMovers ?? []) as any[]
@@ -151,7 +155,9 @@ function insightInput(): { input: any; brands: string[]; values: string[]; repor
     days_of_history: hist.length,
     verified_volume_24h_dod: volDoD != null ? v(fmtPct(volDoD)) : null,
     verified_volume_24h_wow: volWoW != null ? v(fmtPct(volWoW)) : null,
+    verified_volume_24h_change_abs: volAbsDoD != null ? v(fmtUsd(volAbsDoD)) : null,
     reserves_total_dod: resDoD != null ? v(fmtPct(resDoD)) : null,
+    reserves_total_change_abs: resAbsDoD != null ? v(fmtUsd(resAbsDoD)) : null,
     active_casinos_change: acDelta != null ? signed(acDelta, 0) : null,
     net_flow_24h_today: today.net_flow_24h != null ? v(fmtUsd(today.net_flow_24h)) : null,
     net_flow_24h_yesterday: prev?.net_flow_24h != null ? v(fmtUsd(prev.net_flow_24h)) : null,

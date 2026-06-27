@@ -22,15 +22,33 @@ export async function generateDailyInsight(force = false): Promise<boolean> {
 
   const built = buildPrompt('daily_insight')
   if (!built) return false
-  const gen = await generateContent(built.system, built.user)
+  let gen = await generateContent(built.system, built.user)
   if (!gen?.data) {
     console.warn('[insight] model returned no usable output')
     return false
   }
-  const qa = qaCheck(gen.data, built.qa)
+  let qa = qaCheck(gen.data, built.qa)
   if (!qa.pass) {
-    console.warn('[insight] QA rejected:', qa.failures.join('; '))
-    return false
+    // The deeper analytical prompt occasionally cites a figure (usually a $ change it
+    // estimated) that isn't in the data whitelist → qaCheck rejects the whole insight.
+    // Retry ONCE with explicit feedback naming the offending figures, so the analytical
+    // read still gets published instead of falling back to a stale one.
+    const bad = qa.failures.filter((f) => f.startsWith('unverified number')).join('; ')
+    if (bad) {
+      const fix =
+        built.user +
+        `\n\nCORRECTION: your previous draft used figures NOT present in the data (${bad}). Rewrite using ONLY figures exactly as they appear in the input above — never compute, round or estimate a number. Same JSON schema.`
+      const retry = await generateContent(built.system, fix)
+      if (retry?.data) {
+        gen = retry
+        qa = qaCheck(retry.data, built.qa)
+      }
+    }
+    if (!qa.pass) {
+      console.warn('[insight] QA rejected (after retry):', qa.failures.join('; '))
+      return false
+    }
+    console.log('[insight] QA passed on retry')
   }
   const mr = gen.data.market_read
   if (!mr || typeof mr !== 'object' || !(mr.what_changed || mr.why_it_matters || mr.what_to_watch)) return false
