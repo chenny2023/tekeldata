@@ -13,6 +13,13 @@ import { qaCheck } from './qa.ts'
 
 const utcDay = (ts = Date.now()) => new Date(ts).toISOString().slice(0, 10)
 
+// Safety net: the model occasionally echoes a raw input field name (e.g.
+// "net_flow_24h swung to …"). Rewrite any snake_case identifier to spaced words so the
+// published read always reads naturally, regardless of prompt compliance.
+function naturalize(s: string): string {
+  return s.replace(/\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/g, (m) => m.replace(/_/g, ' '))
+}
+
 export interface InsightResult {
   status: 'ok' | 'disabled' | 'no-snapshot' | 'exists' | 'no-prompt' | 'no-output' | 'qa-rejected' | 'invalid-shape'
   model?: string
@@ -56,10 +63,15 @@ export async function runInsight(opts: { force?: boolean; write?: boolean } = {}
   }
   const mr = gen.data.market_read
   if (!mr || typeof mr !== 'object' || !(mr.what_changed || mr.why_it_matters || mr.what_to_watch)) return { status: 'invalid-shape', data: gen.data }
-  const signals = Array.isArray(gen.data.notable_signals)
-    ? gen.data.notable_signals.filter((x: any) => typeof x === 'string' && x.trim()).slice(0, 5)
-    : []
-  const market_read = { what_changed: String(mr.what_changed || ''), why_it_matters: String(mr.why_it_matters || ''), what_to_watch: String(mr.what_to_watch || '') }
+  const signals = (Array.isArray(gen.data.notable_signals) ? gen.data.notable_signals : [])
+    .filter((x: any) => typeof x === 'string' && x.trim())
+    .map((x: string) => naturalize(x))
+    .slice(0, 5)
+  const market_read = {
+    what_changed: naturalize(String(mr.what_changed || '')),
+    why_it_matters: naturalize(String(mr.why_it_matters || '')),
+    what_to_watch: naturalize(String(mr.what_to_watch || '')),
+  }
   if (opts.write !== false) {
     db.prepare('UPDATE daily_market_snapshot SET ai_market_read=?, ai_notable_signals=?, updated_at=? WHERE snapshot_date=?').run(
       JSON.stringify(market_read),
