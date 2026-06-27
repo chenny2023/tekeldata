@@ -215,6 +215,7 @@ export function buildPrompt(contentType: string): BuiltPrompt | null {
       `- VARY from yesterday_read_do_not_repeat: a different lead and angle, never its phrasing. The reader sees these daily; repetition kills the value.\n` +
       `- 2-3 sentences per field, neutral and data-only. Describe observed structure; never invent motive or causes you cannot see. Cite figures EXACTLY as formatted in the input (recent_trends deltas are pre-computed for you — use them, don't recompute).\n` +
       `- "notable_signals": 3-5 short ANALYTICAL one-liners, each a trend or contrast (e.g. "TRON share rose to 45% from 41% d/d", "reserves flat despite the volume dip"), not static facts.\n` +
+      `- Write in natural prose. NEVER echo the raw input field names: say "verified 24h volume fell 29% day-over-day", NOT "verified_volume_24h_dod -29.0%"; say "net inflow of $11.2M, up from -$2.7M", NOT "net_flow_24h_today +$11.2M". Use the figures, not the JSON keys.\n` +
       `Output JSON schema: {"market_read":{"what_changed":"...","why_it_matters":"...","what_to_watch":"..."},"notable_signals":["...","..."]}`
     return { contentType, system, user: JSON.stringify(ii.input), qa: insightQa }
   }
