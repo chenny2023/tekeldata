@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { db, stmt, stateGet, stateSet } from '../db.ts'
-import { workerAll } from '../readpool.ts'
+import { db, stmt, stateGet, stateSet, externalFlowClause, attributedClause } from '../db.ts'
+import { workerAll, workerGet } from '../readpool.ts'
 import { webFetch, tronscanAccountKind } from '../net.ts'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -293,6 +293,17 @@ export async function classifyServices(): Promise<number> {
   const exchangeRefs = await buildRefs('exchange')
   if (casinoRefs.length === 0 && exchangeRefs.length === 0) return 0
 
+  // Plausibility ceiling: the largest single verified casino's 7d external volume. A
+  // discovered service that out-volumes it is almost certainly mislabeled infrastructure
+  // (a DEX/0x settler, an MM bot), NOT a casino — the user-overlap signal misfires
+  // because DeFi/MM counterparties also gamble. Used to veto a casino verdict below.
+  const d7c = Date.now() - 7 * 86_400_000
+  const ceilRow = (await workerGet(
+    `SELECT MAX(v) m FROM (SELECT SUM(usd) v FROM transfers WHERE category='casino' AND ts>=? ${externalFlowClause()} ${attributedClause()} GROUP BY label)`,
+    [d7c],
+  )) as { m: number } | undefined
+  const volCeiling = ceilRow?.m ?? 0
+
   const maxOverlap = (cps: string[], refs: { label: string; set: Set<string> }[]) => {
     let best = { label: '', ov: 0 }
     for (const ref of refs) {
@@ -324,6 +335,14 @@ export async function classifyServices(): Promise<number> {
       category = 'exchange'; kind = 'Exchange-pattern'; refLabel = exc.label; winOv = exc.ov
     }
     if (!category) continue // ambiguous → stay honestly 'other'
+    // veto an implausible casino verdict: out-volumes the top verified casino → infra
+    if (category === 'casino' && volCeiling > 0) {
+      const vr = (await workerGet('SELECT SUM(usd) v FROM transfers WHERE watch_id=? AND ts>=?', [s.id, d7c])) as { v: number } | undefined
+      if ((vr?.v ?? 0) > volCeiling) {
+        console.log(`[labels] ${s.chain} ${s.label} vetoed as casino — $${Math.round(vr?.v ?? 0).toLocaleString()}/7d out-volumes the top verified casino (infra)`)
+        continue
+      }
+    }
     const newLabel = s.label.replace(/^Service /, kind + ' ').slice(0, 48)
     db.prepare('UPDATE watchlist SET label=?, category=? WHERE id=?').run(newLabel, category, s.id)
     db.prepare('UPDATE transfers SET label=?, category=? WHERE watch_id=?').run(newLabel, category, s.id)
@@ -333,6 +352,42 @@ export async function classifyServices(): Promise<number> {
     )
   }
   return flagged
+}
+
+// One-time cleanup of infrastructure the overlap classifier let into the casino pool
+// BEFORE the plausibility guard above existed (the confirmed cases: a 0x-Protocol
+// "MainnetSettler", an MM/trading account doing $1–5B/7d). Any unattributed casino
+// entity whose 7d external volume out-volumes the top verified casino is deactivated
+// (active=0) — reversible, removes it from aggregates/discovery/unattributed, and (the
+// safety bit) does NOT rewrite the millions of transfers those high-throughput wallets
+// hold, which would freeze the loop. Idempotent via a state flag.
+export async function demoteImplausibleCasinos(): Promise<number> {
+  if (stateGet('labels:demoted_infra') === 'v1') return 0
+  const d7 = Date.now() - 7 * 86_400_000
+  const ceilRow = (await workerGet(
+    `SELECT MAX(v) m FROM (SELECT SUM(usd) v FROM transfers WHERE category='casino' AND ts>=? ${externalFlowClause()} ${attributedClause()} GROUP BY label)`,
+    [d7],
+  )) as { m: number } | undefined
+  const ceiling = ceilRow?.m ?? 0
+  if (ceiling <= 0) return 0 // aggregate not warm yet — retry on the next cycle, don't latch the flag
+  const cands = db
+    .prepare(
+      "SELECT id, label FROM watchlist WHERE active=1 AND category='casino' AND (label LIKE 'Casino-pattern%' OR label LIKE '0x%' OR label LIKE 'Unknown%' OR label LIKE 'Unnamed%')",
+    )
+    .all() as { id: number; label: string }[]
+  let demoted = 0
+  for (const c of cands) {
+    const vr = (await workerGet('SELECT SUM(usd) v FROM transfers WHERE watch_id=? AND ts>=?', [c.id, d7])) as { v: number } | undefined
+    if ((vr?.v ?? 0) > ceiling) {
+      db.prepare('UPDATE watchlist SET active=0 WHERE id=?').run(c.id)
+      demoted++
+      console.log(`[labels] deactivated mislabeled infra ${c.label} — $${Math.round(vr?.v ?? 0).toLocaleString()}/7d > top verified casino ($${Math.round(ceiling).toLocaleString()})`)
+    }
+    await yieldLoop()
+  }
+  stateSet('labels:demoted_infra', 'v1')
+  console.log(`[labels] infra demotion pass complete — deactivated ${demoted}`)
+  return demoted
 }
 
 export async function runLabelHarvest(force = false) {
@@ -382,4 +437,7 @@ export function startLabels() {
   // classification needs accumulated history — run once shortly after boot
   // (the persisted volume already holds the services' counterparty profiles)
   setTimeout(() => void classifyServices().catch(() => {}), 5 * 60_000)
+  // one-time: deactivate mislabeled infra that entered the casino pool before the
+  // plausibility guard existed (runs after the aggregate warms so the ceiling is valid)
+  setTimeout(() => void demoteImplausibleCasinos().catch(() => {}), 6 * 60_000)
 }
