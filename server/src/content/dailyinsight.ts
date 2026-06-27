@@ -13,28 +13,36 @@ import { qaCheck } from './qa.ts'
 
 const utcDay = (ts = Date.now()) => new Date(ts).toISOString().slice(0, 10)
 
-export async function generateDailyInsight(force = false): Promise<boolean> {
-  if (!openrouterEnabled()) return false
+export interface InsightResult {
+  status: 'ok' | 'disabled' | 'no-snapshot' | 'exists' | 'no-prompt' | 'no-output' | 'qa-rejected' | 'invalid-shape'
+  model?: string
+  failures?: string[]
+  retried?: boolean
+  data?: { market_read: any; notable_signals: string[] }
+}
+
+// Core generator (used by the scheduler and the diag). write=false makes it a dry
+// preview that returns the model output + QA outcome without persisting.
+export async function runInsight(opts: { force?: boolean; write?: boolean } = {}): Promise<InsightResult> {
+  if (!openrouterEnabled()) return { status: 'disabled' }
   const today = utcDay()
   const row = db.prepare('SELECT ai_market_read FROM daily_market_snapshot WHERE snapshot_date=?').get(today) as { ai_market_read: string | null } | undefined
-  if (!row) return false // no snapshot for today yet
-  if (row.ai_market_read && !force) return false // already generated today
+  if (!row) return { status: 'no-snapshot' }
+  if (row.ai_market_read && !opts.force) return { status: 'exists' }
 
   const built = buildPrompt('daily_insight')
-  if (!built) return false
+  if (!built) return { status: 'no-prompt' }
   let gen = await generateContent(built.system, built.user)
-  if (!gen?.data) {
-    console.warn('[insight] model returned no usable output')
-    return false
-  }
+  if (!gen?.data) return { status: 'no-output' }
   let qa = qaCheck(gen.data, built.qa)
+  let retried = false
   if (!qa.pass) {
     // The deeper analytical prompt occasionally cites a figure (usually a $ change it
-    // estimated) that isn't in the data whitelist → qaCheck rejects the whole insight.
-    // Retry ONCE with explicit feedback naming the offending figures, so the analytical
-    // read still gets published instead of falling back to a stale one.
+    // estimated) not in the data whitelist → qaCheck rejects the whole insight. Retry
+    // ONCE with explicit feedback so the analytical read publishes instead of a stale one.
     const bad = qa.failures.filter((f) => f.startsWith('unverified number')).join('; ')
     if (bad) {
+      retried = true
       const fix =
         built.user +
         `\n\nCORRECTION: your previous draft used figures NOT present in the data (${bad}). Rewrite using ONLY figures exactly as they appear in the input above — never compute, round or estimate a number. Same JSON schema.`
@@ -44,25 +52,30 @@ export async function generateDailyInsight(force = false): Promise<boolean> {
         qa = qaCheck(retry.data, built.qa)
       }
     }
-    if (!qa.pass) {
-      console.warn('[insight] QA rejected (after retry):', qa.failures.join('; '))
-      return false
-    }
-    console.log('[insight] QA passed on retry')
+    if (!qa.pass) return { status: 'qa-rejected', failures: qa.failures, retried, data: gen.data }
   }
   const mr = gen.data.market_read
-  if (!mr || typeof mr !== 'object' || !(mr.what_changed || mr.why_it_matters || mr.what_to_watch)) return false
+  if (!mr || typeof mr !== 'object' || !(mr.what_changed || mr.why_it_matters || mr.what_to_watch)) return { status: 'invalid-shape', data: gen.data }
   const signals = Array.isArray(gen.data.notable_signals)
     ? gen.data.notable_signals.filter((x: any) => typeof x === 'string' && x.trim()).slice(0, 5)
     : []
-  db.prepare('UPDATE daily_market_snapshot SET ai_market_read=?, ai_notable_signals=?, updated_at=? WHERE snapshot_date=?').run(
-    JSON.stringify({ what_changed: String(mr.what_changed || ''), why_it_matters: String(mr.why_it_matters || ''), what_to_watch: String(mr.what_to_watch || '') }),
-    JSON.stringify(signals),
-    Date.now(),
-    today,
-  )
-  console.log(`[insight] market read generated (${gen.model}) — ${signals.length} signals`)
-  return true
+  const market_read = { what_changed: String(mr.what_changed || ''), why_it_matters: String(mr.why_it_matters || ''), what_to_watch: String(mr.what_to_watch || '') }
+  if (opts.write !== false) {
+    db.prepare('UPDATE daily_market_snapshot SET ai_market_read=?, ai_notable_signals=?, updated_at=? WHERE snapshot_date=?').run(
+      JSON.stringify(market_read),
+      JSON.stringify(signals),
+      Date.now(),
+      today,
+    )
+    console.log(`[insight] market read generated (${gen.model})${retried ? ' [retry]' : ''} — ${signals.length} signals`)
+  }
+  return { status: 'ok', model: gen.model, retried, data: { market_read, notable_signals: signals } }
+}
+
+export async function generateDailyInsight(force = false): Promise<boolean> {
+  const r = await runInsight({ force, write: true })
+  if (r.status === 'qa-rejected') console.warn('[insight] QA rejected (after retry):', (r.failures || []).join('; '))
+  return r.status === 'ok'
 }
 
 export function startDailyInsight() {

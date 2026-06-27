@@ -5,6 +5,7 @@ import { aggregateEntities, aggregateBrands, maintainedPlayers, isUnattributed }
 import { runDataQualityChecks, lastDataQuality } from './dataquality.ts'
 import { brandHistory } from './brandstore.ts'
 import { renderDailyShareCard } from './content/card.ts'
+import { runInsight } from './content/dailyinsight.ts'
 import { reserveSeries } from './reservehistory.ts'
 import { twitchEnabled } from './collectors/twitch.ts'
 import { redditEnabled } from './collectors/reddit.ts'
@@ -1223,6 +1224,14 @@ export async function registerApi(app: FastifyInstance) {
       { addresses: 0, clustered: 0 },
     )
     return { operators: rows.length, ...totals, perOperator: rows }
+  })
+
+  // daily-insight generator probe — force-generates today's analytical Market Read and
+  // returns the model output + QA outcome (failures, retry) so the prompt can be iterated.
+  // Dry by default; ?write=1 persists the result to today's snapshot.
+  app.get('/api/diag/insight', async (req) => {
+    const write = (req.query as any)?.write === '1'
+    return runInsight({ force: true, write })
   })
 
   // infra-demotion audit (read-only) — shows the plausibility ceiling (largest verified
