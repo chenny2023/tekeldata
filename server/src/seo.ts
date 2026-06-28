@@ -1746,7 +1746,7 @@ function bestCasinosHubPage(views: CasinoView[], slugOfView: (v: CasinoView) => 
     `<p class="upd">${top.length} operators · ranked by blended independent trust · live on-chain data, refreshed ~every 30 min</p>` +
     `<table><thead><tr><th>#</th><th>Casino</th><th style="text-align:right">Blended trust</th><th style="text-align:right">7d on-chain vol</th><th style="text-align:right">Reserves</th></tr></thead><tbody>${rows}</tbody></table>` +
     `<h2>Best crypto casinos by blockchain</h2><div class="chips">${chainChips}</div>` +
-    `<h2>Best crypto casinos by deposit asset</h2><div class="chips"><a class="pill" href="/best-bitcoin-casinos">Bitcoin</a><a class="pill" href="/best-ethereum-casinos">Ethereum</a><a class="pill" href="/best-tron-casinos">Tron</a><a class="pill" href="/best-solana-casinos">Solana</a><a class="pill" href="/best-usdt-casinos">USDT</a><a class="pill" href="/best-usdc-casinos">USDC</a></div>` +
+    `<h2>Best crypto casinos by deposit asset</h2><div class="chips"><a class="pill" href="/best-bitcoin-casinos">Bitcoin</a><a class="pill" href="/best-ethereum-casinos">Ethereum</a><a class="pill" href="/best-tron-casinos">Tron</a><a class="pill" href="/best-solana-casinos">Solana</a><a class="pill" href="/best-polygon-casinos">Polygon</a><a class="pill" href="/best-usdt-casinos">USDT</a><a class="pill" href="/best-usdc-casinos">USDC</a></div>` +
     `<h2>More ways to rank</h2><div class="chips"><a class="pill" href="/rankings/trust">Most trusted</a><a class="pill" href="/highest-volume-crypto-casinos">Highest volume</a><a class="pill" href="/crypto-casinos-with-proof-of-reserves">Proof of reserves</a><a class="pill" href="/multi-chain-crypto-casinos">Multi-chain</a><a class="pill" href="/rankings">All rankings</a></div>` +
     `<p class="prose" style="margin-top:18px">Why trust over volume? On-chain volume is trivially wash-traded, so we lead with an independent <a href="/rankings/trust">trust ranking</a> and verify reserves on-chain (<a href="/proof-of-reserves">proof-of-reserves</a>). See <a href="/methodology/trust">how trust is scored</a> and the daily <a href="/daily">market report</a>.</p>`
   return {
@@ -2052,6 +2052,7 @@ export async function generateSeoPages(): Promise<void> {
     { chain: 'ETH', cslug: 'eth', slug: 'ethereum', name: 'Ethereum', blurb: `Ethereum (ETH) settles the largest share of crypto-casino deposit flow we track — native ETH plus ERC-20 stablecoins (USDT/USDC). These operators have <strong>verified on-chain Ethereum settlement</strong>.` },
     { chain: 'TRON', cslug: 'tron', slug: 'tron', name: 'Tron', blurb: `Tron is the low-fee rail behind most stablecoin casino deposits — USDT-TRC20 confirms in seconds for cents. These operators have <strong>verified on-chain Tron settlement</strong>.` },
     { chain: 'SOL', cslug: 'sol', slug: 'solana', name: 'Solana', blurb: `Solana (SOL) offers near-instant, sub-cent settlement that a growing set of crypto casinos support. These operators have <strong>verified on-chain Solana settlement</strong>.` },
+    { chain: 'POLYGON', cslug: 'polygon', slug: 'polygon', name: 'Polygon', blurb: `Polygon is a low-fee Ethereum scaling network where casinos settle USDC/USDT and POL for a fraction of mainnet gas. These operators have <strong>verified on-chain Polygon settlement</strong>.` },
   ]
   for (const ca of CHAIN_ASSETS) {
     const top = [...(byChainView.get(ca.chain) ?? new Map<CasinoView, number>()).entries()]
@@ -2299,6 +2300,91 @@ export async function generateSeoPages(): Promise<void> {
     ],
     related: `Compare <a href="/guide/usdt-vs-bitcoin-casino-deposits">USDT vs Bitcoin</a> in depth, or see the <a href="/data/crypto-casino-deposit-currencies">live deposit-currency breakdown</a>.`,
   }), 'featured_core')
+  add('/guide/crypto-casino-rtp-and-house-edge', 'guide', guidePage({
+    path: '/guide/crypto-casino-rtp-and-house-edge', h1: 'RTP and house edge at crypto casinos, explained',
+    title: `Crypto Casino RTP & House Edge Explained (${YEAR}) | WCOIN.CASINO`,
+    description: `What RTP and house edge mean at a crypto casino, typical values by game, why provably-fair does not mean better odds, and how the math guarantees the house wins over time.`,
+    intro: `RTP and house edge are the two numbers that decide how much a game pays back over time. Here's what they mean, typical values, and why "provably fair" is about honesty, not odds.`,
+    sections: [
+      { h: 'What RTP and house edge are', body: `<p>RTP ("return to player") is the percentage of all wagered money a game pays back over millions of rounds — a 97% RTP slot returns $97 per $100 wagered on average. The house edge is simply the rest: 100% − RTP. So that slot has a 3% house edge. These are long-run averages, not what happens in any single session, where variance dominates.</p>` },
+      { h: 'Typical values by game', body: `<p>House edge varies widely by game: blackjack with correct strategy can be under 1%, baccarat ~1.06%, European roulette 2.7%, most crypto-casino slots 1–8%, and "crash"/dice games often 1–2% (configurable by the operator). Lower edge means slower average losses — but the edge is always positive for the house, which is how the business is funded.</p>` },
+      { h: 'Provably fair ≠ better odds', body: `<p>A common misconception: "provably fair" games give you a better chance. They don't. <a href="/guide/provably-fair-explained">Provably fair</a> cryptographically proves the operator didn't tamper with a specific result — it verifies <em>honesty</em>, not generosity. A provably-fair dice game can still carry whatever house edge the operator sets. Always check the stated RTP/edge separately from the fairness mechanism.</p>` },
+      { h: 'What it means for you', body: `<p>Over enough play, the house edge guarantees the operator profits and the player's balance trends down — no strategy changes that for negative-edge games. Treat the edge as the price of entertainment, pick lower-edge games if you want your bankroll to last longer, and set limits. 18+ only; <a href="/responsible-gambling">play responsibly</a>.</p>` },
+    ],
+    faqs: [
+      { q: 'What is a good RTP for a crypto casino game?', a: 'Higher is better for the player. 97%+ (house edge under 3%) is good for slots; table games like blackjack and baccarat can exceed 99% RTP with correct play. The edge is always positive for the house, so no game pays back more than 100% over time.' },
+      { q: 'Does provably fair mean the game is not rigged?', a: 'It proves a specific result was not altered after your bet, which rules out one kind of cheating. It does not change the house edge — a provably-fair game still carries whatever RTP the operator configured, so check that number separately.' },
+    ],
+    related: `See <a href="/guide/provably-fair-explained">provably fair explained</a>, <a href="/guide/crypto-casino-bonuses-explained">bonuses & wagering</a>, and <a href="/guide/how-to-choose-a-crypto-casino">how to choose a crypto casino</a>.`,
+  }), 'featured_core')
+  add('/guide/stablecoin-casinos-explained', 'guide', guidePage({
+    path: '/guide/stablecoin-casinos-explained', h1: 'Stablecoin casinos explained (USDT & USDC)',
+    title: `Stablecoin Casinos Explained — USDT & USDC Gambling (${YEAR}) | WCOIN.CASINO`,
+    description: `Why dollar stablecoins (USDT, USDC) dominate crypto-casino deposits, the networks they run on, the trade-offs vs volatile coins, and what the on-chain data shows.`,
+    intro: `Most crypto-casino money moves as dollar stablecoins, not Bitcoin. Here's why USDT and USDC dominate, the networks they use, and the trade-offs.`,
+    sections: [
+      { h: 'Why stablecoins dominate', body: `<p>A stablecoin is a token pegged 1:1 to the US dollar. For casino play that's a big advantage: the amount you deposit is the amount you can wager, with no price swing between deposit and payout. Our on-chain data shows the overwhelming majority of tracked deposit flow is stablecoins — see the live <a href="/data/crypto-casino-deposit-currencies">deposit-currency breakdown</a>. Volatile coins like BTC or ETH expose your balance to market moves while you play.</p>` },
+      { h: 'USDT vs USDC', body: `<p><strong>USDT (Tether)</strong> is the most widely supported and most-used casino deposit asset by far. <strong>USDC (USD Coin)</strong> is the regulated, fully-reserved alternative, favoured by players who prioritise transparency of the issuer's backing. Both hold the dollar peg in normal conditions; the practical difference for players is which one a given casino supports and on which network. Browse the <a href="/best-usdt-casinos">best USDT</a> and <a href="/best-usdc-casinos">best USDC</a> casinos.</p>` },
+      { h: 'Networks matter', body: `<p>The same stablecoin runs on several chains and the network changes the cost and speed dramatically. <strong>USDT-TRC20 on Tron</strong> is the most popular: seconds to confirm, fees of cents or free. USDT/USDC-ERC20 on Ethereum works everywhere but costs more in gas; <a href="/best-polygon-casinos">Polygon</a> and <a href="/best-solana-casinos">Solana</a> offer low-fee alternatives. Always send on the EXACT network the casino specifies — a mismatch can lose funds.</p>` },
+      { h: 'The trade-offs', body: `<p>Stablecoins remove price risk but introduce issuer risk: you're trusting the issuer to hold real dollar reserves. Major stablecoins publish attestations, and de-pegs have been rare and brief, but it's a different risk than holding BTC. For most casino players the stability and low fees outweigh it, which is why the on-chain data is so lopsided toward stablecoins. 18+; <a href="/responsible-gambling">play responsibly</a>.</p>` },
+    ],
+    faqs: [
+      { q: 'Why do crypto casinos prefer USDT?', a: 'USDT is dollar-stable (no price swing between deposit and payout), and on Tron (TRC20) it is fast and nearly free to transfer. That combination makes it the default rail — our on-chain data shows stablecoins dominate casino deposit flow.' },
+      { q: 'Is USDC safer than USDT for casinos?', a: 'Both hold the dollar peg in normal conditions. USDC is fully reserved and regulated with regular attestations, which some players prefer; USDT is more widely supported at casinos. For deposits, the bigger practical factor is which network you use (TRC20 is cheapest).' },
+    ],
+    related: `Compare assets in <a href="/guide/best-crypto-for-casino-deposits">best crypto for casino deposits</a>, or see the live <a href="/data/crypto-casino-deposit-currencies">currency breakdown</a>.`,
+  }), 'featured_core')
+  add('/guide/crypto-casino-kyc-and-anonymity', 'guide', guidePage({
+    path: '/guide/crypto-casino-kyc-and-anonymity', h1: 'KYC and anonymity at crypto casinos',
+    title: `Crypto Casino KYC & Anonymity Explained (${YEAR}) | WCOIN.CASINO`,
+    description: `What KYC means at a crypto casino, when operators ask for identity verification, the reality of "no-KYC" play, and the privacy and risk trade-offs. Neutral, not advice.`,
+    intro: `Crypto casinos often let you start with just a wallet, but "anonymous" has limits. Here's what KYC is, when it kicks in, and the trade-offs. General information, not legal advice.`,
+    sections: [
+      { h: 'What KYC is', body: `<p>KYC ("know your customer") is identity verification — submitting ID, proof of address, sometimes a selfie. Regulated operators use it to meet anti-money-laundering rules. Many crypto casinos let you sign up and play with only a wallet, but that does not mean KYC never applies — it often triggers later, especially around withdrawals.</p>` },
+      { h: 'When operators ask for it', body: `<p>Common triggers: large or frequent withdrawals, a bonus dispute, suspected multi-accounting, or a request from the operator's licensing/payment partners. An operator can ask for verification at any point in its terms. A frustrating pattern players report is being asked for KYC only when they try to cash out a win — read the terms before depositing so you know what's required.</p>` },
+      { h: 'The reality of "no-KYC"', body: `<p>"No-KYC" usually means no verification to <em>deposit and play</em>, not a guarantee you'll never be asked. Because settlement is on a public blockchain, transactions are also pseudonymous, not anonymous — addresses can be clustered and analysed (that's the basis of this site). Treat "anonymous gambling" as "lower-friction", not invisible.</p>` },
+      { h: 'Privacy and risk trade-offs', body: `<p>Less KYC means more privacy and faster onboarding, but also weaker recourse: a regulated operator that holds your verified identity is also more accountable in a dispute. You're trading protection for privacy. Whatever you choose, your local law on online gambling still applies — see <a href="/guide/are-crypto-casinos-legal">are crypto casinos legal?</a> 18+; <a href="/responsible-gambling">play responsibly</a>.</p>` },
+    ],
+    faqs: [
+      { q: 'Do crypto casinos require KYC?', a: 'Many let you deposit and play with just a wallet, but most reserve the right to require identity verification later — commonly at withdrawal, on large amounts, or in a dispute. Read the operator\'s terms before depositing so a KYC request does not block a cash-out.' },
+      { q: 'Is gambling at a crypto casino anonymous?', a: 'Pseudonymous, not anonymous. You may not submit ID up front, but on-chain transactions are public and wallets can be analysed, and operators can ask for verification under their terms. Treat it as lower-friction, not invisible.' },
+    ],
+    related: `See <a href="/guide/are-crypto-casinos-legal">are crypto casinos legal?</a>, <a href="/guide/crypto-casino-red-flags">red flags</a>, and <a href="/guide/how-to-verify-a-crypto-casino">how to verify an operator on-chain</a>.`,
+  }), 'featured_core')
+  add('/guide/how-on-chain-casino-tracking-works', 'guide', guidePage({
+    path: '/guide/how-on-chain-casino-tracking-works', h1: 'How on-chain crypto casino tracking works',
+    title: `How On-Chain Crypto Casino Tracking Works (${YEAR}) | WCOIN.CASINO`,
+    description: `How WCOIN reads crypto-casino deposits, withdrawals and reserves directly from public blockchains — wallet attribution, external-flow filtering, and the limits of the method.`,
+    intro: `Because crypto casinos settle on public blockchains, their money flow is independently observable. Here's how we turn raw on-chain data into the verified figures across this site.`,
+    sections: [
+      { h: 'Public settlement is the foundation', body: `<p>Every crypto-casino deposit and withdrawal is a transaction on a public blockchain. Anyone can read those transactions and the balances of the wallets involved — no permission from the operator needed. That single fact is what makes independent, verifiable casino data possible, unlike a traditional casino's private banking.</p>` },
+      { h: 'Attributing wallets to operators', body: `<p>The hard part is knowing which wallets belong to which casino. We map them only from evidence we can defend: public block-explorer name-tags, operator disclosures, and on-chain behaviour patterns. Wallets we detect as casino-like but cannot tie to a named brand are labelled "unattributed" and kept out of verified figures — never guessed into a brand. See our <a href="/methodology/address-attribution">attribution methodology</a>.</p>` },
+      { h: 'From raw flow to credible figures', body: `<p>Raw volume is misleading: it double-counts casino-to-casino transfers and includes internal treasury churn. We count only <strong>external-facing flow</strong> (real deposits and withdrawals with players/exchanges) and exclude wash/treasury-churn operators, so a headline number reflects player activity rather than money cycling internally. Reserves are read across every chain we track and shown with a coverage level, never as a claimed figure. See the live <a href="/proof-of-reserves">proof-of-reserves hub</a>.</p>` },
+      { h: 'The limits', body: `<p>On-chain tracking is powerful but partial: wallet mapping is never 100% complete, an operator can use wallets we haven't found, and balances are a snapshot that can be funded temporarily. That's why we label coverage and confidence on everything and pair on-chain signals with third-party reputation data rather than treating any single number as the whole truth. See <a href="/methodology/data-confidence">how we score confidence</a>.</p>` },
+    ],
+    faqs: [
+      { q: 'How can a site track a casino\'s deposits without its permission?', a: 'Crypto casinos settle on public blockchains, so their transactions and wallet balances are readable by anyone. Once a casino\'s wallets are identified from public name-tags and on-chain behaviour, its deposit/withdrawal flow and reserves can be measured independently.' },
+      { q: 'Why is your volume lower than other sites?', a: 'We count only external-facing flow (real deposits and withdrawals) and exclude casino-to-casino internal transfers, double-counts and wash/treasury churn. Raw throughput figures look much larger but overstate real player activity.' },
+    ],
+    related: `See the <a href="/methodology/address-attribution">attribution methodology</a>, <a href="/methodology/data-confidence">data-confidence scoring</a>, and the <a href="/proof-of-reserves">proof-of-reserves hub</a>.`,
+  }), 'featured_core')
+  add('/guide/crypto-casino-deposit-not-showing', 'guide', guidePage({
+    path: '/guide/crypto-casino-deposit-not-showing', h1: 'Crypto casino deposit not showing up — what to check',
+    title: `Crypto Casino Deposit Not Showing? Troubleshooting (${YEAR}) | WCOIN.CASINO`,
+    description: `Why a crypto-casino deposit can be delayed or missing — wrong network, unconfirmed transaction, memo/tag omitted, wrong token — and how to check each on a block explorer.`,
+    intro: `A deposit that hasn't arrived is usually one of a few fixable things. Here's how to diagnose it on-chain before contacting support — and the one mistake that can lose funds.`,
+    sections: [
+      { h: 'First: check the transaction on a block explorer', body: `<p>Copy your transaction hash and look it up on the relevant explorer (Etherscan, Tronscan, Solscan, etc.). Confirm it shows "Success" with enough confirmations, and that the <strong>recipient address exactly matches</strong> the one the casino gave you. If the transaction is still pending, you simply need to wait for network confirmations — congested networks or low fees mean longer waits.</p>` },
+      { h: 'Wrong network — the costly mistake', body: `<p>The most common cause of a "lost" deposit is sending on the wrong network: e.g. sending USDT-ERC20 (Ethereum) to a USDT-TRC20 (Tron) address, or using BEP-20 when the casino expects ERC-20. The token can end up at an address the casino doesn't control on that chain. Always send on the EXACT network the deposit page specifies. Recovery is sometimes possible but never guaranteed — prevention is everything.</p>` },
+      { h: 'Missing memo/tag or wrong token', body: `<p>Some chains (e.g. certain exchange-style deposits) require a <strong>memo/destination tag</strong>; omitting it can strand the deposit until support reconciles it manually. Also check you sent the exact token requested (USDT, not a similarly-named token) and met any minimum-deposit threshold — sub-minimum deposits are sometimes not credited automatically.</p>` },
+      { h: 'When to contact support', body: `<p>If the explorer shows a confirmed transaction to the correct address on the correct network and it still hasn't credited after a reasonable wait, contact the casino's support with your transaction hash and deposit details. Keep the hash — it's the proof. A pattern of unexplained non-credited deposits across users is a reputation red flag (see <a href="/guide/crypto-casino-red-flags">red flags</a>). 18+; <a href="/responsible-gambling">play responsibly</a>.</p>` },
+    ],
+    faqs: [
+      { q: 'Why is my crypto casino deposit not showing up?', a: 'Usually one of: the transaction is still waiting for network confirmations; it was sent on the wrong network; a required memo/tag was omitted; or it was below the minimum deposit. Look up your transaction hash on a block explorer to see which applies before contacting support.' },
+      { q: 'I sent crypto on the wrong network — can I get it back?', a: 'Sometimes, but never guaranteed. If the casino controls the destination address on the network you used, support may be able to credit or return it; otherwise the funds may be unrecoverable. Always send on the exact network the deposit page specifies.' },
+    ],
+    related: `See <a href="/guide/crypto-casino-withdrawal-times">withdrawal times</a>, <a href="/guide/best-crypto-for-casino-deposits">best crypto for deposits</a> (network tips), and <a href="/guide/crypto-casino-red-flags">red flags</a>.`,
+  }), 'featured_core')
   add('/guide', 'guide', guidePage({
     path: '/guide', h1: 'Crypto casino guides',
     title: `Crypto Casino Guides — On-Chain Data, Reserves & Deposits (${YEAR}) | WCOIN.CASINO`,
@@ -2307,10 +2393,11 @@ export async function generateSeoPages(): Promise<void> {
     sections: [
       { h: 'Getting started', body: `<p><a href="/guide/what-is-a-crypto-casino">What is a crypto casino?</a> — how they work and differ from traditional ones. <a href="/guide/how-to-choose-a-crypto-casino">How to choose a crypto casino</a> — a data-driven checklist that puts solvency first.</p>` },
       { h: 'Safety & solvency', body: `<p><a href="/guide/are-crypto-casinos-safe">Are crypto casinos safe?</a> — the real risks and how to judge an operator. <a href="/guide/crypto-casino-red-flags">Red flags & warning signs</a> — the signals an operator may not pay out. <a href="/guide/crypto-casino-proof-of-reserves">Proof of reserves explained</a> — what it proves and how we measure it. <a href="/guide/how-to-verify-a-crypto-casino">How to verify a crypto casino on-chain</a> — a step-by-step you can follow yourself.</p>` },
-      { h: 'Legal & comparison', body: `<p><a href="/guide/are-crypto-casinos-legal">Are crypto casinos legal?</a> — jurisdictions and licensing, explained neutrally. <a href="/guide/crypto-casino-vs-online-casino">Crypto casino vs traditional online casino</a> — how the two models really differ on safety, speed and transparency.</p>` },
-      { h: 'Deposits & currencies', body: `<p><a href="/guide/best-crypto-for-casino-deposits">Best crypto for casino deposits</a> — USDT, BTC, ETH and SOL compared on fees, speed and stability. <a href="/guide/usdt-vs-bitcoin-casino-deposits">USDT vs Bitcoin</a> — what the on-chain data shows. See live data in the <a href="/data/crypto-casino-deposit-currencies">deposit currency breakdown</a>, and operators in the <a href="/best-usdt-casinos">best USDT casinos</a> ranking.</p>` },
-      { h: 'Games & withdrawals', body: `<p><a href="/guide/provably-fair-explained">Provably fair, explained</a> — how to verify game outcomes, and why fairness isn't safety. <a href="/guide/crypto-casino-withdrawal-times">Crypto casino withdrawal times</a> — what to expect by network, and the on-chain signals of a slow-payout operator.</p>` },
+      { h: 'Legal, KYC & comparison', body: `<p><a href="/guide/are-crypto-casinos-legal">Are crypto casinos legal?</a> — jurisdictions and licensing, explained neutrally. <a href="/guide/crypto-casino-kyc-and-anonymity">KYC & anonymity</a> — when verification kicks in and what "no-KYC" really means. <a href="/guide/crypto-casino-vs-online-casino">Crypto casino vs traditional online casino</a> — how the two models really differ.</p>` },
+      { h: 'Deposits & currencies', body: `<p><a href="/guide/best-crypto-for-casino-deposits">Best crypto for casino deposits</a> — USDT, BTC, ETH and SOL compared. <a href="/guide/stablecoin-casinos-explained">Stablecoin casinos explained</a> — why USDT/USDC dominate. <a href="/guide/usdt-vs-bitcoin-casino-deposits">USDT vs Bitcoin</a>. <a href="/guide/crypto-casino-deposit-not-showing">Deposit not showing?</a> — troubleshoot it on-chain. See live data in the <a href="/data/crypto-casino-deposit-currencies">deposit currency breakdown</a>.</p>` },
+      { h: 'Games & withdrawals', body: `<p><a href="/guide/crypto-casino-rtp-and-house-edge">RTP & house edge explained</a> — the odds, and why provably-fair isn't better odds. <a href="/guide/provably-fair-explained">Provably fair, explained</a> — how to verify outcomes. <a href="/guide/crypto-casino-withdrawal-times">Withdrawal times</a> — what to expect by network, and the on-chain signals of a slow-payout operator.</p>` },
       { h: 'Bonuses & terms', body: `<p><a href="/guide/crypto-casino-bonuses-explained">Bonuses & wagering requirements explained</a> — how to tell a real offer from a trap. <a href="/guide/crypto-gambling-glossary">Crypto gambling glossary</a> — the key terms in plain English.</p>` },
+      { h: 'How our data works', body: `<p><a href="/guide/how-on-chain-casino-tracking-works">How on-chain casino tracking works</a> — how we read deposits, withdrawals and reserves directly from public blockchains, and the limits of the method.</p>` },
     ],
     related: `Explore the <a href="/best-crypto-casinos">best crypto casinos</a> ranking and the daily <a href="/daily">market report</a>.`,
   }), 'featured_core')
@@ -2506,6 +2593,7 @@ export function registerSeo(app: FastifyInstance) {
   app.get('/best-ethereum-casinos', serve('rankings'))
   app.get('/best-tron-casinos', serve('rankings'))
   app.get('/best-solana-casinos', serve('rankings'))
+  app.get('/best-polygon-casinos', serve('rankings'))
   app.get('/data/crypto-casino-deposit-currencies', serve('data'))
   app.get('/data/crypto-casino-reserves', serve('data'))
   app.get('/data/crypto-casino-net-flow', serve('data'))
