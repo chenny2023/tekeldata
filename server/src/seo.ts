@@ -34,6 +34,23 @@ import { fileURLToPath } from 'node:url'
 const SITE = 'https://wcoin.casino'
 // current year for rolling leaderboard titles (variable, never hard-coded) — §3.3
 const YEAR = new Date().getUTCFullYear()
+// Entity review pages (answer-first per-operator pages: is-X-safe / does-X-pay-out /
+// X-proof-of-reserves). Highest explicit intent + most AI-citable. `slug` is the URL
+// slug; `match` lowercased-key matches the brand in our views. Shared by the generator
+// loop and the route registration so the two never drift.
+const ENTITY_REVIEW: { name: string; slug: string }[] = [
+  { name: 'Stake', slug: 'stake' },
+  { name: 'Roobet', slug: 'roobet' },
+  { name: 'BC.Game', slug: 'bc-game' },
+  { name: 'Rollbit', slug: 'rollbit' },
+  { name: 'Metaspins', slug: 'metaspins' },
+  { name: 'Duelbits', slug: 'duelbits' },
+  { name: 'Gamdom', slug: 'gamdom' },
+  { name: 'Shuffle', slug: 'shuffle' },
+  { name: 'Cloudbet', slug: 'cloudbet' },
+  { name: 'TrustDice', slug: 'trustdice' },
+]
+const ENTITY_REVIEW_SLUGS = ENTITY_REVIEW.map((e) => e.slug)
 // stable publish date for evergreen guides (dateModified tracks the live refresh)
 const GUIDE_PUBLISHED = '2026-06-25T00:00:00Z'
 
@@ -556,6 +573,104 @@ function casinoPage(
       updated: pageUpdated,
       body,
       noindex,
+    }),
+  }
+}
+
+// ── entity answer pages — answer-first, GEO/AI-citable, per question ───────────
+// Three focused pages per operator (is-X-safe / does-X-pay-out / X-proof-of-reserves)
+// that open with a DATA STATUS (not a subjective safe/scam verdict — the site never
+// issues one) + an as-of date + the verifiable basis, then the relevant on-chain data
+// and a FAQ using the exact phrasings players search. Distinct from the full /casino
+// profile (focused on one question), which they link to.
+type AnswerType = 'is_safe' | 'does_pay' | 'proof_of_reserves'
+function entityAnswerPage(v: CasinoView, slug: string, type: AnswerType, asOf: string, casinoSlug: string): { title: string; description: string; html: string } {
+  const url = `${SITE}/${slug}`
+  const oc = v.onchain
+  const r = ratingsOf(v)
+  const bt = blendedTrust(v)
+  const cov = coverageLevelOf(oc)
+  const net = oc?.net7d ?? 0
+  const conf = dataConfidence(v)
+  // shared verifiable-signal phrases
+  const reservesPhrase = oc && oc.reserves > 0 ? `${fmtUsd(oc.reserves)} in mapped on-chain reserves (${COVERAGE_LABEL[cov]} coverage)` : `no on-chain reserves mapped yet`
+  const trustPhrase = bt ? `a blended independent-trust score of ${bt.score}/100 from ${bt.sources} sources` : (r.safety != null ? `a casino.guru Safety Index of ${r.safety.toFixed(1)}/10` : `limited third-party rating data`)
+  const complaintPhrase = r.complaints != null ? `${fmtNum(r.complaints)} logged complaints${r.unresolved != null ? ` (${fmtNum(r.unresolved)} unresolved)` : ''} on casino.guru` : `no aggregated complaint count on file`
+  const flowPhrase = oc && !oc.volumeSuspect ? `${(net >= 0 ? 'net inflow' : 'net outflow')} of ${fmtUsd(Math.abs(net))} over 7 days` : (oc?.volumeSuspect ? `volume held under review (anomalous pattern)` : `no tracked on-chain flow yet`)
+  const covRatio = oc?.reserveCoverage != null ? `${oc.reserveCoverage.toFixed(1)}× reserve-to-7d-outflow coverage` : null
+
+  let h1 = '', title = '', description = '', answer = '', body2 = '', faqs: { q: string; a: string }[] = []
+  const disclaimer = `<p class="prose" style="font-size:12px;color:var(--dim);margin-top:4px">WCOIN is an independent on-chain data site. We don't label operators safe, legit, solvent or scam — we surface verifiable signals so you can decide. This is observed wallet data, not financial or legal advice.</p>`
+  const dataTiles = oc
+    ? `<div class="grid">${stat('Mapped reserves', oc.reserves > 0 ? fmtUsd(oc.reserves) : '—', 'mint')}${stat('Reserve coverage', COVERAGE_LABEL[cov])}${stat('Net flow (7d)', oc.volumeSuspect ? 'Under review' : (net >= 0 ? '+' : '−') + fmtUsd(Math.abs(net)), oc.volumeSuspect ? '' : net >= 0 ? 'mint' : 'rose')}${bt ? stat(`Blended trust · ${bt.sources} src`, `${bt.score} / 100`, 'gold') : ''}</div>`
+    : (bt || r.safety != null ? `<div class="grid">${bt ? stat(`Blended trust · ${bt.sources} src`, `${bt.score} / 100`, 'gold') : ''}${r.safety != null ? stat('casino.guru', r.safety.toFixed(1) + ' / 10') : ''}${r.complaints != null ? stat('Complaints', fmtNum(r.complaints) + (r.unresolved != null ? ` (${fmtNum(r.unresolved)} open)` : '')) : ''}</div>` : '')
+
+  if (type === 'is_safe') {
+    h1 = `Is ${v.name} safe & legit? On-chain data (${asOf})`
+    title = `Is ${v.name} Safe & Legit? On-Chain Data Check (${YEAR}) | WCOIN.CASINO`
+    description = `Is ${v.name} safe and legit? The verifiable data as of ${asOf}: ${reservesPhrase}, ${trustPhrase}, and ${complaintPhrase}. We don't issue safe/scam verdicts — here's the data to judge.`
+    answer = `<p class="prose"><strong>The verifiable data (as of ${asOf}):</strong> ${v.name} has ${trustPhrase}, ${reservesPhrase}, and ${complaintPhrase}. On-chain it shows ${flowPhrase}. Rather than a subjective "safe" or "scam" label, these are independent, checkable signals — use them to judge ${v.name} before depositing.</p>`
+    body2 =
+      `<h2>How to read these signals</h2><p class="prose">No single number proves an operator is safe. The strongest pre-deposit checks are (1) <strong>verifiable on-chain reserves</strong> that comfortably cover withdrawals, (2) a <strong>track record</strong> in independent trust ratings, and (3) the <strong>trend in unresolved complaints</strong>. A cluster of red flags — thin or falling reserves, one-way outflow, many unresolved disputes — is a reason to slow down. Learn the full checklist in <a href="/guide/crypto-casino-red-flags">crypto casino red flags</a> and verify it yourself with <a href="/guide/how-to-verify-a-crypto-casino">how to verify a casino on-chain</a>.</p>` +
+      `<h2>The full ${esc(v.name)} profile</h2><p class="prose">This page answers the safety question; the <a href="/casino/${casinoSlug}">full ${esc(v.name)} data profile</a> has its complete on-chain activity, reserve trend, third-party ratings and any risk signals.</p>`
+    faqs = [
+      { q: `Is ${v.name} safe?`, a: `WCOIN does not label operators safe or unsafe. As of ${asOf}, the verifiable signals for ${v.name} are: ${trustPhrase}, ${reservesPhrase}, and ${complaintPhrase}. Use these checkable data points — not a marketing claim — to decide for yourself.` },
+      { q: `Is ${v.name} legit or a scam?`, a: `We don't make legit/scam accusations. ${v.name} shows ${flowPhrase} on-chain and ${trustPhrase}. On-chain activity and independent ratings are the verifiable basis; a pattern of unresolved withdrawal complaints would be the clearest negative signal to watch.` },
+      { q: `How can I check if ${v.name} is safe myself?`, a: `Read its mapped on-chain reserves and net flow (shown above and on the full profile), cross-check independent trust ratings, and look at the trend in unresolved complaints. Our <a href="/guide/how-to-verify-a-crypto-casino">verification guide</a> walks through reading the wallets on a block explorer.` },
+    ]
+  } else if (type === 'does_pay') {
+    h1 = `Does ${v.name} pay out? Withdrawal & payout data (${asOf})`
+    title = `Does ${v.name} Pay Out? Withdrawal Reliability Data (${YEAR}) | WCOIN.CASINO`
+    description = `Does ${v.name} pay out withdrawals? On-chain data as of ${asOf}: ${flowPhrase}${covRatio ? ', ' + covRatio : ''}, and ${complaintPhrase}. Observable payout signals — judge before you deposit.`
+    answer = `<p class="prose"><strong>The verifiable data (as of ${asOf}):</strong> ${v.name}'s on-chain wallets show ${flowPhrase}${covRatio ? `, with ${covRatio}` : ''}. Third-party reputation data shows ${complaintPhrase}. Because withdrawals settle on public chains, payout <em>activity</em> is observable — healthy two-way flow and reserves that cover outflows are positive signals — but no data can guarantee any individual cashout.</p>`
+    body2 =
+      `<h2>What the on-chain payout signals mean</h2><p class="prose">A casino that is paying players shows steady <strong>outflow</strong> alongside deposits — balanced two-way flow. Sustained heavy net outflow can signal stress; deposits with almost no outflow can signal players aren't being paid. Reserve-to-outflow coverage shows how many weeks of withdrawals the mapped reserves could cover. Pair these with the complaint trend: a wave of <em>unresolved</em> withdrawal complaints is the clearest warning. See <a href="/guide/crypto-casino-withdrawal-times">withdrawal times</a> and the <a href="/data/crypto-casino-net-flow">net-flow report</a>.</p>` +
+      `<h2>If a withdrawal is stuck</h2><p class="prose">Most stuck withdrawals are fixable — wrong network, unconfirmed transaction, missing memo. Diagnose it with <a href="/guide/crypto-casino-deposit-not-showing">deposit/withdrawal troubleshooting</a> before assuming non-payment. See the <a href="/casino/${casinoSlug}">full ${esc(v.name)} profile</a> for its complete flow history.</p>`
+    faqs = [
+      { q: `Does ${v.name} pay out?`, a: `On-chain as of ${asOf}, ${v.name} shows ${flowPhrase}${covRatio ? ` and ${covRatio}` : ''}. Withdrawal activity is publicly observable on-chain; balanced flow and reserve coverage are positive payout signals, but we can't guarantee any single cashout. Check the unresolved-complaint trend too.` },
+      { q: `Why is my ${v.name} withdrawal slow or not paying?`, a: `Delays are often network confirmations, a wrong-network send, or a missing memo rather than refusal to pay — see our <a href="/guide/crypto-casino-deposit-not-showing">troubleshooting guide</a>. If the on-chain transaction is confirmed to the right address and still not credited, contact support with the transaction hash. Persistent unexplained non-payment across users is a red flag.` },
+      { q: `How fast does ${v.name} pay withdrawals?`, a: `Speed depends on the network and the operator's processing. On-chain settlement itself is seconds-to-minutes (USDT-TRC20, Solana) once released; the operator's internal review is the variable. We track net flow and reserves, not individual payout times — the full profile shows ${v.name}'s observed flow.` },
+    ]
+  } else {
+    h1 = `${v.name} proof of reserves & solvency (${asOf})`
+    title = `${v.name} Proof of Reserves & Solvency — On-Chain (${YEAR}) | WCOIN.CASINO`
+    description = `${v.name} proof of reserves: ${reservesPhrase} as of ${asOf}, read directly from mapped wallets on public blockchains. Observed proof of reserves, not a self-reported claim.`
+    answer = oc && oc.reserves > 0
+      ? `<p class="prose"><strong>The verifiable data (as of ${asOf}):</strong> WCOIN maps ${reservesPhrase} for ${v.name} across ${oc.byChain?.length || 1} chain${(oc.byChain?.length || 1) === 1 ? '' : 's'} — wallet balances anyone can verify on a public block explorer. This is <strong>observed proof of reserves</strong>, not a figure the operator self-reports. Note it proves assets held, not total liabilities to players, and coverage is partial by brand.</p>`
+      : `<p class="prose"><strong>As of ${asOf}:</strong> WCOIN does not yet map verifiable on-chain reserves for ${v.name}. That is <em>not</em> evidence of insolvency — it usually means we haven't attributed enough of its wallets yet. ${trustPhrase.charAt(0).toUpperCase() + trustPhrase.slice(1)} is available in the meantime.</p>`
+    body2 =
+      `<h2>Proof of reserves vs proof of custody</h2><p class="prose">"Proof of reserves" shows assets exist on-chain at known wallets; it does <em>not</em> prove the operator controls them exclusively or that they exceed what's owed to players (liabilities). A wallet can also be funded temporarily to look healthy. That's why we show a <strong>coverage level</strong> rather than a single "fully reserved" claim, and pair reserves with net flow and trend. The full definitional breakdown is in <a href="/guide/crypto-casino-proof-of-reserves">proof of reserves explained</a>.</p>` +
+      (oc && oc.reserves > 0 ? `<h2>How we verify ${esc(v.name)}'s reserves</h2><p class="prose">We map wallets to ${v.name} from public block-explorer name-tags and on-chain behaviour, then read their balances across every chain we track — see <a href="/methodology/address-attribution">our attribution methodology</a>. The <a href="/casino/${casinoSlug}">full profile</a> shows the reserve trend and per-network breakdown.</p>` : `<h2>More on ${esc(v.name)}</h2><p class="prose">See the <a href="/casino/${casinoSlug}">full ${esc(v.name)} profile</a> for its third-party ratings, and our <a href="/proof-of-reserves">proof-of-reserves hub</a> for operators with mapped reserves.</p>`)
+    faqs = [
+      { q: `Does ${v.name} have proof of reserves?`, a: oc && oc.reserves > 0 ? `Yes — WCOIN maps ${reservesPhrase} for ${v.name}, read directly from wallets on public blockchains as of ${asOf}. This is observed proof of reserves (verifiable by anyone), not a self-reported figure, and may be partial by brand.` : `WCOIN does not yet map verifiable on-chain reserves for ${v.name} as of ${asOf}. This isn't evidence of insolvency — typically it means we haven't attributed enough of its wallets. Reserves appear here as coverage expands.` },
+      { q: `Is ${v.name} solvent?`, a: `We don't issue solvency verdicts. Proof of reserves shows assets held on-chain (${reservesPhrase} as of ${asOf}), not total liabilities to players, so it can't prove solvency on its own. We pair it with net flow and the reserve trend, shown on the full profile.` },
+      { q: `What does ${v.name}'s reserve coverage level mean?`, a: `Coverage is a qualitative band (High/Medium/Partial/Under review) reflecting how complete our wallet mapping for ${v.name} is — not a claim that it is "fully reserved". It is shown as a level, never a precise percentage, because attribution is inherently partial.` },
+    ]
+  }
+
+  const faqHtml = `<h2>Frequently asked questions</h2>${faqs.map((f) => `<div style="margin:10px 0"><p style="font-weight:600;margin:0 0 2px">${esc(f.q)}</p><p class="prose" style="margin:0;font-size:14px">${f.a}</p></div>`).join('')}`
+  const guideLinks = `<div class="chips" style="margin-top:18px"><a class="pill" href="/casino/${casinoSlug}">Full ${esc(v.name)} profile</a><a class="pill" href="/rankings/trust">Trust ranking</a><a class="pill" href="/proof-of-reserves">Proof of reserves</a><a class="pill" href="/guide/how-to-verify-a-crypto-casino">Verify on-chain</a></div>`
+  const body = `<p class="upd">As of ${asOf} · data confidence: ${conf} · independently verifiable</p>${answer}${disclaimer}${dataTiles}${body2}${faqHtml}${guideLinks}`
+
+  const jsonLd: object[] = [
+    { '@type': 'FAQPage', mainEntity: faqs.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a.replace(/<[^>]+>/g, '') } })) },
+  ]
+  return {
+    title,
+    description,
+    html: layout({
+      title,
+      description,
+      canonical: url,
+      jsonLd,
+      breadcrumb: [
+        { name: 'Home', url: SITE + '/' },
+        { name: v.name, url: `${SITE}/casino/${casinoSlug}` },
+        { name: h1, url },
+      ],
+      h1,
+      updated: Date.now(),
+      body,
     }),
   }
 }
@@ -1905,6 +2020,21 @@ export async function generateSeoPages(): Promise<void> {
     }
     if (idx % 15 === 14) await yieldLoop() // hand the loop back every 15 page-builds
   }
+  // ── entity review pages — answer-first per operator (is-safe / does-pay / PoR) ──
+  // The highest explicit-intent, most AI-citable surface. Built off the matched view's
+  // real data; thin operators fall to noindex via the word-count gate + lifecycle.
+  const asOf = new Date(now).toISOString().slice(0, 10)
+  const normName = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+  for (const e of ENTITY_REVIEW) {
+    const v = ranked.find((x) => normName(x.name) === normName(e.name) || normName(x.key) === normName(e.name))
+    if (!v) continue
+    const cslug = slugOfView(v)
+    const lc = dataConfidence(v) === 'low' ? 'limited_public_noindex' : 'public_indexable'
+    add(`/is-${e.slug}-safe`, 'casino', entityAnswerPage(v, `is-${e.slug}-safe`, 'is_safe', asOf, cslug), lc)
+    add(`/does-${e.slug}-pay-out`, 'casino', entityAnswerPage(v, `does-${e.slug}-pay-out`, 'does_pay', asOf, cslug), lc)
+    add(`/${e.slug}-proof-of-reserves`, 'casino', entityAnswerPage(v, `${e.slug}-proof-of-reserves`, 'proof_of_reserves', asOf, cslug), lc)
+  }
+  await yieldLoop()
   // rankings: metric leaderboards + trust board + index
   for (const key of Object.keys(METRICS)) {
     const pg = metricRankingPage(key, onchainBrands, slugOfBrand)
@@ -2582,6 +2712,13 @@ export function registerSeo(app: FastifyInstance) {
   })
   app.get('/casino/:slug', serve('casino'))
   app.get('/compare/:slug', serve('compare'))
+  // entity review pages (keyword-rich slugs need explicit routes; the catch-all SPA
+  // would otherwise swallow them) — see ENTITY_REVIEW
+  for (const s of ENTITY_REVIEW_SLUGS) {
+    app.get(`/is-${s}-safe`, serve('casino'))
+    app.get(`/does-${s}-pay-out`, serve('casino'))
+    app.get(`/${s}-proof-of-reserves`, serve('casino'))
+  }
   app.get('/rankings', serve('rankings'))
   app.get('/best-crypto-casinos', serve('rankings'))
   app.get('/highest-volume-crypto-casinos', serve('rankings'))
