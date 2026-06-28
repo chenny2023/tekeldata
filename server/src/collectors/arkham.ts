@@ -72,16 +72,31 @@ function seedFromRoster() {
     const path = fileURLToPath(new URL('../data/casino-roster.json', import.meta.url))
     const roster = JSON.parse(readFileSync(path, 'utf8')) as any[]
     let n = 0
+    const keys: string[] = []
     const tx = db.transaction(() => {
       for (const c of roster) {
         const name = String(c.name ?? '').trim()
         const key = String(c.slug ?? name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
         const domain = hostOf(String(c.website_url || c.website || ''))
-        if (name && key) n += upsertSeed.run({ key, name, domain }).changes
+        if (name && key) {
+          keys.push(key)
+          n += upsertSeed.run({ key, name, domain }).changes
+        }
       }
     })
     tx()
     if (n) console.log(`[arkham] seeded ${n} casinos from roster`)
+    // Arkham's resolver is severely rate-limited, so focus its scarce budget on the
+    // curated roster: drop UNRESOLVED non-roster seeds (e.g. the bulk directory seeds we
+    // tried earlier) so the loop resolves the high-value roster casinos instead of churning
+    // obscure ones. Resolved/attributed entries are kept regardless. Idempotent.
+    if (keys.length) {
+      const ph = keys.map(() => '?').join(',')
+      const pruned = db
+        .prepare(`DELETE FROM arkham_casino WHERE resolved_at=0 AND (entity_id IS NULL OR entity_id='') AND key NOT IN (${ph})`)
+        .run(...keys).changes
+      if (pruned) console.log(`[arkham] pruned ${pruned} unresolved non-roster seeds (focus resolve budget on roster)`)
+    }
   } catch (e) {
     console.warn('[arkham] roster seed failed:', (e as Error).message)
   }
