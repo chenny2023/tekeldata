@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify'
 import { db, externalFlowClause } from './db.ts'
-import { aggregateBrands, type BrandAgg } from './aggregate.ts'
+import { aggregateBrands, blendedTrustScore, type BrandAgg } from './aggregate.ts'
 import { workerAll } from './readpool.ts'
 import { runDataQualityChecks } from './dataquality.ts'
 import { brandKey, brandName, matchCasinoMeta, type CasinoMeta } from './casinometa.ts'
@@ -248,16 +248,16 @@ function trustSources(v: CasinoView): { key: string; label: string; norm: number
   if (r.safety != null) out.push({ key: 'guru', label: 'casino.guru', norm: (r.safety / 10) * 100 })
   if (r.ag != null) out.push({ key: 'ag', label: 'AskGamblers', norm: (r.ag / 10) * 100 })
   if (r.ed != null) out.push({ key: 'org', label: 'casino.org', norm: (r.ed / 5) * 100 })
-  if (r.tp != null && (r.tpN ?? 0) >= MIN_TP_REVIEWS) out.push({ key: 'tp', label: 'Trustpilot', norm: (r.tp / 5) * 100 })
+  if (r.tp != null) out.push({ key: 'tp', label: 'Trustpilot', norm: (r.tp / 5) * 100 })
   return out
 }
 
-// A PUBLISHED blended trust score requires ≥2 independent qualifying sources — a
-// single rating is shown as itself, never synthesised into a misleading "blend".
+// The ONE canonical Trust — uses the shared blendedTrustScore so SEO, API and the
+// dashboard always show the same number for a brand (≥2 independent sources required;
+// a single rating is shown as itself, never a misleading "blend").
 function blendedTrust(v: CasinoView): { score: number; sources: number } | null {
-  const s = trustSources(v)
-  if (s.length < 2) return null
-  return { score: Math.round(s.reduce((a, b) => a + b.norm, 0) / s.length), sources: s.length }
+  const r = ratingsOf(v)
+  return blendedTrustScore({ safety: r.safety, askgamblers: r.ag, editorial: r.ed, trustpilot: r.tp })
 }
 
 // per-page data confidence (for honest labelling)
@@ -398,7 +398,7 @@ function casinoPage(
   // unified ratings table
   const ratings: string[] = []
   if (r.safety != null) ratings.push(`<tr><td>casino.guru Safety Index</td><td class="n">${r.safety.toFixed(1)} / 10</td></tr>`)
-  if (r.tp != null) ratings.push(`<tr><td>Trustpilot${r.tpN != null ? ` (${fmtNum(r.tpN)} reviews${r.tpN < MIN_TP_REVIEWS ? ' — limited, excluded from blend' : ''})` : ''}</td><td class="n">${r.tp.toFixed(1)} / 5</td></tr>`)
+  if (r.tp != null) ratings.push(`<tr><td>Trustpilot${r.tpN != null ? ` (${fmtNum(r.tpN)} reviews${r.tpN < MIN_TP_REVIEWS ? ' — limited sample' : ''})` : ''}</td><td class="n">${r.tp.toFixed(1)} / 5</td></tr>`)
   if (r.ag != null) ratings.push(`<tr><td>AskGamblers expert</td><td class="n">${r.ag.toFixed(1)} / 10</td></tr>`)
   if (r.ed != null) ratings.push(`<tr><td>casino.org editorial</td><td class="n">${r.ed.toFixed(1)} / 5</td></tr>`)
   if (r.complaints != null) ratings.push(`<tr><td>casino.guru complaints (current)</td><td class="n">${fmtNum(r.complaints)}${r.unresolved != null ? ` (${fmtNum(r.unresolved)} unresolved)` : ''}</td></tr>`)

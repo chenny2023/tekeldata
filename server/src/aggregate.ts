@@ -31,8 +31,8 @@ export interface EntityAgg {
   players: number // distinct counterparties (7d)
   reserves: number // real on-chain stablecoin balance
   reserveCoverage: number | null // reserves / weekly outflow ≈ weeks of withdrawal coverage (solvency)
-  trust: number // blended: on-chain heuristic + community votes (when present)
-  onchainTrust: number
+  trust: number | null // canonical independent-third-party Trust (null if <2 sources)
+  onchainTrust: number // on-chain solvency/health heuristic — NOT "trust"
   votesUp: number
   votesDown: number
   firstSeen: number | null
@@ -231,6 +231,8 @@ async function computeEntities(): Promise<EntityAgg[]> {
     const v = voteMap.get(w.id)
     const votesUp = v?.up ?? 0
     const votesDown = v?.down ?? 0
+    const rv = w.category === 'casino' ? reviews.get(brandKey(w.label)) ?? null : null
+    const onchainHealthScore = trustScore({ reserves: bal, volume7d: a.vol7 ?? 0, inflow7d: a.in7 ?? 0, outflow7d: a.out7 ?? 0, firstSeen: a.firstSeen, now })
 
     out.push({
       id: w.id,
@@ -248,18 +250,10 @@ async function computeEntities(): Promise<EntityAgg[]> {
       players: playerCounts.get(w.id) ?? 0,
       reserves: bal,
       reserveCoverage: (a.out7 ?? 0) > 0 ? bal / (a.out7 as number) : null, // weeks of withdrawal coverage
-      ...blendTrust(
-        trustScore({
-          reserves: bal,
-          volume7d: a.vol7 ?? 0,
-          inflow7d: a.in7 ?? 0,
-          outflow7d: a.out7 ?? 0,
-          firstSeen: a.firstSeen,
-          now,
-        }),
-        votesUp,
-        votesDown,
-      ),
+      // canonical Trust = independent third-party blend (null if <2 sources); the
+      // on-chain heuristic is onchainTrust (a separate health signal, not "trust").
+      trust: blendedTrustScore({ safety: rv?.safety, askgamblers: rv?.askgamblers, editorial: rv?.editorial, trustpilot: rv?.trustpilot })?.score ?? null,
+      onchainTrust: onchainHealthScore,
       votesUp,
       votesDown,
       firstSeen: a.firstSeen ?? null,
@@ -325,7 +319,8 @@ export interface BrandAgg {
   reserves: number
   reserveCoverage: number | null
   coverageChange: number | null // coverage vs ~7d ago (relative) — colours the trend
-  trust: number
+  trust: number | null // canonical independent-third-party Trust (null if <2 sources)
+  onchainHealth: number // on-chain solvency/health heuristic (reserves/flow/age) — NOT "trust"
   byChain: { chain: string; value: number }[]
   meta: CasinoMeta | null
   safetyIndex: number | null
@@ -418,7 +413,10 @@ async function computeBrands(): Promise<BrandAgg[]> {
       reserves: brReserves,
       reserveCoverage: brCoverage,
       coverageChange,
-      trust: vol7 > 0 ? Math.round(sum((e) => e.trust * e.volume7d) / vol7) : head.trust, // volume-weighted
+      // canonical Trust = independent third-party blend (consistent with the SEO pages);
+      // the on-chain heuristic is kept separately as onchainHealth, never labelled "trust".
+      trust: blendedTrustScore({ safety: safetyV, askgamblers: agV, editorial: edV, trustpilot: tpV })?.score ?? null,
+      onchainHealth: vol7 > 0 ? Math.round(sum((e) => e.onchainTrust * e.volume7d) / vol7) : head.onchainTrust,
       byChain: [...chainVol.entries()].map(([chain, value]) => ({ chain, value })).sort((a, b) => b.value - a.value),
       meta: metaV,
       safetyIndex: safetyV,
@@ -471,6 +469,29 @@ function reputationScore(r: RepInputs): number | null {
   if (r.unresolved && r.unresolved > 0) s -= Math.min(25, r.unresolved * 4)
   else if (r.complaints && r.complaints > 5) s -= Math.min(8, r.complaints - 5)
   return Math.round(Math.max(0, Math.min(100, s)))
+}
+
+// ── CANONICAL public "Trust" — independent third-party reputation ─────────────
+// The ONE Trust number shown everywhere (SEO + API + dashboard), so a brand never
+// reads e.g. 84 on one page and 61 on another. It is the blend of INDEPENDENT review
+// sources (casino.guru, AskGamblers, casino.org, Trustpilot), each normalised to
+// 0–100 and averaged; ≥2 sources required (a single rating is not a "blend", returns
+// null). Deliberately NOT the on-chain heuristic (that's `onchainHealth`, a separate
+// solvency signal) and NOT community votes (gameable) — it matches the trust-first,
+// independent-source positioning.
+export function blendedTrustScore(r: {
+  safety?: number | null
+  askgamblers?: number | null
+  editorial?: number | null
+  trustpilot?: number | null
+}): { score: number; sources: number } | null {
+  const n: number[] = []
+  if (r.safety != null) n.push((r.safety / 10) * 100) // casino.guru /10
+  if (r.askgamblers != null) n.push((r.askgamblers / 10) * 100) // AskGamblers /10
+  if (r.editorial != null) n.push((r.editorial / 5) * 100) // casino.org /5
+  if (r.trustpilot != null) n.push((r.trustpilot / 5) * 100) // Trustpilot /5
+  if (n.length < 2) return null
+  return { score: Math.round(n.reduce((a, b) => a + b, 0) / n.length), sources: n.length }
 }
 
 function blendTrust(onchain: number, up: number, down: number): { trust: number; onchainTrust: number } {

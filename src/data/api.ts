@@ -39,7 +39,7 @@ export interface Entity {
   players: number
   reserves: number
   reserveCoverage: number | null
-  trust: number
+  trust: number | null
   onchainTrust: number
   votesUp: number
   votesDown: number
@@ -101,7 +101,8 @@ export interface Brand {
   reserves: number
   reserveCoverage: number | null
   coverageChange: number | null
-  trust: number
+  trust: number | null
+  onchainHealth: number
   byChain: { chain: string; value: number }[]
   meta: CasinoMeta | null
   safetyIndex: number | null
@@ -191,7 +192,7 @@ export interface FavoriteItem {
     volume24h: number
     net7d: number
     reserves: number
-    trust: number
+    trust: number | null
     chains: string[]
     safetyIndex: number | null
     trustpilot: number | null

@@ -291,7 +291,7 @@ interface Row {
   volume7d: number
   change24h: number
   net7d: number
-  trust: number
+  trust: number | null
   reserves: number
   reserveCoverage: number | null
   coverageChange: number | null

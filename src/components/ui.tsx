@@ -119,7 +119,9 @@ export function Delta({ value, className = '' }: { value: number; className?: st
 }
 
 // ── Trust meter ───────────────────────────────────────────────────────────────
-export function TrustBadge({ score }: { score: number }) {
+export function TrustBadge({ score }: { score: number | null }) {
+  if (score == null)
+    return <span className="text-[13px] text-white/35" title="No independent trust rating yet (needs ≥2 sources)">—</span>
   const color = score >= 85 ? '#2ee6a6' : score >= 70 ? '#f5b100' : '#ff5c7a'
   return (
     <div className="inline-flex items-center gap-2">

@@ -13,8 +13,9 @@ export default function Sentiment() {
   const [localVotes, setLocalVotes] = useState<Record<number, number>>({})
   const loggedIn = !!getToken()
 
-  const rows = (data?.entities ?? []).slice().sort((a, b) => b.trust - a.trust)
-  const avg = rows.length ? Math.round(rows.reduce((a, s) => a + s.trust, 0) / rows.length) : 0
+  const rows = (data?.entities ?? []).slice().sort((a, b) => (b.trust ?? -1) - (a.trust ?? -1))
+  const rated = rows.filter((s) => s.trust != null)
+  const avg = rated.length ? Math.round(rated.reduce((a, s) => a + (s.trust ?? 0), 0) / rated.length) : 0
   const totalReserves = rows.reduce((a, s) => a + s.reserves, 0)
   const totalMentions = rows.reduce((a, s) => a + s.mentions7d, 0)
   const top = rows[0]
