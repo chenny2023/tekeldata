@@ -252,10 +252,18 @@ function trustSources(v: CasinoView): { key: string; label: string; norm: number
   return out
 }
 
-// The ONE canonical Trust — uses the shared blendedTrustScore so SEO, API and the
-// dashboard always show the same number for a brand (≥2 independent sources required;
-// a single rating is shown as itself, never a misleading "blend").
+// The ONE canonical Trust. For an on-chain brand we read the AGGREGATE's already-computed
+// trust (the single source of truth) so the SEO page, API and dashboard show the EXACT
+// same number — the SEO view merges an extra directory Trustpilot rating, which would
+// otherwise skew its own blend a few points off the API. Rated-only casinos (no aggregate
+// counterpart, so no inconsistency) compute via the shared blendedTrustScore.
 function blendedTrust(v: CasinoView): { score: number; sources: number } | null {
+  const oc = v.onchain
+  if (oc) {
+    if (oc.trust == null) return null
+    const sources = [oc.safetyIndex, oc.trustpilot, oc.askgamblers, oc.editorial].filter((x) => x != null).length
+    return { score: oc.trust, sources: Math.max(2, sources) }
+  }
   const r = ratingsOf(v)
   return blendedTrustScore({ safety: r.safety, askgamblers: r.ag, editorial: r.ed, trustpilot: r.tp })
 }
