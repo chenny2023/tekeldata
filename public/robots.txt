@@ -12,3 +12,4 @@ User-agent: Google-Extended
 Allow: /
 
 Sitemap: https://wcoin.casino/sitemap.xml
+Sitemap: https://wcoin.casino/edanic-sitemap.xml
