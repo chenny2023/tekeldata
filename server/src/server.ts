@@ -67,6 +67,7 @@ import { startTranslator } from './internal/translate.ts'
 import { startClassifier } from './internal/classify.ts'
 import { startKolScorer } from './internal/kol.ts'
 import { startAppWatch, startAppAnalyzer, startBuildClassifier } from './internal/appwatch.ts'
+import { edanicFastifyHook } from '../../edanic-seo/edanic-ssr.mjs' // Edanic: server-render answer pages
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const distDir = join(__dirname, '../../dist')
@@ -108,6 +109,7 @@ async function main() {
   // /methodology and /sitemap.xml are served as real HTML, not the SPA shell.
   registerSeo(app)
   registerSocialIntel(app) // 内部社媒情报面板 /internal/social + 管理员 API（注册在 SPA 兜底前）
+  app.addHook('onRequest', edanicFastifyHook) // Edanic: SSR answer pages BEFORE the SPA fallback
 
   // Serve the built SPA in production (single-process deploy). Vite emits
   // content-hashed asset filenames, so they're safe to cache hard (immutable);
