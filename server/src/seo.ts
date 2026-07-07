@@ -363,7 +363,7 @@ function casinoPage(
   slug: string,
   related: { slug: string; label: string }[],
   noindex = false,
-  xlinks: { compares?: { slug: string; label: string }[]; bestChains?: { slug: string; label: string }[] } = {},
+  xlinks: { compares?: { slug: string; label: string }[]; bestChains?: { slug: string; label: string }[]; alternatives?: string } = {},
 ): { title: string; description: string; html: string } {
   const url = `${SITE}/casino/${slug}`
   const oc = v.onchain
@@ -451,6 +451,9 @@ function casinoPage(
     : ''
   const chainBestLinks = xlinks.bestChains?.length
     ? `<h2>Ranked among the best on</h2><div class="chips">${xlinks.bestChains.map((c) => `<a class="pill" href="/rankings/best-on-${c.slug}">Best on ${esc(c.label)}</a>`).join('')}</div>`
+    : ''
+  const altLink = xlinks.alternatives
+    ? `<h2>Looking for alternatives?</h2><p class="prose">See <a href="/${xlinks.alternatives}-alternatives">trusted ${esc(v.name)} alternatives</a> — crypto casinos on the same chains, ranked by independent trust (not affiliate payouts).</p>`
     : ''
 
   const conf = dataConfidence(v)
@@ -545,7 +548,7 @@ function casinoPage(
         .join('')}<p class="prose" style="font-size:12px"><a href="/risk">Full risk registry →</a></p>`
     : ''
 
-  const body = `${limitedNote}${suspectNote}${sub}${trustLine}${stats}${solvency}${riskSection}${chainTable}${ratingsTable}${refTable}${website}${rel}${compareLinks}${chainBestLinks}${faqHtml}${guideLinks}${alertForm}${cta}`
+  const body = `${limitedNote}${suspectNote}${sub}${trustLine}${stats}${solvency}${riskSection}${chainTable}${ratingsTable}${refTable}${website}${rel}${compareLinks}${chainBestLinks}${altLink}${faqHtml}${guideLinks}${alertForm}${cta}`
 
   const pageUpdated = Date.now()
   const jsonLd: object[] = [
@@ -2275,6 +2278,24 @@ export async function generateSeoPages(): Promise<void> {
       pushMap(comparesByKey, x.key, { slug: `${slugA}-vs-${slugB}`, label: `vs ${y.name}` })
       pushMap(comparesByKey, y.key, { slug: `${slugA}-vs-${slugB}`, label: `vs ${x.name}` })
     }
+  // "{brand} alternatives" — computed up-front so casino profiles can link INTO them
+  // (inbound internal links) and the generator can emit the pages from the same map.
+  const chainsOf = (v: CasinoView) => new Set((v.onchain?.byChain ?? []).filter((c) => c.value > 0).map((c) => c.chain))
+  const altByKey = new Map<string, { target: CasinoView; slug: string; alts: { v: CasinoView; slug: string; shared: string[] }[] }>()
+  for (const t of topK) {
+    if (!blendedTrust(t)) continue
+    const tChains = chainsOf(t)
+    if (tChains.size === 0) continue
+    const tSlug = slugOfView(t)
+    const alts = strong
+      .filter((v) => v !== t && blendedTrust(v))
+      .map((v) => ({ v, slug: slugOfView(v), shared: [...chainsOf(v)].filter((c) => tChains.has(c)) }))
+      .filter((x) => x.shared.length > 0)
+      .sort((a, b) => (blendedTrust(b.v)?.score ?? 0) - (blendedTrust(a.v)?.score ?? 0) || (b.v.onchain?.reserves ?? 0) - (a.v.onchain?.reserves ?? 0))
+      .slice(0, 8)
+    if (alts.length < 4) continue
+    altByKey.set(t.key, { target: t, slug: tSlug, alts })
+  }
   const chainBestGroups: { chain: string; entries: { v: CasinoView; slug: string }[] }[] = []
   const bestChainsByKey = new Map<string, { slug: string; label: string }[]>()
   for (const cs of chainSet) {
@@ -2296,7 +2317,7 @@ export async function generateSeoPages(): Promise<void> {
     const fallback = cap.filter((x) => x.key !== v.key).slice(0, 4).map((x) => ({ slug: slugOfView(x), label: x.name }))
     const lc = lifecycleOf(v)
     const noindex = lc === 'limited_public_noindex'
-    add(`/casino/${slugOfView(v)}`, 'casino', casinoPage(v, slugOfView(v), peers.length ? peers : fallback, noindex, { compares: comparesByKey.get(v.key), bestChains: bestChainsByKey.get(v.key) }), lc)
+    add(`/casino/${slugOfView(v)}`, 'casino', casinoPage(v, slugOfView(v), peers.length ? peers : fallback, noindex, { compares: comparesByKey.get(v.key), bestChains: bestChainsByKey.get(v.key), alternatives: altByKey.has(v.key) ? slugOfView(v) : undefined }), lc)
     if (noindex) {
       const missing = [!v.onchain && 'onchain', !(v.onchain && v.onchain.reserves > 0) && 'reserves', trustSources(v).length < 2 && 'trust-sources']
         .filter(Boolean)
@@ -3340,24 +3361,13 @@ export async function generateSeoPages(): Promise<void> {
   // best-on-chain shortlists (trust-ranked) — featured_core (high-value evergreen)
   for (const g of chainBestGroups) add(`/rankings/best-on-${g.chain}`, 'rankings', bestOnChainPage(g.chain, g.entries), 'featured_core')
   await yieldLoop()
-  // "{brand} alternatives" pages — high commercial intent. For each top-trust brand,
-  // list operators settling on a SHARED chain, ranked by blended trust (never volume).
-  // Gate: target must have a trust score + ≥1 tracked chain, and ≥4 valid alternatives.
-  const chainsOf = (v: CasinoView) => new Set((v.onchain?.byChain ?? []).filter((c) => c.value > 0).map((c) => c.chain))
-  const altTargets = topK.filter((v) => blendedTrust(v) && chainsOf(v).size > 0)
-  for (let i = 0; i < altTargets.length; i++) {
-    const t = altTargets[i]
-    const tChains = chainsOf(t)
-    const tSlug = slugOfView(t)
-    const alts = strong
-      .filter((v) => v !== t && blendedTrust(v))
-      .map((v) => ({ v, slug: slugOfView(v), shared: [...chainsOf(v)].filter((c) => tChains.has(c)) }))
-      .filter((x) => x.shared.length > 0)
-      .sort((a, b) => (blendedTrust(b.v)?.score ?? 0) - (blendedTrust(a.v)?.score ?? 0) || (b.v.onchain?.reserves ?? 0) - (a.v.onchain?.reserves ?? 0))
-      .slice(0, 8)
-    if (alts.length < 4) continue
-    add(`/${tSlug}-alternatives`, 'rankings', alternativesPage(t, tSlug, alts), 'featured_core')
-    if (i % 10 === 9) await yieldLoop()
+  // "{brand} alternatives" pages — high commercial intent. Emitted from altByKey
+  // (computed up-front so casino profiles could link into them); ranked by blended
+  // trust (never volume), only for targets with ≥4 shared-chain alternatives.
+  let altN = 0
+  for (const { target, slug, alts } of altByKey.values()) {
+    add(`/${slug}-alternatives`, 'rankings', alternativesPage(target, slug, alts), 'featured_core')
+    if (++altN % 10 === 0) await yieldLoop()
   }
   await yieldLoop()
   // daily report archive (prev = older, next = newer)
