@@ -621,6 +621,10 @@ for (const ddl of [
   // cp_internal=0 cheaply instead of a per-row NOT EXISTS (which blocked the loop).
   // ADD COLUMN with a default is instant in SQLite (no table rewrite).
   'ALTER TABLE transfers ADD COLUMN cp_internal INTEGER NOT NULL DEFAULT 0',
+  // hash of a page's stable content (volatile timestamps stripped) — lets the SEO
+  // regen keep updated_at FROZEN when nothing real changed, so sitemap <lastmod>
+  // stays honest instead of claiming every page was modified on every 30-min rebuild.
+  'ALTER TABLE seo_page ADD COLUMN content_hash TEXT',
 ]) {
   try {
     db.exec(ddl)

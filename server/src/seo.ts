@@ -10,6 +10,7 @@ import { brandRiskEvents, recentRiskEvents, type RiskEvent } from './riskevents.
 import { pingIndexNow } from './indexnow.ts'
 import type { TokenInfo } from './collectors/casinotokens.ts'
 import sharp from 'sharp'
+import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
@@ -1777,9 +1778,27 @@ function methodologyPage(topic: string): { title: string; description: string; h
 // ─────────────────────────────────────────────────────────────────────────────
 // Generation — rebuild every page into seo_page from the warm aggregate cache
 // ─────────────────────────────────────────────────────────────────────────────
+// Content fingerprint with the per-rebuild VOLATILE timestamps stripped out, so a
+// page whose real content is unchanged hashes identically across rebuilds. Without
+// this, article:modified_time / "Last updated" / JSON-LD dateModified (all = the
+// rebuild's Date.now()) would make every page look freshly modified every 30 min —
+// the exact lastmod-inflation that makes crawlers stop trusting <lastmod>.
+function contentHash(html: string): string {
+  const stable = html
+    .replace(/<meta property="article:modified_time"[^>]*>/g, '')
+    .replace(/"dateModified":"[^"]*"/g, '')
+    .replace(/Last updated: \d{4}-\d{2}-\d{2}/g, '')
+  return createHash('sha1').update(stable).digest('hex')
+}
+// updated_at only advances when content_hash actually changes → sitemap <lastmod>
+// reflects real modifications. New pages get @now; unchanged pages keep their stored
+// updated_at; genuinely-changed pages (moving on-chain numbers, edited copy) bump it.
 const upsert = db.prepare(
-  `INSERT INTO seo_page(path, kind, title, description, html, updated_at, lifecycle) VALUES(@path,@kind,@title,@description,@html,@now,@lifecycle)
-   ON CONFLICT(path) DO UPDATE SET kind=@kind, title=@title, description=@description, html=@html, updated_at=@now, lifecycle=@lifecycle`,
+  `INSERT INTO seo_page(path, kind, title, description, html, content_hash, updated_at, lifecycle)
+   VALUES(@path,@kind,@title,@description,@html,@hash,@now,@lifecycle)
+   ON CONFLICT(path) DO UPDATE SET kind=@kind, title=@title, description=@description, html=@html, lifecycle=@lifecycle,
+     updated_at=CASE WHEN seo_page.content_hash IS @hash THEN seo_page.updated_at ELSE @now END,
+     content_hash=@hash`,
 )
 const enqueueEnrich = db.prepare(
   `INSERT INTO enrichment_queue(brand_key, label, slug, confidence, missing, status, created_at, updated_at)
@@ -3507,7 +3526,7 @@ export async function generateSeoPages(): Promise<void> {
   for (let i = 0; i < built.length; i += CHUNK) {
     const slice = built.slice(i, i + CHUNK)
     db.transaction(() => {
-      for (const b of slice) upsert.run({ path: b.path, kind: b.kind, title: b.pg.title, description: b.pg.description, html: b.pg.html, now, lifecycle: b.lifecycle })
+      for (const b of slice) upsert.run({ path: b.path, kind: b.kind, title: b.pg.title, description: b.pg.description, html: b.pg.html, hash: contentHash(b.pg.html), now, lifecycle: b.lifecycle })
     })()
     await yieldLoop()
   }
