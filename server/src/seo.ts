@@ -1922,6 +1922,50 @@ function netFlowReportPage(rows: { v: CasinoView; slug: string; net: number; inf
 }
 
 // /data hub — indexes the on-chain data stories (hub-spoke for the data cluster).
+// Wallet-attribution transparency data page — a differentiated "show your work" story
+// no affiliate tracker has: how many casino wallets we attribute, by evidence class,
+// and the honesty rules around it. Backed by the live watchlist + open-data repo.
+function attributionDataPage(): { title: string; description: string; html: string } {
+  const path = '/data/crypto-casino-wallet-attribution'
+  const url = SITE + path
+  const bySource = db
+    .prepare("SELECT COALESCE(source,'curated') src, COUNT(*) wallets, COUNT(DISTINCT label) brands FROM watchlist WHERE active=1 AND category='casino' GROUP BY src ORDER BY wallets DESC")
+    .all() as { src: string; wallets: number; brands: number }[]
+  const totalWallets = bySource.reduce((s, r) => s + r.wallets, 0)
+  const namedBrands = (
+    db.prepare("SELECT COUNT(DISTINCT label) n FROM watchlist WHERE active=1 AND category='casino' AND label NOT LIKE 'Casino-pattern%' AND label NOT LIKE '0x%' AND label NOT LIKE 'Service %'").get() as any
+  ).n as number
+  // map collector source → public evidence class + strength
+  const EV: Record<string, { label: string; note: string }> = {
+    curated: { label: 'Block-explorer name-tags + confirmed deposits', note: 'Strongest public evidence — the operator tag is visible on the address page itself.' },
+    dune: { label: 'Public label sets (Dune institution labels)', note: 'Curated public labels, cross-checked before import.' },
+    arkham: { label: 'Entity intelligence (Arkham)', note: 'Discovery leads, corroborated before use.' },
+    'btc-cluster': { label: 'Behavioural clustering (common-input-ownership)', note: 'Expanded from a confirmed seed address; heuristic, not proof.' },
+  }
+  const evFor = (s: string) => EV[s] ?? (s.startsWith('arkham') ? EV.arkham : EV.curated)
+  const rows = bySource
+    .map((r) => {
+      const e = evFor(r.src)
+      return `<tr><td>${esc(e.label)}</td><td class="n">${fmtNum(r.wallets)}</td><td class="n">${fmtNum(r.brands)}</td><td style="font-size:12px;color:var(--dim)">${esc(e.note)}</td></tr>`
+    })
+    .join('')
+  const title = `How Crypto Casino Wallets Are Attributed — Evidence & Coverage ${YEAR} | WCOIN.CASINO`
+  const description = `The evidence behind every crypto-casino wallet we track: ${fmtNum(totalWallets)} attributed wallets across ${fmtNum(namedBrands)} named operators, broken down by public evidence class. Fully auditable — every address is verifiable on a block explorer.`
+  const body =
+    `<p class="sub">A trust-data site should show its work. We attribute <strong>${fmtNum(totalWallets)}</strong> casino wallets to <strong>${fmtNum(namedBrands)}</strong> named operators — and here is exactly what evidence stands behind each, by class.</p>` +
+    `<p class="upd">Every address is independently verifiable on its chain's block explorer. The full wallet set, evidence types and methodology are published for audit in our <a href="https://github.com/chenny2023/wcoin-casino-data" rel="noopener" target="_blank">open-data repository (GitHub)</a>.</p>` +
+    `<table><thead><tr><th>Evidence class</th><th style="text-align:right">Wallets</th><th style="text-align:right">Operators</th><th>What it means</th></tr></thead><tbody>${rows}</tbody></table>` +
+    `<h2>Seed vs derived — and what we exclude</h2><div class="prose"><p>Wallets carrying <strong>direct public evidence</strong> (a block-explorer name-tag, a public label set, a confirmed deposit) are <em>seed</em> wallets. Wallets reached by expanding a seed through <a href="/guide/crypto-casino-hot-wallet-vs-cold-wallet">common-input-ownership clustering</a> are <em>derived</em> — they inherit a brand only because the seed evidence is strong. Casino-like wallets we <strong>cannot</strong> tie to a named operator stay <em>unattributed</em> and are excluded from every verified figure — never guessed into a brand. Known non-casino infrastructure (DEX routers, settlement contracts) is explicitly denylisted so a mis-tag can't inflate any operator.</p></div>` +
+    `<h2>Why this matters</h2><div class="prose"><p>Most "on-chain casino" numbers are unfalsifiable — you're asked to trust a dashboard. Ours are the opposite: pick any wallet, open it on a block explorer, and check the balance and flow yourself. That verifiability is the entire point, and it's why we publish the <a href="https://github.com/chenny2023/wcoin-casino-data/blob/main/DATA_DICTIONARY.md" rel="noopener" target="_blank">exact rules and thresholds</a> behind every figure. See also <a href="/guide/how-on-chain-casino-tracking-works">how on-chain tracking works</a> and the <a href="/methodology/address-attribution">attribution methodology</a>.</p></div>` +
+    `<h2>Explore</h2><div class="chips"><a class="pill" href="/proof-of-reserves">Proof of reserves</a><a class="pill" href="/rankings/trust">Trust ranking</a><a class="pill" href="/guide/why-on-chain-data-beats-complaint-boards">Why on-chain data beats reviews</a><a class="pill" href="/data">All data</a></div>`
+  const upd = Date.now()
+  return {
+    title,
+    description,
+    html: layout({ title, description, canonical: url, jsonLd: [datasetLd('Crypto Casino Wallet Attribution by Evidence Class', description, url, upd, ['attributed wallets by evidence source', 'named operators covered'])], breadcrumb: [{ name: 'Home', url: SITE + '/' }, { name: 'Data', url }], h1: `How crypto casino wallets are attributed`, updated: upd, body }),
+  }
+}
+
 function dataHubPage(): { title: string; description: string; html: string } {
   const url = SITE + '/data'
   const title = `Crypto Casino On-Chain Data & Reports ${YEAR} | WCOIN.CASINO`
@@ -1933,6 +1977,7 @@ function dataHubPage(): { title: string; description: string; html: string } {
     `<p><strong><a href="/data/crypto-casino-reserves">Reserves report</a></strong> — how much operators hold on-chain, aggregated and broken down by chain and by operator. Proof of reserves at an industry level: wallet balances anyone can verify, not self-reported claims.</p>` +
     `<p><strong><a href="/data/crypto-casino-net-flow">Net flow report</a></strong> — external deposits minus withdrawals per operator over 7 days, a neutral liquidity signal that helps spot operators paying out versus taking in.</p>` +
     `<p><strong><a href="/data/crypto-casino-tokens">Casino tokens report</a></strong> — the native tokens crypto casinos issue, by market cap: live price, change and which run buyback-and-burn.</p>` +
+    `<p><strong><a href="/data/crypto-casino-wallet-attribution">Wallet attribution</a></strong> — how many casino wallets we attribute and the public evidence behind each, by class. A "show your work" breakdown, fully auditable on-chain and in our open-data repo.</p>` +
     `</div>` +
     `<h2>What makes this data different</h2><div class="prose"><p>Most "crypto casino volume" figures you'll see elsewhere are inflated several times over by internal hot-wallet churn, double-counting (a transfer recorded under both watched sides), and a handful of operators' treasury and market-making movements. We strip all of that out — counting only flow whose counterparty is an external user or exchange — and flag anomalous-volume operators rather than featuring them. The result is a smaller but honest number you can actually cite.</p></div>` +
     `<h2>Rankings & live data</h2><div class="chips"><a class="pill" href="/best-crypto-casinos">Best casinos</a><a class="pill" href="/highest-volume-crypto-casinos">Verified volume</a><a class="pill" href="/crypto-casinos-with-proof-of-reserves">Proof of reserves</a><a class="pill" href="/daily">Daily report</a><a class="pill" href="/methodology/address-attribution">Methodology</a></div>` +
@@ -2344,6 +2389,7 @@ export async function generateSeoPages(): Promise<void> {
     .sort((a, b) => (b.t.marketCap || 0) - (a.t.marketCap || 0))
     .slice(0, 40)
   if (tokenRows.length >= 5) add('/data/crypto-casino-tokens', 'data', casinoTokensPage(tokenRows), 'featured_core')
+  add('/data/crypto-casino-wallet-attribution', 'data', attributionDataPage(), 'featured_core')
   add('/data', 'data', dataHubPage(), 'featured_core')
   // Programmatic currency pages — one "Best {stablecoin} Casinos" per token with ≥5
   // operators (stablecoins are cross-chain, so not covered by the per-chain pages).
@@ -2377,6 +2423,10 @@ export async function generateSeoPages(): Promise<void> {
     { chain: 'TRON', cslug: 'tron', slug: 'tron', name: 'Tron', blurb: `Tron is the low-fee rail behind most stablecoin casino deposits — USDT-TRC20 confirms in seconds for cents. These operators have <strong>verified on-chain Tron settlement</strong>.` },
     { chain: 'SOL', cslug: 'sol', slug: 'solana', name: 'Solana', blurb: `Solana (SOL) offers near-instant, sub-cent settlement that a growing set of crypto casinos support. These operators have <strong>verified on-chain Solana settlement</strong>.` },
     { chain: 'POLYGON', cslug: 'polygon', slug: 'polygon', name: 'Polygon', blurb: `Polygon is a low-fee Ethereum scaling network where casinos settle USDC/USDT and POL for a fraction of mainnet gas. These operators have <strong>verified on-chain Polygon settlement</strong>.` },
+    { chain: 'BSC', cslug: 'bsc', slug: 'bnb', name: 'BNB Chain', blurb: `BNB Chain (BSC) offers ~3-second blocks and cent-level fees — a common low-cost rail for BEP-20 stablecoin casino deposits. These operators have <strong>verified on-chain BNB Chain settlement</strong>.` },
+    { chain: 'BASE', cslug: 'base', slug: 'base', name: 'Base', blurb: `Base is Coinbase's Ethereum L2 — cheap, fast and USDC-native, a fast-growing venue for low-fee stablecoin casino play. These operators have <strong>verified on-chain Base settlement</strong>.` },
+    { chain: 'ARB', cslug: 'arb', slug: 'arbitrum', name: 'Arbitrum', blurb: `Arbitrum is an Ethereum L2 with deep USDC/USDT liquidity at low fees, used by casinos that want Ethereum-ecosystem assets without mainnet gas. These operators have <strong>verified on-chain Arbitrum settlement</strong>.` },
+    { chain: 'AVAX', cslug: 'avax', slug: 'avalanche', name: 'Avalanche', blurb: `Avalanche offers sub-second finality and low fees with USDT/USDC support. These operators have <strong>verified on-chain Avalanche settlement</strong>.` },
   ]
   for (const ca of CHAIN_ASSETS) {
     const top = [...(byChainView.get(ca.chain) ?? new Map<CasinoView, number>()).entries()]
