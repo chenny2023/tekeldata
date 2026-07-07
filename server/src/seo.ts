@@ -758,6 +758,66 @@ function comparePage(a: CasinoView, b: CasinoView, slugA: string, slugB: string)
   }
 }
 
+// ── "{brand} alternatives" — trust-ranked operators sharing a chain ────────────
+// High commercial intent ("Stake alternatives") normally owned by affiliate spam.
+// Ours is neutral and trust-data-backed: alternatives are operators that settle on
+// a chain the target uses, ranked by independent blended trust (never volume).
+function alternativesPage(
+  target: CasinoView,
+  targetSlug: string,
+  alts: { v: CasinoView; slug: string; shared: string[] }[],
+): { title: string; description: string; html: string } {
+  const path = `/${targetSlug}-alternatives`
+  const url = SITE + path
+  const oc = target.onchain
+  const bt = blendedTrust(target)
+  const title = `${target.name} Alternatives ${YEAR} — Trusted Crypto Casinos Compared | WCOIN.CASINO`
+  const description = `Looking for alternatives to ${target.name}? ${alts.length} crypto casinos that settle on the same chains, ranked by independent trust and verifiable on-chain reserves — not affiliate payouts. Updated continuously.`
+  const rows = alts
+    .map(({ v, slug, shared }) => {
+      const b = blendedTrust(v)
+      const o = v.onchain
+      const cmp = [targetSlug, slug].sort()
+      return (
+        `<tr><td><a href="/casino/${slug}">${esc(v.name)}</a></td>` +
+        `<td class="n">${b ? b.score : '—'}</td>` +
+        `<td class="n">${o && o.reserves > 0 ? fmtUsd(o.reserves) : '—'}</td>` +
+        `<td style="font-size:12px">${esc(shared.map(chainName).join(', ')) || '—'}</td>` +
+        `<td><a href="/compare/${cmp[0]}-vs-${cmp[1]}">compare →</a></td></tr>`
+      )
+    })
+    .join('')
+  const selfLine = bt
+    ? `For reference, ${esc(target.name)} currently carries a blended trust score of <strong>${bt.score}/100</strong>${oc && oc.reserves > 0 ? ` with ${fmtUsd(oc.reserves)} in mapped on-chain reserves` : ''}. The operators below are ranked the same way.`
+    : `The operators below are ranked by the same independent blended-trust metric we apply everywhere.`
+  const body =
+    `<p class="sub">Reasonable alternatives to <strong>${esc(target.name)}</strong> — crypto casinos that settle on the <strong>same blockchains</strong>, ranked by <a href="/methodology/trust">independent blended trust</a> and verifiable on-chain reserves, <em>not</em> by who pays the biggest affiliate commission.</p>` +
+    `<p class="upd">${selfLine} Updated continuously from indexed on-chain data and third-party ratings.</p>` +
+    `<table><thead><tr><th>Operator</th><th style="text-align:right">Trust /100</th><th style="text-align:right">Mapped reserves</th><th>Shared chains</th><th>vs ${esc(target.name)}</th></tr></thead><tbody>${rows}</tbody></table>` +
+    `<h2>How this list is built</h2><div class="prose"><p>We start from every operator with <a href="/methodology/address-attribution">attributed on-chain activity</a> on a chain ${esc(target.name)} also uses, then rank by a blend of independent third-party trust ratings — the same metric behind our <a href="/rankings/trust">trust ranking</a>. On-chain volume is deliberately excluded because it is <a href="/guide/wash-trading-in-crypto-casinos-explained">easily wash-traded</a>. Every reserve figure is a wallet balance you can verify yourself on a block explorer.</p></div>` +
+    `<h2>Before you switch</h2><div class="prose"><p>Check the alternative's <a href="/proof-of-reserves">proof of reserves</a> and read <a href="/guide/how-to-spot-a-crypto-casino-that-wont-pay">how to spot a casino that won't pay</a>. A higher trust score is a starting signal, not a guarantee — verify solvency and terms before depositing. <strong>18+ only.</strong> See <a href="/responsible-gambling">responsible gambling resources</a>.</p></div>` +
+    `<h2>Explore</h2><div class="chips"><a class="pill" href="/casino/${targetSlug}">${esc(target.name)} full data →</a><a class="pill" href="/rankings/trust">Trust ranking</a><a class="pill" href="/best-crypto-casinos">Best crypto casinos</a></div>`
+  const upd = Date.now()
+  return {
+    title,
+    description,
+    html: layout({
+      title,
+      description,
+      canonical: url,
+      jsonLd: [],
+      breadcrumb: [
+        { name: 'Home', url: SITE + '/' },
+        { name: 'Rankings', url: SITE + '/rankings' },
+        { name: `${target.name} alternatives`, url },
+      ],
+      h1: `${target.name} alternatives`,
+      updated: upd,
+      body,
+    }),
+  }
+}
+
 // ── "best crypto casinos on {chain}" — trust-ranked, per network ───────────────
 // Distinct from /chains/{chain} (which is volume-by-network): this is an editorial,
 // TRUST-ranked shortlist of the operators actually settling on that chain.
@@ -3279,6 +3339,26 @@ export async function generateSeoPages(): Promise<void> {
   }
   // best-on-chain shortlists (trust-ranked) — featured_core (high-value evergreen)
   for (const g of chainBestGroups) add(`/rankings/best-on-${g.chain}`, 'rankings', bestOnChainPage(g.chain, g.entries), 'featured_core')
+  await yieldLoop()
+  // "{brand} alternatives" pages — high commercial intent. For each top-trust brand,
+  // list operators settling on a SHARED chain, ranked by blended trust (never volume).
+  // Gate: target must have a trust score + ≥1 tracked chain, and ≥4 valid alternatives.
+  const chainsOf = (v: CasinoView) => new Set((v.onchain?.byChain ?? []).filter((c) => c.value > 0).map((c) => c.chain))
+  const altTargets = topK.filter((v) => blendedTrust(v) && chainsOf(v).size > 0)
+  for (let i = 0; i < altTargets.length; i++) {
+    const t = altTargets[i]
+    const tChains = chainsOf(t)
+    const tSlug = slugOfView(t)
+    const alts = strong
+      .filter((v) => v !== t && blendedTrust(v))
+      .map((v) => ({ v, slug: slugOfView(v), shared: [...chainsOf(v)].filter((c) => tChains.has(c)) }))
+      .filter((x) => x.shared.length > 0)
+      .sort((a, b) => (blendedTrust(b.v)?.score ?? 0) - (blendedTrust(a.v)?.score ?? 0) || (b.v.onchain?.reserves ?? 0) - (a.v.onchain?.reserves ?? 0))
+      .slice(0, 8)
+    if (alts.length < 4) continue
+    add(`/${tSlug}-alternatives`, 'rankings', alternativesPage(t, tSlug, alts), 'featured_core')
+    if (i % 10 === 9) await yieldLoop()
+  }
   await yieldLoop()
   // daily report archive (prev = older, next = newer)
   snaps.forEach((s, i) => {
