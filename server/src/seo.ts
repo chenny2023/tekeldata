@@ -11,7 +11,7 @@ import { pingIndexNow } from './indexnow.ts'
 import type { TokenInfo } from './collectors/casinotokens.ts'
 import sharp from 'sharp'
 import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -3616,9 +3616,35 @@ function buildSitemap(): string {
   // <lastmod> tells crawlers what's fresh → more efficient (re)crawling + faster
   // indexing of updated pages. Sourced from each page's last regeneration time.
   const lastmod = (ts: number) => (ts > 0 ? `<lastmod>${new Date(ts).toISOString().slice(0, 10)}</lastmod>` : '')
+  // Edanic-delivered pages (content/*.md, SSR'd by the Edanic hook) aren't in seo_page,
+  // so merge their slugs here — one self-contained sitemap.xml is far less error-prone
+  // in GSC than a nested <sitemapindex> (which reports "0 discovered" on the index row).
+  const seen = new Set<string>(['/', '/daily', ...pages.map((p) => p.path)])
+  const edanic: string[] = []
+  try {
+    const dir = fileURLToPath(new URL('../../content', import.meta.url))
+    const walk = (d: string) => {
+      for (const e of readdirSync(d, { withFileTypes: true })) {
+        const p = `${d}/${e.name}`
+        if (e.isDirectory()) walk(p)
+        else if (e.name.endsWith('.md')) {
+          const m = readFileSync(p, 'utf8').match(/^slug:\s*"?([^"\n]+)"?/m)
+          if (!m) continue
+          let s = m[1].trim().replace(/\/+$/, '')
+          if (!s) continue
+          if (!s.startsWith('/')) s = '/' + s
+          if (!seen.has(s)) { seen.add(s); edanic.push(s) }
+        }
+      }
+    }
+    walk(dir)
+  } catch {
+    /* content dir absent in some builds — core+seo pages still ship */
+  }
   const urls = [
     ...core.map((c) => `<url><loc>${SITE}${c.loc}</loc><changefreq>${c.freq}</changefreq><priority>${c.pr}</priority></url>`),
     ...pages.map((p) => `<url><loc>${SITE}${p.path}</loc>${lastmod(p.updated_at)}<changefreq>${cf(p.kind)}</changefreq><priority>${pr(p)}</priority></url>`),
+    ...edanic.map((s) => `<url><loc>${SITE}${s}</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>`),
   ]
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`
 }
@@ -3730,13 +3756,15 @@ export function registerSeo(app: FastifyInstance) {
   app.get('/streamers', serve('streamers'))
   app.get('/streamer/:slug', serve('streamers'))
 
-  // Dynamic child sitemap with every generated SEO page (+ core URLs). We use a
-  // distinct path because @fastify/static (wildcard:false) registers an explicit
-  // route per dist file, so /sitemap.xml is already taken — that static file is a
-  // <sitemapindex> pointing here, and GSC follows the index to discover these.
-  app.get('/sitemap-pages.xml', async (_req, reply) =>
-    reply.type('application/xml; charset=utf-8').header('Cache-Control', 'public, max-age=3600').send(buildSitemap()),
-  )
+  // Self-contained sitemap.xml — a single flat <urlset> of every indexable URL (core +
+  // SEO pages + Edanic pages). We deleted the old static public/sitemap.xml (a nested
+  // <sitemapindex>, which made GSC report "0 discovered" on the index row) so @fastify/
+  // static no longer claims this path and this dynamic route serves it. /sitemap-pages.xml
+  // is kept as an alias for anything still pointing at it.
+  const sitemapHandler = async (_req: any, reply: any) =>
+    reply.type('application/xml; charset=utf-8').header('Cache-Control', 'public, max-age=3600').send(buildSitemap())
+  app.get('/sitemap.xml', sitemapHandler)
+  app.get('/sitemap-pages.xml', sitemapHandler)
 }
 
 export function startSeo() {

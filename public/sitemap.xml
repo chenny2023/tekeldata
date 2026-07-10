@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!-- Sitemap index. The full, always-fresh URL list (homepage, /daily, dashboard
-     views and every generated SEO landing page) is served dynamically by the
-     server at /sitemap-pages.xml. Submit THIS file to Google Search Console. -->
-<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <sitemap><loc>https://tekeldata.com/sitemap-pages.xml</loc></sitemap>
-  <sitemap><loc>https://tekeldata.com/edanic-sitemap.xml</loc></sitemap>
-</sitemapindex>
