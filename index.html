@@ -2,7 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/coin.svg" />
+    <!-- Tekel favicon / icon set -->
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/svg+xml" href="/svg/tekel-icon-app.svg" />
+    <link rel="apple-touch-icon" href="/png/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin />
 
@@ -16,32 +20,32 @@
     </script>
 
     <!-- Primary SEO -->
-    <title>WCOIN.CASINO — On-Chain Intelligence Layer for iGaming & Crypto Casinos</title>
+    <title>Tekel Data — On-Chain Intelligence Layer for iGaming & Crypto Casinos</title>
     <meta
       name="description"
       content="The most complete on-chain data layer for iGaming: real-time crypto-casino transaction volume, all-chain proof-of-reserves, trust ratings (casino.guru, Trustpilot, AskGamblers), prediction markets and streamer analytics across 11+ blockchains."
     />
     <meta name="keywords" content="crypto casino, on-chain casino data, proof of reserves, casino reserves, iGaming analytics, prediction markets, Polymarket, casino trust ratings, gambling streamers, blockchain gambling, casino leaderboard, crypto gambling data" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
-    <meta name="theme-color" content="#0a0a0f" />
-    <meta name="author" content="WCOIN.CASINO" />
-    <link rel="canonical" href="https://wcoin.casino/" />
+    <meta name="theme-color" content="#0C0C0C" />
+    <meta name="author" content="Tekel Data" />
+    <link rel="canonical" href="https://tekeldata.com/" />
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="WCOIN.CASINO" />
-    <meta property="og:url" content="https://wcoin.casino/" />
-    <meta property="og:title" content="WCOIN.CASINO — The On-Chain Intelligence Layer for iGaming" />
+    <meta property="og:site_name" content="Tekel Data" />
+    <meta property="og:url" content="https://tekeldata.com/" />
+    <meta property="og:title" content="Tekel Data — The On-Chain Intelligence Layer for iGaming" />
     <meta property="og:description" content="Real-time crypto-casino transaction volume, all-chain proof-of-reserves, trust ratings, prediction markets & streamer analytics. The web's most complete iGaming dataset." />
-    <meta property="og:image" content="https://wcoin.casino/og.svg" />
+    <meta property="og:image" content="https://tekeldata.com/og.svg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="WCOIN.CASINO — On-Chain Intelligence Layer for iGaming" />
+    <meta name="twitter:title" content="Tekel Data — On-Chain Intelligence Layer for iGaming" />
     <meta name="twitter:description" content="Real-time crypto-casino volume, all-chain proof-of-reserves, trust ratings, prediction markets & streamer analytics across 11+ chains." />
-    <meta name="twitter:image" content="https://wcoin.casino/og.svg" />
+    <meta name="twitter:image" content="https://tekeldata.com/og.svg" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -54,53 +58,52 @@
         "@graph": [
           {
             "@type": "Organization",
-            "@id": "https://wcoin.casino/#org",
-            "name": "WCOIN.CASINO",
-            "url": "https://wcoin.casino/",
-            "logo": "https://wcoin.casino/coin.svg",
+            "@id": "https://tekeldata.com/#org",
+            "name": "Tekel Data",
+            "url": "https://tekeldata.com/",
+            "logo": "https://tekeldata.com/png/icon-512.png",
             "description": "The on-chain intelligence layer for iGaming — real-time crypto-casino analytics, proof-of-reserves, trust ratings and prediction-market data."
           },
           {
             "@type": "WebSite",
-            "@id": "https://wcoin.casino/#site",
-            "url": "https://wcoin.casino/",
-            "name": "WCOIN.CASINO",
-            "publisher": { "@id": "https://wcoin.casino/#org" },
+            "@id": "https://tekeldata.com/#site",
+            "url": "https://tekeldata.com/",
+            "name": "Tekel Data",
+            "publisher": { "@id": "https://tekeldata.com/#org" },
             "potentialAction": {
               "@type": "SearchAction",
-              "target": "https://wcoin.casino/app/casinos?q={search_term_string}",
+              "target": "https://tekeldata.com/app/casinos?q={search_term_string}",
               "query-input": "required name=search_term_string"
             }
           },
           {
             "@type": "Dataset",
-            "name": "WCOIN On-Chain iGaming Intelligence",
+            "name": "Tekel Data On-Chain iGaming Intelligence",
             "description": "Real-time, verifiable on-chain dataset covering crypto-casino transaction volume, all-chain reserves (proof-of-reserves), third-party trust ratings, on-chain prediction markets and gambling-streamer analytics across 11+ blockchains.",
-            "url": "https://wcoin.casino/",
+            "url": "https://tekeldata.com/",
             "keywords": ["crypto casino", "proof of reserves", "on-chain analytics", "prediction markets", "iGaming", "gambling streamers"],
-            "creator": { "@id": "https://wcoin.casino/#org" },
+            "creator": { "@id": "https://tekeldata.com/#org" },
             "isAccessibleForFree": true,
-            "license": "https://wcoin.casino/"
+            "license": "https://tekeldata.com/"
           }
         ]
       }
     </script>
 
-    <!-- Brand boot loader: a flipping WCOIN gold coin (coin + casino = WCOIN) over the
+    <!-- Brand boot loader: a flipping Tekel Data gold coin (coin + casino = Tekel Data) over the
          brand glow. Paints instantly from inline CSS, before the JS bundle loads;
          main.tsx fades + removes it on mount. CSS failsafe hides it after 8s if JS stalls. -->
     <style id="wc-loader-style">
-      #wc-loader{position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;background:#06060b;background-image:radial-gradient(820px 560px at 50% 32%,rgba(245,177,0,.12),transparent 60%),radial-gradient(700px 520px at 50% 122%,rgba(139,61,240,.12),transparent 60%);font-family:'Space Grotesk',ui-sans-serif,system-ui,sans-serif;transition:opacity .55s ease,visibility .55s ease;animation:wc-failsafe 0s linear 8s forwards}
+      #wc-loader{position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;background:#06060b;background-image:radial-gradient(820px 560px at 50% 32%,rgba(242,194,0,.12),transparent 60%),radial-gradient(700px 520px at 50% 122%,rgba(110,110,104,.12),transparent 60%);font-family:'Space Grotesk',ui-sans-serif,system-ui,sans-serif;transition:opacity .55s ease,visibility .55s ease;animation:wc-failsafe 0s linear 8s forwards}
       #wc-loader.wc-done{opacity:0;visibility:hidden;pointer-events:none}
       @keyframes wc-failsafe{to{opacity:0;visibility:hidden;pointer-events:none}}
-      #wc-loader .wc-coin{width:92px;height:92px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 33% 27%,#ffe98f,#f5b100 52%,#9c6b00);box-shadow:0 0 0 2px rgba(245,177,0,.55),0 0 44px rgba(245,177,0,.42),inset 0 4px 12px rgba(255,255,255,.45),inset 0 -7px 15px rgba(0,0,0,.35);animation:wc-flip 1.6s cubic-bezier(.55,.08,.3,1) infinite}
-      #wc-loader .wc-coin b{font-weight:800;font-size:42px;color:#3a2700;line-height:1;text-shadow:0 1px 0 rgba(255,255,255,.4)}
-      @keyframes wc-flip{0%{transform:perspective(440px) rotateY(0)}100%{transform:perspective(440px) rotateY(1080deg)}}
+      #wc-loader .wc-coin{width:92px;height:92px;border-radius:22px;display:grid;place-items:center;background:#0C0C0C;box-shadow:0 0 0 1.5px rgba(242,194,0,.45),0 0 44px rgba(242,194,0,.28);animation:wc-flip 2.2s ease-in-out infinite}
+      @keyframes wc-flip{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg)}}
       #wc-loader .wc-word{font-weight:700;font-size:23px;letter-spacing:.07em;color:#fff}
-      #wc-loader .wc-word i{font-style:normal;background:linear-gradient(95deg,#ffe27a,#f5b100 55%,#d99400);-webkit-background-clip:text;background-clip:text;color:transparent}
+      #wc-loader .wc-word i{font-style:normal;background:linear-gradient(95deg,#ffe27a,#F2C200 55%,#d99400);-webkit-background-clip:text;background-clip:text;color:transparent}
       #wc-loader .wc-tag{font-family:Inter,ui-sans-serif,system-ui;font-size:12.5px;letter-spacing:.02em;color:#8b90a4}
       #wc-loader .wc-bar{width:190px;height:4px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;position:relative}
-      #wc-loader .wc-bar::before{content:'';position:absolute;top:0;left:0;height:100%;width:42%;border-radius:99px;background:linear-gradient(90deg,transparent,#f5b100,#ffe27a,#f5b100,transparent);animation:wc-sweep 1.15s ease-in-out infinite}
+      #wc-loader .wc-bar::before{content:'';position:absolute;top:0;left:0;height:100%;width:42%;border-radius:99px;background:linear-gradient(90deg,transparent,#F2C200,#ffe27a,#F2C200,transparent);animation:wc-sweep 1.15s ease-in-out infinite}
       @keyframes wc-sweep{0%{transform:translateX(-130%)}100%{transform:translateX(360%)}}
       @keyframes wc-pulse{50%{opacity:.5}}
       @media (prefers-reduced-motion:reduce){#wc-loader .wc-coin{animation:wc-pulse 1.5s ease-in-out infinite}#wc-loader .wc-bar::before{animation:none;width:100%}}
@@ -109,19 +112,19 @@
   <body>
     <!-- Brand boot loader (removed by main.tsx once the app mounts) -->
     <div id="wc-loader" aria-hidden="true">
-      <div class="wc-coin"><b>W</b></div>
-      <div class="wc-word">WCOIN<i>.CASINO</i></div>
-      <div class="wc-tag">Loading on-chain intelligence…</div>
+      <div class="wc-coin"><svg width="52" height="52" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><polygon points="48,18 42,32 54,32" fill="#F2C200"/><rect x="45" y="32" width="6" height="46" fill="#F2C200"/><rect x="30" y="78" width="36" height="5" rx="2.5" fill="#F2C200"/><g transform="rotate(9 48 33)"><rect x="12" y="31" width="72" height="5" rx="2.5" fill="#F2C200"/><line x1="26" y1="36" x2="26" y2="40" stroke="#F2C200" stroke-width="2"/><line x1="75" y1="36" x2="75" y2="44" stroke="#F2C200" stroke-width="2"/><rect x="17" y="47" width="5" height="10" fill="#F2C200"/><rect x="24" y="43" width="5" height="14" fill="#F2C200"/><rect x="31" y="39" width="5" height="18" fill="#F2C200"/><rect x="72" y="45" width="5" height="8" fill="#6E6E68"/></g></svg></div>
+      <div class="wc-word">Tekel<i> Data</i></div>
+      <div class="wc-tag">Weighing the data…</div>
       <div class="wc-bar"></div>
     </div>
 
     <!-- Crawler / no-JS fallback: replaced by the app on mount. Gives search
          engines and AI answer engines real, indexable content + internal links. -->
     <div id="root">
-      <main style="max-width: 760px; margin: 0 auto; padding: 48px 24px; font-family: Inter, system-ui, sans-serif; color: #e8e8ee; background: #0a0a0f; min-height: 100vh">
-        <h1 style="font-size: 30px; line-height: 1.15">WCOIN.CASINO — The On-Chain Intelligence Layer for iGaming</h1>
+      <main style="max-width: 760px; margin: 0 auto; padding: 48px 24px; font-family: Inter, system-ui, sans-serif; color: #e8e8ee; background: #0C0C0C; min-height: 100vh">
+        <h1 style="font-size: 30px; line-height: 1.15">Tekel Data — The On-Chain Intelligence Layer for iGaming</h1>
         <p style="color: #b6b6c4; font-size: 16px">
-          WCOIN.CASINO is an independent data-media platform that tracks crypto casinos using public blockchain data.
+          Tekel Data is an independent data-media platform that tracks crypto casinos using public blockchain data.
           We map operators' wallets, read their <strong>all-chain proof-of-reserves</strong>, measure real
           deposit/withdrawal flow (stripping out wash and treasury churn that inflates most "volume" figures), and
           blend that with independent third-party trust ratings (casino.guru Safety Index, Trustpilot, AskGamblers).
@@ -136,19 +139,19 @@
         </p>
         <h2 style="font-size: 20px">Rankings &amp; data</h2>
         <ul style="color: #b6b6c4; line-height: 1.8">
-          <li><a href="/best-crypto-casinos" style="color: #f5b100">Best crypto casinos</a> — ranked by independent trust and verified on-chain data, not affiliate payouts</li>
-          <li><a href="/rankings/trust" style="color: #f5b100">Most-trusted ranking</a> — blended third-party trust score per operator</li>
-          <li><a href="/proof-of-reserves" style="color: #f5b100">Proof of reserves</a> — all-chain reserves mapped from on-chain wallets</li>
-          <li><a href="/highest-volume-crypto-casinos" style="color: #f5b100">Verified-volume ranking</a> — real player flow, churn excluded</li>
-          <li><a href="/risk" style="color: #f5b100">Risk registry</a> — neutral, sourced on-chain risk signals</li>
-          <li><a href="/daily" style="color: #f5b100">Daily market report</a> — the on-chain crypto-casino market, every day</li>
+          <li><a href="/best-crypto-casinos" style="color: #F2C200">Best crypto casinos</a> — ranked by independent trust and verified on-chain data, not affiliate payouts</li>
+          <li><a href="/rankings/trust" style="color: #F2C200">Most-trusted ranking</a> — blended third-party trust score per operator</li>
+          <li><a href="/proof-of-reserves" style="color: #F2C200">Proof of reserves</a> — all-chain reserves mapped from on-chain wallets</li>
+          <li><a href="/highest-volume-crypto-casinos" style="color: #F2C200">Verified-volume ranking</a> — real player flow, churn excluded</li>
+          <li><a href="/risk" style="color: #F2C200">Risk registry</a> — neutral, sourced on-chain risk signals</li>
+          <li><a href="/daily" style="color: #F2C200">Daily market report</a> — the on-chain crypto-casino market, every day</li>
         </ul>
         <h2 style="font-size: 20px">Guides — verify before you play</h2>
         <ul style="color: #b6b6c4; line-height: 1.8">
-          <li><a href="/guide/are-crypto-casinos-safe" style="color: #f5b100">Are crypto casinos safe?</a> — the risks that actually matter, and how to measure them</li>
-          <li><a href="/guide/crypto-casino-proof-of-reserves" style="color: #f5b100">Proof of reserves explained</a> — reserves vs custody, and how to read a reserve figure</li>
-          <li><a href="/guide/how-to-verify-a-crypto-casino" style="color: #f5b100">How to verify a casino on-chain</a> — step by step on a block explorer</li>
-          <li><a href="/guide/crypto-casino-red-flags" style="color: #f5b100">Crypto casino red flags</a> — the warning signs before you deposit</li>
+          <li><a href="/guide/are-crypto-casinos-safe" style="color: #F2C200">Are crypto casinos safe?</a> — the risks that actually matter, and how to measure them</li>
+          <li><a href="/guide/crypto-casino-proof-of-reserves" style="color: #F2C200">Proof of reserves explained</a> — reserves vs custody, and how to read a reserve figure</li>
+          <li><a href="/guide/how-to-verify-a-crypto-casino" style="color: #F2C200">How to verify a casino on-chain</a> — step by step on a block explorer</li>
+          <li><a href="/guide/crypto-casino-red-flags" style="color: #F2C200">Crypto casino red flags</a> — the warning signs before you deposit</li>
         </ul>
         <p style="color: #6b6b78; font-size: 13px">Every feature is free. <a href="/app" style="color: #6b6b78">Open the live dashboard</a> — loading…</p>
       </main>

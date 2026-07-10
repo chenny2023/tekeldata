@@ -8,7 +8,7 @@ import { db, stateGet, stateSet } from './db.ts'
 const KEY =
   (process.env.INDEXNOW_KEY || 'a3f1c9e7b2d84f60a1e5c3b7d9f2a6e4').toLowerCase().replace(/[^a-f0-9]/g, '').slice(0, 64) ||
   'a3f1c9e7b2d84f60a1e5c3b7d9f2a6e4'
-const HOST = 'wcoin.casino'
+const HOST = 'tekeldata.com'
 const SITE = 'https://' + HOST
 const PING_INTERVAL = 6 * 3600_000 // re-submit the full indexable set at most every 6h
 

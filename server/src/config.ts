@@ -141,7 +141,7 @@ export const config = {
   emailFrom: env.EMAIL_FROM ?? env.EMAIL_USER ?? '',
 
   resendApiKey: env.RESEND_API_KEY ?? '',
-  resendFrom: env.RESEND_FROM ?? 'WCOIN.CASINO <onboarding@resend.dev>',
+  resendFrom: env.RESEND_FROM ?? 'Tekel Data <onboarding@resend.dev>',
 }
 
 export const TRANSFER_TOPIC =

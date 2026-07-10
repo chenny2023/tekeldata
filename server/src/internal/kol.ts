@@ -373,7 +373,7 @@ export async function generateKolDm(id: string): Promise<{ ok: boolean; message:
   const product = productByKey(k.fit_product) || productByKey((k.products || '').split(',')[0]) || productByKey('wcoin')!
   const collab =
     product.key === 'wcoin'
-      ? '推广合作：邀请其向自己的加密赌场玩家受众介绍 wcoin.casino(链上偿付能力/赌场安全数据)，可谈付费推广/联盟分成。'
+      ? '推广合作：邀请其向自己的加密赌场玩家受众介绍 tekeldata.com(链上偿付能力/赌场安全数据)，可谈付费推广/联盟分成。'
       : product.key === 'wcoingame'
       ? '玩家拉新推广：邀请其向自己的加密赌场/博彩玩家受众推广 wcoingame(加密「直播体育 + iGaming」平台)，可谈 CPA/收入分成(RevShare)/联盟返佣/定制活动码。'
       : product.key === 'hirecx'

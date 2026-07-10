@@ -1,34 +1,33 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#0c0c14"/>
-      <stop offset="1" stop-color="#14101f"/>
-    </linearGradient>
-    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#f5b100"/>
-      <stop offset="1" stop-color="#ff8a3d"/>
-    </linearGradient>
-    <radialGradient id="glow" cx="0.8" cy="0.2" r="0.6">
-      <stop offset="0" stop-color="#f5b100" stop-opacity="0.18"/>
-      <stop offset="1" stop-color="#f5b100" stop-opacity="0"/>
+    <radialGradient id="glow" cx="30%" cy="38%" r="60%">
+      <stop offset="0%" stop-color="#F2C200" stop-opacity="0.16"/>
+      <stop offset="60%" stop-color="#F2C200" stop-opacity="0"/>
     </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ffe27a"/>
+      <stop offset="55%" stop-color="#F2C200"/>
+      <stop offset="100%" stop-color="#d99400"/>
+    </linearGradient>
   </defs>
-  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="#0C0C0C"/>
   <rect width="1200" height="630" fill="url(#glow)"/>
-  <g transform="translate(80,86)">
-    <circle cx="26" cy="26" r="26" fill="url(#gold)"/>
-    <text x="68" y="36" font-family="Space Grotesk, Arial, sans-serif" font-size="30" font-weight="700" fill="#ffffff">WCOIN.CASINO</text>
+  <!-- Tekel balance mark, scaled -->
+  <g transform="translate(150 165) scale(3.1)">
+    <polygon points="48,18 42,32 54,32" fill="#F2C200"/>
+    <rect x="45" y="32" width="6" height="46" fill="#F2C200"/>
+    <rect x="30" y="78" width="36" height="5" rx="2.5" fill="#F2C200"/>
+    <g transform="rotate(9 48 33)">
+      <rect x="12" y="31" width="72" height="5" rx="2.5" fill="#F2C200"/>
+      <line x1="26" y1="36" x2="26" y2="40" stroke="#F2C200" stroke-width="2"/>
+      <line x1="75" y1="36" x2="75" y2="44" stroke="#F2C200" stroke-width="2"/>
+      <rect x="17" y="47" width="5" height="10" fill="#F2C200"/>
+      <rect x="24" y="43" width="5" height="14" fill="#F2C200"/>
+      <rect x="31" y="39" width="5" height="18" fill="#F2C200"/>
+      <rect x="72" y="45" width="5" height="8" fill="#6E6E68"/>
+    </g>
   </g>
-  <text x="80" y="280" font-family="Space Grotesk, Arial, sans-serif" font-size="68" font-weight="700" fill="#ffffff">The On-Chain Intelligence</text>
-  <text x="80" y="356" font-family="Space Grotesk, Arial, sans-serif" font-size="68" font-weight="700" fill="url(#gold)">Layer for iGaming</text>
-  <text x="80" y="420" font-family="Inter, Arial, sans-serif" font-size="26" fill="#b6b6c4">Real-time crypto-casino volume · all-chain proof-of-reserves · trust ratings</text>
-  <text x="80" y="456" font-family="Inter, Arial, sans-serif" font-size="26" fill="#b6b6c4">prediction markets · streamer analytics — across 11+ blockchains</text>
-  <g font-family="Inter, Arial, sans-serif" font-size="22" font-weight="600">
-    <rect x="80" y="510" width="200" height="52" rx="12" fill="#ffffff" fill-opacity="0.06"/>
-    <text x="104" y="543" fill="#2ee6a6">Proof-of-Reserves</text>
-    <rect x="296" y="510" width="168" height="52" rx="12" fill="#ffffff" fill-opacity="0.06"/>
-    <text x="320" y="543" fill="#5b8cff">11+ chains</text>
-    <rect x="480" y="510" width="150" height="52" rx="12" fill="#ffffff" fill-opacity="0.06"/>
-    <text x="504" y="543" fill="#c79bff">100% free</text>
-  </g>
+  <text x="520" y="300" font-family="'Space Grotesk',Inter,system-ui,sans-serif" font-size="86" font-weight="700" fill="#ffffff">Tekel<tspan fill="url(#gold)"> Data</tspan></text>
+  <text x="522" y="360" font-family="Inter,system-ui,sans-serif" font-size="30" fill="#b6b6c4">The transparent on-chain data layer for iGaming</text>
+  <text x="522" y="410" font-family="Inter,system-ui,sans-serif" font-size="23" fill="#6E6E68">Proof of reserves · verified volume · trust ratings — data you can weigh yourself</text>
 </svg>

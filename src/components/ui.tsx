@@ -8,11 +8,11 @@ import { useLiveStatus } from '../data/api'
 export function Logo({ size = 30, withText = true }: { size?: number; withText?: boolean }) {
   return (
     <div className="flex items-center gap-2.5 select-none">
-      {/* The exact same asset as the browser-tab favicon (public/coin.svg), so the
+      {/* The Tekel balance mark — same asset family as the browser-tab favicon, so the
           in-site mark and the tab icon can never drift apart. */}
       <img
-        src="/coin.svg"
-        alt="WCOIN.CASINO"
+        src="/svg/tekel-mark.svg"
+        alt="Tekel Data"
         width={size}
         height={size}
         draggable={false}
@@ -22,7 +22,7 @@ export function Logo({ size = 30, withText = true }: { size?: number; withText?:
       {withText && (
         <div className="leading-none">
           <span className="font-display text-[17px] font-bold tracking-tight">
-            WCOIN<span className="text-gradient-gold">.CASINO</span>
+            Tekel<span className="text-gradient-gold"> Data</span>
           </span>
         </div>
       )}
@@ -140,7 +140,7 @@ export function Delta({ value, className = '' }: { value: number; className?: st
 export function TrustBadge({ score }: { score: number | null }) {
   if (score == null)
     return <span className="text-[13px] text-white/35" title="No independent trust rating yet (needs ≥2 sources)">—</span>
-  const color = score >= 85 ? '#2ee6a6' : score >= 70 ? '#f5b100' : '#ff5c7a'
+  const color = score >= 85 ? '#2ee6a6' : score >= 70 ? '#F2C200' : '#ff5c7a'
   return (
     <div className="inline-flex items-center gap-2">
       <div className="h-1.5 w-16 overflow-hidden rounded-full bg-white/10">

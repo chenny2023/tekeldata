@@ -15,8 +15,8 @@ const TEXT_FALLBACK = () => env.OPENROUTER_TEXT_MODEL_FALLBACK ?? 'x-ai/grok-4.2
 // （实测 x-ai/grok-2-image → "not a valid model ID"），故默认用 OpenRouter 在售的图像模型；
 // 可用 OPENROUTER_IMAGE_MODEL 覆盖（若 OpenRouter 日后上架 grok 图像，改这个 env 即可切过去）。
 const IMAGE_MODEL = () => env.OPENROUTER_IMAGE_MODEL ?? 'openai/gpt-5-image-mini'
-const APP_NAME = () => env.OPENROUTER_APP_NAME ?? 'WCOIN.CASINO'
-const SITE_URL = () => env.OPENROUTER_SITE_URL ?? 'https://wcoin.casino'
+const APP_NAME = () => env.OPENROUTER_APP_NAME ?? 'Tekel Data'
+const SITE_URL = () => env.OPENROUTER_SITE_URL ?? 'https://tekeldata.com'
 
 export const openrouterEnabled = () => !!OPENROUTER_KEY()
 

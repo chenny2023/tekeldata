@@ -32,7 +32,7 @@ import { fileURLToPath } from 'node:url'
 // signal) — no thin, template-only pages.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const SITE = 'https://wcoin.casino'
+const SITE = 'https://tekeldata.com'
 // current year for rolling leaderboard titles (variable, never hard-coded) — §3.3
 const YEAR = new Date().getUTCFullYear()
 // Entity review pages (answer-first per-operator pages: is-X-safe / does-X-pay-out /
@@ -66,7 +66,7 @@ function datasetLd(name: string, description: string, url: string, modified: num
     dateModified: new Date(modified).toISOString(),
     creator: { '@id': SITE + '/#org' },
     isAccessibleForFree: true,
-    license: 'https://wcoin.casino/methodology/address-attribution',
+    license: 'https://tekeldata.com/methodology/address-attribution',
     variableMeasured,
   }
 }
@@ -140,8 +140,9 @@ function layout(opts: {
 <meta name="robots" content="${noindex ? 'noindex,follow' : 'index,follow,max-image-preview:large'}">
 <link rel="canonical" href="${esc(canonical)}">
 <link rel="alternate" hreflang="en" href="${esc(canonical)}"><link rel="alternate" hreflang="x-default" href="${esc(canonical)}">
-<meta name="theme-color" content="#0a0a0f">
-<meta property="og:type" content="website"><meta property="og:site_name" content="WCOIN.CASINO">
+<meta name="theme-color" content="#0C0C0C">
+<link rel="icon" href="/favicon.ico" sizes="any"><link rel="icon" type="image/svg+xml" href="/svg/tekel-icon-app.svg"><link rel="apple-touch-icon" href="/png/apple-touch-icon.png">
+<meta property="og:type" content="website"><meta property="og:site_name" content="Tekel Data">
 <meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(description)}">
 <meta property="og:url" content="${esc(canonical)}"><meta property="og:image" content="${esc(ogImage || SITE + '/og.png')}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="${esc(ogImage || SITE + '/og.png')}">
@@ -149,15 +150,15 @@ function layout(opts: {
 <meta name="rating" content="adult">
 <script type="application/ld+json">${JSON.stringify({ '@context': 'https://schema.org', '@graph': graph })}</script>
 <style>
-:root{--bg:#0a0a0f;--card:#13131b;--line:#ffffff14;--fg:#e8e8ee;--mut:#9aa0b4;--dim:#6b6b78;--gold:#f5b100;--mint:#2ee6a6;--rose:#ff6b8a}
+:root{--bg:#0C0C0C;--card:#13131b;--line:#ffffff14;--fg:#e8e8ee;--mut:#9aa0b4;--dim:#6b6b78;--gold:#F2C200;--mint:#2ee6a6;--rose:#ff6b8a}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
 a{color:var(--gold);text-decoration:none}a:hover{text-decoration:underline}
 .wrap{max-width:920px;margin:0 auto;padding:0 20px}
-header.nav{position:sticky;top:0;z-index:5;border-bottom:1px solid var(--line);background:#0a0a0fcc;backdrop-filter:blur(12px)}
+header.nav{position:sticky;top:0;z-index:5;border-bottom:1px solid var(--line);background:#0C0C0Ccc;backdrop-filter:blur(12px)}
 header.nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
 .brand{font-weight:700;letter-spacing:.04em;color:var(--gold);font-size:17px}
 .navlinks a{color:var(--mut);font-size:14px;margin-left:18px}
-.cta{display:inline-block;background:linear-gradient(90deg,#f5b100,#d98a00);color:#0a0a0f!important;font-weight:700;padding:8px 14px;border-radius:9px;font-size:14px}
+.cta{display:inline-block;background:linear-gradient(90deg,#F2C200,#d98a00);color:#0C0C0C!important;font-weight:700;padding:8px 14px;border-radius:9px;font-size:14px}
 .crumb{color:var(--dim);font-size:13px;margin:22px 0 6px}.crumb a{color:var(--mut)}.crumb span{margin:0 2px}
 h1{font-size:30px;line-height:1.15;margin:6px 0 4px;font-weight:800}
 .sub{color:var(--mut);font-size:15px;margin:0 0 4px}
@@ -183,10 +184,10 @@ a.pill{color:var(--mut)}
 .pager{display:flex;justify-content:space-between;gap:12px;margin:18px 0}
 .note{border-top:1px solid var(--line);margin-top:40px;padding-top:18px;color:var(--dim);font-size:12px;line-height:1.7}
 footer{border-top:1px solid var(--line);margin-top:30px}footer .wrap{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;padding:22px 20px;color:var(--dim);font-size:13px}
-.bar{height:7px;background:#ffffff0d;border-radius:6px;overflow:hidden}.bar>span{display:block;height:100%;background:linear-gradient(90deg,#f5b100,#d98a00)}
+.bar{height:7px;background:#ffffff0d;border-radius:6px;overflow:hidden}.bar>span{display:block;height:100%;background:linear-gradient(90deg,#F2C200,#d98a00)}
 </style></head><body>
 <header class="nav"><div class="wrap">
-<a class="brand" href="/">WCOIN.CASINO</a>
+<a class="brand" href="/">Tekel Data</a>
 <nav class="navlinks"><a href="/best-crypto-casinos">Best casinos</a><a href="/rankings">Rankings</a><a href="/data">Data</a><a href="/guide">Guides</a><a href="/risk">Risk</a><a href="/daily">Daily report</a><a class="cta" href="/app">Live dashboard →</a></nav>
 </div></header>
 <main class="wrap">
@@ -201,11 +202,11 @@ ${body}
   <div style="color:var(--mut);font-size:13px;margin:6px 0 12px">The whole crypto-casino market in one email — verified flow, reserve watch, chain breakdown. No account, one-click unsubscribe.</div>
   <form method="POST" action="/subscribe" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:440px;margin:0 auto">
     <input type="email" name="email" required placeholder="you@email.com" style="flex:1;min-width:200px;background:#ffffff08;border:1px solid var(--line);border-radius:9px;padding:10px 12px;color:var(--fg);font-size:14px">
-    <button type="submit" style="background:linear-gradient(135deg,#ffe27a,#f5b100);border:0;border-radius:9px;padding:10px 20px;font-weight:600;font-size:14px;color:#1a1205;cursor:pointer">Subscribe</button>
+    <button type="submit" style="background:linear-gradient(135deg,#ffe27a,#F2C200);border:0;border-radius:9px;padding:10px 20px;font-weight:600;font-size:14px;color:#1a1205;cursor:pointer">Subscribe</button>
   </form>
 </section>
 <footer><div class="wrap">
-<span>© 2026 WCOIN.CASINO — the on-chain intelligence layer for iGaming · <strong>18+</strong></span>
+<span>© 2026 Tekel Data — the on-chain intelligence layer for iGaming · <strong>18+</strong></span>
 <span><a href="/about">About</a> · <a href="/rankings">Rankings</a> · <a href="/guide">Guides</a> · <a href="/streamers">Streamers</a> · <a href="/insights">Insights</a> · <a href="/submit/casino">List your casino</a> · <a href="/methodology/proof-of-reserves">Methodology</a> · <a href="https://github.com/chenny2023/wcoin-casino-data" rel="noopener" target="_blank">Open data (GitHub)</a> · <a href="/whitepaper">2026 H1 Whitepaper</a> · <a href="/responsible-gambling">Responsible gambling</a></span>
 </div></footer>
 </body></html>`
@@ -374,8 +375,8 @@ function casinoPage(
 
   // intent-tuned for the questions players actually search ("X reserves / is X legit / safe")
   const title = oc
-    ? `${v.name} — On-Chain Reserves, Solvency & Trust Data | WCOIN.CASINO`
-    : `${v.name} — Crypto Casino Trust Ratings & Reserves Data | WCOIN.CASINO`
+    ? `${v.name} — On-Chain Reserves, Solvency & Trust Data | Tekel Data`
+    : `${v.name} — Crypto Casino Trust Ratings & Reserves Data | Tekel Data`
   const description = oc
     ? `Is ${v.name} solvent and active? On-chain data: ${fmtUsd(oc.reserves)} tracked all-chain reserves (${COVERAGE_LABEL[cov]} coverage)${oc.volumeSuspect ? '' : `, ${fmtUsd(oc.volume7d)} 7-day volume across ${oc.byChain?.length || 1} chains`}, and multi-source trust ratings — independently verifiable, updated continuously.`
     : `Trust ratings and reference data for ${v.name} — casino.guru, Trustpilot${r.ag != null ? ', AskGamblers' : ''} and more, in one place. Updated continuously.`
@@ -504,11 +505,11 @@ function casinoPage(
   // ── FAQ — answers the exact questions players search, neutrally (+ FAQPage schema) ─
   const faqs: { q: string; a: string }[] = []
   if (oc) {
-    faqs.push({ q: `What are ${v.name}'s on-chain reserves?`, a: `WCOIN tracks approximately ${fmtUsd(oc.reserves)} in all-chain reserves mapped to ${v.name}, with ${COVERAGE_LABEL[cov].toLowerCase()} coverage. Reserves are a best-effort estimate from mapped wallets and may be partial by brand.` })
+    faqs.push({ q: `What are ${v.name}'s on-chain reserves?`, a: `Tekel Data tracks approximately ${fmtUsd(oc.reserves)} in all-chain reserves mapped to ${v.name}, with ${COVERAGE_LABEL[cov].toLowerCase()} coverage. Reserves are a best-effort estimate from mapped wallets and may be partial by brand.` })
     faqs.push({ q: `Is ${v.name} active on-chain?`, a: oc.volumeSuspect
       ? `${v.name} is active across ${oc.byChain?.length || 1} chain${(oc.byChain?.length || 1) === 1 ? '' : 's'} with ${fmtNum(oc.players)} active counterparties. Its on-chain transfer volume is anomalous (consistent with treasury/market-making rather than player flow), so we hold the headline volume figure under review rather than publish it.`
       : `${v.name} has ${fmtUsd(oc.volume7d)} of tracked on-chain volume over the last 7 days across ${oc.byChain?.length || 1} chain${(oc.byChain?.length || 1) === 1 ? '' : 's'}, with ${fmtNum(oc.players)} active counterparties.` })
-    faqs.push({ q: `Is ${v.name} legit or safe to use?`, a: `WCOIN is an independent on-chain data site and does not rate operators as legit, safe or unsafe. We surface verifiable signals — on-chain reserves, tracked volume and independent third-party ratings${bt ? ` (blended trust ${bt.score}/100 from ${bt.sources} sources)` : ''} — so you can assess for yourself. Always do your own research.` })
+    faqs.push({ q: `Is ${v.name} legit or safe to use?`, a: `Tekel Data is an independent on-chain data site and does not rate operators as legit, safe or unsafe. We surface verifiable signals — on-chain reserves, tracked volume and independent third-party ratings${bt ? ` (blended trust ${bt.score}/100 from ${bt.sources} sources)` : ''} — so you can assess for yourself. Always do your own research.` })
     faqs.push({ q: `How is ${v.name}'s data verified?`, a: `Figures come from on-chain transfers attributed to wallets associated with ${v.name}, plus published third-party ratings shown with their source. Attribution carries inherent uncertainty; see our methodology.` })
     const chainsSettled = (oc.byChain ?? []).filter((c) => c.value > 0).map((c) => chainName(c.chain))
     if (chainsSettled.length) {
@@ -540,7 +541,7 @@ function casinoPage(
   const riskSection = riskEvts.length
     ? `<h2>Risk signals &amp; events</h2><p class="prose" style="font-size:13px">Observed on-chain risk signals${riskEvts.some((e) => e.kind === 'incident') ? ' and sourced public incidents' : ''} for ${esc(v.name)}. Signals are our own observed data; incidents link their source. Neutral — these are not a verdict on the operator.</p>${riskEvts
         .map((e) => {
-          const col = e.severity === 'elevated' ? '#ff6b8a' : e.severity === 'watch' ? '#f5b100' : '#9aa0b4'
+          const col = e.severity === 'elevated' ? '#ff6b8a' : e.severity === 'watch' ? '#F2C200' : '#9aa0b4'
           const src = e.source_url ? ` · <a href="${esc(e.source_url)}" rel="nofollow noopener" target="_blank">source →</a>` : ''
           const tag = `<span class="pill">${e.kind === 'incident' ? 'incident' : 'on-chain signal'}</span>`
           const resp = e.operator_response ? `<div class="prose" style="font-size:12px;margin-top:3px"><strong>Operator response:</strong> ${esc(e.operator_response)}</div>` : ''
@@ -614,27 +615,27 @@ function entityAnswerPage(v: CasinoView, slug: string, type: AnswerType, asOf: s
   const covRatio = oc?.reserveCoverage != null ? `${oc.reserveCoverage.toFixed(1)}× reserve-to-7d-outflow coverage` : null
 
   let h1 = '', title = '', description = '', answer = '', body2 = '', faqs: { q: string; a: string }[] = []
-  const disclaimer = `<p class="prose" style="font-size:12px;color:var(--dim);margin-top:4px">WCOIN is an independent on-chain data site. We don't label operators safe, legit, solvent or scam — we surface verifiable signals so you can decide. This is observed wallet data, not financial or legal advice.</p>`
+  const disclaimer = `<p class="prose" style="font-size:12px;color:var(--dim);margin-top:4px">Tekel Data is an independent on-chain data site. We don't label operators safe, legit, solvent or scam — we surface verifiable signals so you can decide. This is observed wallet data, not financial or legal advice.</p>`
   const dataTiles = oc
     ? `<div class="grid">${stat('Mapped reserves', oc.reserves > 0 ? fmtUsd(oc.reserves) : '—', 'mint')}${stat('Reserve coverage', COVERAGE_LABEL[cov])}${stat('Net flow (7d)', oc.volumeSuspect ? 'Under review' : (net >= 0 ? '+' : '−') + fmtUsd(Math.abs(net)), oc.volumeSuspect ? '' : net >= 0 ? 'mint' : 'rose')}${bt ? stat(`Blended trust · ${bt.sources} src`, `${bt.score} / 100`, 'gold') : ''}</div>`
     : (bt || r.safety != null ? `<div class="grid">${bt ? stat(`Blended trust · ${bt.sources} src`, `${bt.score} / 100`, 'gold') : ''}${r.safety != null ? stat('casino.guru', r.safety.toFixed(1) + ' / 10') : ''}${r.complaints != null ? stat('Complaints', fmtNum(r.complaints) + (r.unresolved != null ? ` (${fmtNum(r.unresolved)} open)` : '')) : ''}</div>` : '')
 
   if (type === 'is_safe') {
     h1 = `Is ${v.name} safe & legit? On-chain data (${asOf})`
-    title = `Is ${v.name} Safe & Legit? On-Chain Data Check (${YEAR}) | WCOIN.CASINO`
+    title = `Is ${v.name} Safe & Legit? On-Chain Data Check (${YEAR}) | Tekel Data`
     description = `Is ${v.name} safe and legit? The verifiable data as of ${asOf}: ${reservesPhrase}, ${trustPhrase}, and ${complaintPhrase}. We don't issue safe/scam verdicts — here's the data to judge.`
     answer = `<p class="prose"><strong>The verifiable data (as of ${asOf}):</strong> ${v.name} has ${trustPhrase}, ${reservesPhrase}, and ${complaintPhrase}. On-chain it shows ${flowPhrase}. Rather than a subjective "safe" or "scam" label, these are independent, checkable signals — use them to judge ${v.name} before depositing.</p>`
     body2 =
       `<h2>How to read these signals</h2><p class="prose">No single number proves an operator is safe. The strongest pre-deposit checks are (1) <strong>verifiable on-chain reserves</strong> that comfortably cover withdrawals, (2) a <strong>track record</strong> in independent trust ratings, and (3) the <strong>trend in unresolved complaints</strong>. A cluster of red flags — thin or falling reserves, one-way outflow, many unresolved disputes — is a reason to slow down. Learn the full checklist in <a href="/guide/crypto-casino-red-flags">crypto casino red flags</a> and verify it yourself with <a href="/guide/how-to-verify-a-crypto-casino">how to verify a casino on-chain</a>.</p>` +
       `<h2>The full ${esc(v.name)} profile</h2><p class="prose">This page answers the safety question; the <a href="/casino/${casinoSlug}">full ${esc(v.name)} data profile</a> has its complete on-chain activity, reserve trend, third-party ratings and any risk signals.</p>`
     faqs = [
-      { q: `Is ${v.name} safe?`, a: `WCOIN does not label operators safe or unsafe. As of ${asOf}, the verifiable signals for ${v.name} are: ${trustPhrase}, ${reservesPhrase}, and ${complaintPhrase}. Use these checkable data points — not a marketing claim — to decide for yourself.` },
+      { q: `Is ${v.name} safe?`, a: `Tekel Data does not label operators safe or unsafe. As of ${asOf}, the verifiable signals for ${v.name} are: ${trustPhrase}, ${reservesPhrase}, and ${complaintPhrase}. Use these checkable data points — not a marketing claim — to decide for yourself.` },
       { q: `Is ${v.name} legit or a scam?`, a: `We don't make legit/scam accusations. ${v.name} shows ${flowPhrase} on-chain and ${trustPhrase}. On-chain activity and independent ratings are the verifiable basis; a pattern of unresolved withdrawal complaints would be the clearest negative signal to watch.` },
       { q: `How can I check if ${v.name} is safe myself?`, a: `Read its mapped on-chain reserves and net flow (shown above and on the full profile), cross-check independent trust ratings, and look at the trend in unresolved complaints. Our <a href="/guide/how-to-verify-a-crypto-casino">verification guide</a> walks through reading the wallets on a block explorer.` },
     ]
   } else if (type === 'does_pay') {
     h1 = `Does ${v.name} pay out? Withdrawal & payout data (${asOf})`
-    title = `Does ${v.name} Pay Out? Withdrawal Reliability Data (${YEAR}) | WCOIN.CASINO`
+    title = `Does ${v.name} Pay Out? Withdrawal Reliability Data (${YEAR}) | Tekel Data`
     description = `Does ${v.name} pay out withdrawals? On-chain data as of ${asOf}: ${flowPhrase}${covRatio ? ', ' + covRatio : ''}, and ${complaintPhrase}. Observable payout signals — judge before you deposit.`
     answer = `<p class="prose"><strong>The verifiable data (as of ${asOf}):</strong> ${v.name}'s on-chain wallets show ${flowPhrase}${covRatio ? `, with ${covRatio}` : ''}. Third-party reputation data shows ${complaintPhrase}. Because withdrawals settle on public chains, payout <em>activity</em> is observable — healthy two-way flow and reserves that cover outflows are positive signals — but no data can guarantee any individual cashout.</p>`
     body2 =
@@ -647,16 +648,16 @@ function entityAnswerPage(v: CasinoView, slug: string, type: AnswerType, asOf: s
     ]
   } else {
     h1 = `${v.name} proof of reserves & solvency (${asOf})`
-    title = `${v.name} Proof of Reserves & Solvency — On-Chain (${YEAR}) | WCOIN.CASINO`
+    title = `${v.name} Proof of Reserves & Solvency — On-Chain (${YEAR}) | Tekel Data`
     description = `${v.name} proof of reserves: ${reservesPhrase} as of ${asOf}, read directly from mapped wallets on public blockchains. Observed proof of reserves, not a self-reported claim.`
     answer = oc && oc.reserves > 0
-      ? `<p class="prose"><strong>The verifiable data (as of ${asOf}):</strong> WCOIN maps ${reservesPhrase} for ${v.name} across ${oc.byChain?.length || 1} chain${(oc.byChain?.length || 1) === 1 ? '' : 's'} — wallet balances anyone can verify on a public block explorer. This is <strong>observed proof of reserves</strong>, not a figure the operator self-reports. Note it proves assets held, not total liabilities to players, and coverage is partial by brand.</p>`
-      : `<p class="prose"><strong>As of ${asOf}:</strong> WCOIN does not yet map verifiable on-chain reserves for ${v.name}. That is <em>not</em> evidence of insolvency — it usually means we haven't attributed enough of its wallets yet. ${trustPhrase.charAt(0).toUpperCase() + trustPhrase.slice(1)} is available in the meantime.</p>`
+      ? `<p class="prose"><strong>The verifiable data (as of ${asOf}):</strong> Tekel Data maps ${reservesPhrase} for ${v.name} across ${oc.byChain?.length || 1} chain${(oc.byChain?.length || 1) === 1 ? '' : 's'} — wallet balances anyone can verify on a public block explorer. This is <strong>observed proof of reserves</strong>, not a figure the operator self-reports. Note it proves assets held, not total liabilities to players, and coverage is partial by brand.</p>`
+      : `<p class="prose"><strong>As of ${asOf}:</strong> Tekel Data does not yet map verifiable on-chain reserves for ${v.name}. That is <em>not</em> evidence of insolvency — it usually means we haven't attributed enough of its wallets yet. ${trustPhrase.charAt(0).toUpperCase() + trustPhrase.slice(1)} is available in the meantime.</p>`
     body2 =
       `<h2>Proof of reserves vs proof of custody</h2><p class="prose">"Proof of reserves" shows assets exist on-chain at known wallets; it does <em>not</em> prove the operator controls them exclusively or that they exceed what's owed to players (liabilities). A wallet can also be funded temporarily to look healthy. That's why we show a <strong>coverage level</strong> rather than a single "fully reserved" claim, and pair reserves with net flow and trend. The full definitional breakdown is in <a href="/guide/crypto-casino-proof-of-reserves">proof of reserves explained</a>.</p>` +
       (oc && oc.reserves > 0 ? `<h2>How we verify ${esc(v.name)}'s reserves</h2><p class="prose">We map wallets to ${v.name} from public block-explorer name-tags and on-chain behaviour, then read their balances across every chain we track — see <a href="/methodology/address-attribution">our attribution methodology</a>. The <a href="/casino/${casinoSlug}">full profile</a> shows the reserve trend and per-network breakdown.</p>` : `<h2>More on ${esc(v.name)}</h2><p class="prose">See the <a href="/casino/${casinoSlug}">full ${esc(v.name)} profile</a> for its third-party ratings, and our <a href="/proof-of-reserves">proof-of-reserves hub</a> for operators with mapped reserves.</p>`)
     faqs = [
-      { q: `Does ${v.name} have proof of reserves?`, a: oc && oc.reserves > 0 ? `Yes — WCOIN maps ${reservesPhrase} for ${v.name}, read directly from wallets on public blockchains as of ${asOf}. This is observed proof of reserves (verifiable by anyone), not a self-reported figure, and may be partial by brand.` : `WCOIN does not yet map verifiable on-chain reserves for ${v.name} as of ${asOf}. This isn't evidence of insolvency — typically it means we haven't attributed enough of its wallets. Reserves appear here as coverage expands.` },
+      { q: `Does ${v.name} have proof of reserves?`, a: oc && oc.reserves > 0 ? `Yes — Tekel Data maps ${reservesPhrase} for ${v.name}, read directly from wallets on public blockchains as of ${asOf}. This is observed proof of reserves (verifiable by anyone), not a self-reported figure, and may be partial by brand.` : `Tekel Data does not yet map verifiable on-chain reserves for ${v.name} as of ${asOf}. This isn't evidence of insolvency — typically it means we haven't attributed enough of its wallets. Reserves appear here as coverage expands.` },
       { q: `Is ${v.name} solvent?`, a: `We don't issue solvency verdicts. Proof of reserves shows assets held on-chain (${reservesPhrase} as of ${asOf}), not total liabilities to players, so it can't prove solvency on its own. We pair it with net flow and the reserve trend, shown on the full profile.` },
       { q: `What does ${v.name}'s reserve coverage level mean?`, a: `Coverage is a qualitative band (High/Medium/Partial/Under review) reflecting how complete our wallet mapping for ${v.name} is — not a claim that it is "fully reserved". It is shown as a level, never a precise percentage, because attribution is inherently partial.` },
     ]
@@ -705,7 +706,7 @@ function comparePage(a: CasinoView, b: CasinoView, slugA: string, slugB: string)
   const tpA = (ra.tpN ?? 0) >= MIN_TP_REVIEWS ? ra.tp : null
   const tpB = (rb.tpN ?? 0) >= MIN_TP_REVIEWS ? rb.tp : null
 
-  const title = `${a.name} vs ${b.name} — Crypto Casino Comparison | WCOIN.CASINO`
+  const title = `${a.name} vs ${b.name} — Crypto Casino Comparison | Tekel Data`
   const description = `${a.name} vs ${b.name}: a side-by-side, data-led comparison of independent trust ratings, on-chain volume and mapped reserves. Neutral and updated continuously.`
 
   // a comparison row; `mark` highlights the stronger side ONLY when explicitly asked
@@ -775,7 +776,7 @@ function alternativesPage(
   const url = SITE + path
   const oc = target.onchain
   const bt = blendedTrust(target)
-  const title = `${target.name} Alternatives ${YEAR} — Trusted Crypto Casinos Compared | WCOIN.CASINO`
+  const title = `${target.name} Alternatives ${YEAR} — Trusted Crypto Casinos Compared | Tekel Data`
   const description = `Looking for alternatives to ${target.name}? ${alts.length} crypto casinos that settle on the same chains, ranked by independent trust and verifiable on-chain reserves — not affiliate payouts. Updated continuously.`
   const rows = alts
     .map(({ v, slug, shared }) => {
@@ -839,7 +840,7 @@ function chainVsChainPage(
   const url = SITE + path
   const fa = CHAIN_FACTS[a.cslug]
   const fb = CHAIN_FACTS[b.cslug]
-  const title = `${a.name} vs ${b.name} for Crypto Casinos ${YEAR} — Which Chain to Deposit On | WCOIN.CASINO`
+  const title = `${a.name} vs ${b.name} for Crypto Casinos ${YEAR} — Which Chain to Deposit On | Tekel Data`
   const description = `${a.name} vs ${b.name} for crypto-casino deposits: ${a.ops} vs ${b.ops} operators settling on-chain, ${fmtUsd(a.settled)} vs ${fmtUsd(b.settled)} of tracked 7-day settlement, plus real confirmation speed and fees. Data-led and neutral.`
   const row = (label: string, av: string, bv: string) => `<tr><td>${esc(label)}</td><td class="n">${av}</td><td class="n">${bv}</td></tr>`
   const rows =
@@ -884,7 +885,7 @@ function bestOnChainPage(chain: string, entries: { v: CasinoView; slug: string }
   const cslug = slugify(chain)
   const path = `/rankings/best-on-${cslug}`
   const url = SITE + path
-  const title = `Best ${cn} Crypto Casinos ${YEAR} — Ranked by Independent Trust | WCOIN.CASINO`
+  const title = `Best ${cn} Crypto Casinos ${YEAR} — Ranked by Independent Trust | Tekel Data`
   const description = `The most independently-trusted crypto casinos settling on ${cn} in ${YEAR}, ranked by a blend of third-party trust ratings (not volume). On-chain volume and reserves shown for context. Updated continuously.`
   const rows = entries
     .map((x, i) => {
@@ -925,7 +926,7 @@ const streamerSlug = (s: { platform: string; handle: string }) => `${slugify(s.p
 function streamersIndexPage(streamers: any[]): { title: string; description: string; html: string } {
   const path = '/streamers'
   const url = SITE + path
-  const title = 'Top Crypto Casino Streamers — Live Gambling Streams & Followers | WCOIN.CASINO'
+  const title = 'Top Crypto Casino Streamers — Live Gambling Streams & Followers | Tekel Data'
   const description = `The biggest crypto-casino and gambling streamers across Kick, Twitch and YouTube — ranked by following, with live status, audience and the casino each promotes. Updated continuously.`
   const rows = streamers
     .map((s, i) => {
@@ -1008,7 +1009,7 @@ function streamerPage(s: any, affCasino: { name: string; slug: string; vol7d: nu
   const channelUrl = streamerChannelUrl(s)
   const socials = streamerSocials(s)
   const sameAs = [channelUrl, ...socials.map((x) => x.url)].filter(Boolean) as string[]
-  const title = `${esc(s.handle)} — Crypto Casino Streamer on ${esc(s.platform)} | WCOIN.CASINO`
+  const title = `${esc(s.handle)} — Crypto Casino Streamer on ${esc(s.platform)} | Tekel Data`
   const description = `${s.handle} is a ${s.platform} crypto-gambling streamer with ${followers} followers${s.affiliation ? `, promoting ${s.affiliation}` : ''}. Bio, socials, live status and the on-chain data for the casino they play.`
   const affBlock = affCasino
     ? `<div class="card"><h2>Promotes: <a href="/casino/${affCasino.slug}">${esc(affCasino.name)}</a></h2>` +
@@ -1125,7 +1126,7 @@ function metricRankingPage(key: string, brands: BrandAgg[], slugOfBrand: (b: Bra
     .filter((e) => !(excludeSuspect && e.volumeSuspect))
     .sort((a, b) => cfg.metric(b) - cfg.metric(a))
     .slice(0, 50)
-  const title = `${cfg.title} | WCOIN.CASINO`
+  const title = `${cfg.title} | Tekel Data`
   const description = `${cfg.blurb} Ranking ${rows.length} operators from live on-chain data. Free, updated continuously.`
   const trows = rows
     .map(
@@ -1177,7 +1178,7 @@ function reservesHubPage(brands: BrandAgg[], slugOfBrand: (b: BrandAgg) => strin
   const url = `${SITE}/proof-of-reserves`
   const withReserves = brands.filter((b) => (b.reserves ?? 0) > 0).sort((a, b) => (b.reserves ?? 0) - (a.reserves ?? 0)).slice(0, 60)
   const totalRes = withReserves.reduce((s, b) => s + (b.reserves ?? 0), 0)
-  const title = 'Crypto Casino Proof of Reserves — Verified List & How It Works | WCOIN.CASINO'
+  const title = 'Crypto Casino Proof of Reserves — Verified List & How It Works | Tekel Data'
   const description = `Which crypto casinos have on-chain proof of reserves? We map ${withReserves.length} operators' wallet reserves directly from the blockchain (≈${fmtUsd(totalRes)} tracked) and explain what proof of reserves does — and doesn't — prove.`
   const trows = withReserves
     .map(
@@ -1187,7 +1188,7 @@ function reservesHubPage(brands: BrandAgg[], slugOfBrand: (b: BrandAgg) => strin
     .join('')
   const faqs = [
     { q: 'What is proof of reserves for a crypto casino?', a: 'Proof of reserves means an operator\'s holdings can be verified directly on the blockchain rather than taken on trust. Because crypto wallets are public, anyone can check the balances of an operator\'s known wallets at any time.' },
-    { q: 'How does WCOIN.CASINO track casino reserves?', a: 'We map the on-chain wallets we associate with each operator and read their all-chain balances directly from the blockchain, refreshed roughly every 30 minutes. Coverage varies by operator and attribution carries inherent uncertainty — see our methodology.' },
+    { q: 'How does Tekel Data track casino reserves?', a: 'We map the on-chain wallets we associate with each operator and read their all-chain balances directly from the blockchain, refreshed roughly every 30 minutes. Coverage varies by operator and attribution carries inherent uncertainty — see our methodology.' },
     { q: 'Does proof of reserves mean a casino is solvent or safe?', a: 'No. Mapped reserves show what is observable on-chain at a point in time. They are not a statement on solvency, liabilities, legality, or safety, and balances can move. Treat reserves as one descriptive signal among several.' },
     { q: 'Which crypto casinos have the largest mapped reserves?', a: `As of the latest update, operators with the largest mapped on-chain reserves include ${withReserves.slice(0, 5).map((b) => b.brand).join(', ') || '—'}. See the full ranked list below.` },
   ]
@@ -1229,7 +1230,7 @@ function trustRankingPage(views: CasinoView[], slugOfView: (v: CasinoView) => st
     .filter((x): x is { v: CasinoView; t: { score: number; sources: number } } => x.t != null)
     .sort((a, b) => b.t.score - a.t.score)
     .slice(0, 50)
-  const title = 'Crypto casinos by trust signals — third-party rating ranking | WCOIN.CASINO'
+  const title = 'Crypto casinos by trust signals — third-party rating ranking | Tekel Data'
   const description = `Crypto casinos ranked by a blended score of independently published trust signals (casino.guru, AskGamblers, casino.org, Trustpilot). Only operators with ≥2 verified sources. ${rows.length} operators, updated continuously.`
   const trows = rows
     .map((x, i) => {
@@ -1274,7 +1275,7 @@ const rankingLabel = (k: string) =>
 
 function rankingsIndexPage(chains: string[], hasUnattributed: boolean): { title: string; description: string; html: string } {
   const url = `${SITE}/rankings`
-  const title = 'Crypto casino rankings — most trusted, reserves & on-chain activity | WCOIN.CASINO'
+  const title = 'Crypto casino rankings — most trusted, reserves & on-chain activity | Tekel Data'
   const description = 'Crypto-casino leaderboards led by blended third-party trust ratings (our recommended ranking), plus mapped reserves, withdrawal coverage and on-chain activity. All from live data, clearly sourced.'
   const reserveKeys = ['reserves', 'coverage'] // reserve-backed, harder to fake
   const activityKeys = ['volume', 'movers', 'netflow', 'players'] // gameable on-chain
@@ -1350,7 +1351,7 @@ function chainPage(chain: string, brands: BrandAgg[], slugOfBrand: (b: BrandAgg)
   const max = Math.max(...onChain.map((x) => x.v), 1)
   const facts = CHAIN_FACTS[cslug]
   const leader = onChain.slice(0, 3).map((x) => x.e.brand).join(', ')
-  const title = `${name} Crypto Casinos ${YEAR} — On-Chain Volume by Operator | WCOIN.CASINO`
+  const title = `${name} Crypto Casinos ${YEAR} — On-Chain Volume by Operator | Tekel Data`
   const description = `Crypto casinos settling on ${name}: ${fmtUsd(total)} tracked 7-day on-chain volume across ${onChain.length} operators${leader ? ` (top: ${leader})` : ''}. Verified on-chain data — internal churn and wash/treasury flow excluded. Updated continuously.`
   const trows = onChain
     .map(
@@ -1404,7 +1405,7 @@ function reportPage(snap: any, prev: string | null, next: string | null): { titl
   const url = `${SITE}/reports/daily/${date}`
   const p = snap.payload || {}
   const net = snap.net_flow_24h ?? 0
-  const title = `Crypto casino market — ${date} | Daily on-chain report | WCOIN.CASINO`
+  const title = `Crypto casino market — ${date} | Daily on-chain report | Tekel Data`
   const description = `Crypto-casino market on ${date} (UTC): ${fmtUsd(snap.tracked_volume_24h ?? 0)} verified tracked 24h on-chain volume across ${snap.active_casinos ?? 0} verified brands and ${snap.active_chains ?? 0} chains, ${fmtUsd(snap.reserves_total ?? 0)} tracked all-chain reserves. Unattributed flow excluded.`
 
   const stats =
@@ -1506,7 +1507,7 @@ ${confNote}
 ${pager}
 <p class="prose" style="margin-top:22px">Numbers are observed on-chain activity for the stated 24-hour window. See the <a href="/methodology/on-chain-volume">volume</a> and <a href="/methodology/proof-of-reserves">reserves</a> methodology, or the live <a href="/app">dashboard</a>.</p>`
   const jsonLd = [
-    { '@type': 'Dataset', name: `Crypto casino market snapshot ${date}`, description, url, temporalCoverage: date, creator: { '@type': 'Organization', name: 'WCOIN.CASINO', url: SITE }, isAccessibleForFree: true },
+    { '@type': 'Dataset', name: `Crypto casino market snapshot ${date}`, description, url, temporalCoverage: date, creator: { '@type': 'Organization', name: 'Tekel Data', url: SITE }, isAccessibleForFree: true },
   ]
   return {
     title,
@@ -1565,7 +1566,7 @@ function weeklyReportPage(wk: { key: string; start: string; end: string }, days:
   const chains = [...chainVol.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10)
   const totChain = chains.reduce((s, c) => s + c[1], 0) || 1
 
-  const title = `Crypto casino market — week ${wk.key} | Weekly on-chain report | WCOIN.CASINO`
+  const title = `Crypto casino market — week ${wk.key} | Weekly on-chain report | Tekel Data`
   const description = `Crypto-casino market for ISO week ${wk.key} (${wk.start} → ${wk.end}): ${fmtUsd(totalVol)} total verified on-chain volume across ${n} tracked days, ${fmtUsd(reserves)} end-of-week reserves. Verified flow only.`
 
   const stats =
@@ -1605,7 +1606,7 @@ ${chainsT}
 ${trendT}
 <p class="prose" style="margin-top:20px;font-size:13px"><strong>Data coverage notes.</strong> Weekly figures sum the verified daily snapshots for the period; unattributed pattern flow is excluded throughout. Reserves are an all-chain best-effort estimate. See <a href="/methodology/on-chain-volume">volume</a> and <a href="/methodology/proof-of-reserves">reserves</a> methodology.</p>
 ${pager}`
-  const jsonLd = [{ '@type': 'Dataset', name: `Crypto casino market — week ${wk.key}`, description, url, temporalCoverage: `${wk.start}/${wk.end}`, creator: { '@type': 'Organization', name: 'WCOIN.CASINO', url: SITE }, isAccessibleForFree: true }]
+  const jsonLd = [{ '@type': 'Dataset', name: `Crypto casino market — week ${wk.key}`, description, url, temporalCoverage: `${wk.start}/${wk.end}`, creator: { '@type': 'Organization', name: 'Tekel Data', url: SITE }, isAccessibleForFree: true }]
   return {
     title,
     description,
@@ -1630,7 +1631,7 @@ ${pager}`
 // ── risk registry index — neutral, sourced; on-chain signals + curated incidents ─
 function riskIndexPage(events: RiskEvent[]): { title: string; description: string; html: string } {
   const url = `${SITE}/risk`
-  const title = `Crypto Casino Risk Registry — On-Chain Signals & Incidents | WCOIN.CASINO`
+  const title = `Crypto Casino Risk Registry — On-Chain Signals & Incidents | Tekel Data`
   const description = `A neutral, sourced registry of crypto-casino risk signals: observed on-chain reserve drops and coverage anomalies, plus publicly-reported incidents shown with their source. Not a verdict — do your own research.`
   const sevCol = (s: string) => (s === 'elevated' ? 'rose' : s === 'watch' ? 'gold' : 'mut')
   const rows = events
@@ -1672,7 +1673,7 @@ function unattributedFlowPage(brands: BrandAgg[]): { title: string; description:
   const url = `${SITE}/rankings/unattributed-flow`
   const rows = brands.filter((b) => b.volume7d > 0).sort((a, b) => b.volume7d - a.volume7d).slice(0, 30)
   const total = rows.reduce((s, b) => s + b.volume7d, 0)
-  const title = 'Unattributed Casino Flow — pattern-detected wallet activity | WCOIN.CASINO'
+  const title = 'Unattributed Casino Flow — pattern-detected wallet activity | Tekel Data'
   const description = 'Pattern-detected casino-related on-chain wallet activity not yet attributed to a verified casino brand. Shown separately from verified rankings, for transparency.'
   const trows = rows
     .map(
@@ -1709,7 +1710,7 @@ function unattributedFlowPage(brands: BrandAgg[]): { title: string; description:
 const METHODOLOGY: Record<string, { title: string; body: string }> = {
   'address-attribution': {
     title: 'How we attribute on-chain activity to crypto casinos',
-    body: `<p>WCOIN.CASINO links blockchain wallets to crypto-casino operators using public block-explorer name-tags, published hot-wallet addresses, on-chain clustering of deposit/withdrawal patterns, and cross-referencing against third-party datasets. A single operator typically runs many wallets across several chains, which we group under one brand.</p>
+    body: `<p>Tekel Data links blockchain wallets to crypto-casino operators using public block-explorer name-tags, published hot-wallet addresses, on-chain clustering of deposit/withdrawal patterns, and cross-referencing against third-party datasets. A single operator typically runs many wallets across several chains, which we group under one brand.</p>
 <p>Attribution is a best-effort inference, not a certainty. Wallets can be mislabelled, shared, rotated, or operated by third parties (payment processors, market makers). We continuously revise mappings as new evidence appears. Figures should be read as <em>observed activity for the wallets we associate with an operator</em> — not an audited, operator-confirmed total.</p>
 <p>Activity we detect as casino-like but cannot yet tie to a specific brand is marked <strong>unattributed</strong> and kept out of verified rankings — see the <a href="/rankings/unattributed-flow">Unattributed Casino Flow</a> page. We deliberately do not publish verdicts on operators.</p>`,
   },
@@ -1746,11 +1747,11 @@ function methodologyPage(topic: string): { title: string; description: string; h
   const m = METHODOLOGY[topic]
   if (!m) return null
   const url = `${SITE}/methodology/${topic}`
-  const title = `${m.title} | WCOIN.CASINO methodology`
+  const title = `${m.title} | Tekel Data methodology`
   const description = m.body.replace(/<[^>]+>/g, '').slice(0, 155)
   const others = Object.keys(METHODOLOGY).filter((k) => k !== topic)
   const body = `
-<p class="upd">WCOIN.CASINO methodology</p>
+<p class="upd">Tekel Data methodology</p>
 <div class="prose">${m.body}</div>
 <h2>More methodology</h2>
 <div class="chips">${others.map((k) => `<a class="pill" href="/methodology/${k}">${esc(METHODOLOGY[k].title)}</a>`).join('')}</div>
@@ -1762,7 +1763,7 @@ function methodologyPage(topic: string): { title: string; description: string; h
       title,
       description,
       canonical: url,
-      jsonLd: [{ '@type': 'Article', headline: m.title, author: { '@type': 'Organization', name: 'WCOIN.CASINO' }, publisher: { '@type': 'Organization', name: 'WCOIN.CASINO' } }],
+      jsonLd: [{ '@type': 'Article', headline: m.title, author: { '@type': 'Organization', name: 'Tekel Data' }, publisher: { '@type': 'Organization', name: 'Tekel Data' } }],
       breadcrumb: [
         { name: 'Home', url: SITE + '/' },
         { name: 'Methodology', url: SITE + '/methodology/address-attribution' },
@@ -1813,10 +1814,10 @@ const MAX_REPORTS = Number(process.env.SEO_MAX_REPORTS ?? 400)
 // ── E-E-A-T + YMYL compliance pages (§4.1 / §4.4) ────────────────────────────
 function aboutPage(): { title: string; description: string; html: string } {
   const url = `${SITE}/about`
-  const title = 'About WCOIN.CASINO — Independent On-Chain Crypto-Casino Intelligence'
-  const description = 'WCOIN.CASINO is an independent data-media platform tracking crypto casinos on-chain — verified volume, proof-of-reserves and trust signals. Not an operator, no paid rankings.'
+  const title = 'About Tekel Data — Independent On-Chain Crypto-Casino Intelligence'
+  const description = 'Tekel Data is an independent data-media platform tracking crypto casinos on-chain — verified volume, proof-of-reserves and trust signals. Not an operator, no paid rankings.'
   const body = `
-<p class="sub">WCOIN.CASINO is an independent on-chain intelligence platform for the crypto-casino industry. We are a <strong>data-media site — not a casino, not an operator, and not an affiliate that sells rankings.</strong></p>
+<p class="sub">Tekel Data is an independent on-chain intelligence platform for the crypto-casino industry. We are a <strong>data-media site — not a casino, not an operator, and not an affiliate that sells rankings.</strong></p>
 <h2>What we do</h2>
 <div class="prose"><p>We attribute public blockchain transfers to crypto-casino operators and surface what the chain actually shows: tracked deposit/withdrawal volume, all-chain reserves mapped from on-chain wallets, net flow, and independent third-party trust ratings (always shown with their source). Everything is derived from public on-chain data and public review sources — information anyone can independently verify.</p></div>
 <h2>How we're different</h2>
@@ -1827,18 +1828,18 @@ function aboutPage(): { title: string; description: string; html: string } {
 <h2>Coverage</h2>
 <div class="prose"><p>Explore the <a href="/rankings">rankings hub</a>, per-operator on-chain pages, per-chain activity, the <a href="/daily">daily report</a>, and <a href="/streamers">streamer tracking</a>.</p></div>
 <p class="prose" style="margin-top:18px"><strong>18+ only.</strong> This site provides data, not gambling. Nothing here is financial, legal or investment advice. See <a href="/responsible-gambling">responsible gambling resources</a>.</p>`
-  return { title, description, html: layout({ title, description, canonical: url, breadcrumb: [{ name: 'Home', url: SITE + '/' }, { name: 'About', url }], h1: 'About WCOIN.CASINO', updated: Date.now(), body }) }
+  return { title, description, html: layout({ title, description, canonical: url, breadcrumb: [{ name: 'Home', url: SITE + '/' }, { name: 'About', url }], h1: 'About Tekel Data', updated: Date.now(), body }) }
 }
 
 // ── 2026 H1 whitepaper landing page (social-shareable, PDF download) ──────────
 const WHITEPAPER_PDF = '/wcoin-2026-h1-crypto-igaming-market-outlook.pdf'
 function whitepaperPage(): { title: string; description: string; html: string } {
   const url = `${SITE}/whitepaper`
-  const title = `2026 H1 Crypto iGaming Market Outlook — Free Whitepaper (PDF) | WCOIN.CASINO`
-  const description = `Free data whitepaper: stablecoin payments, on-chain capital flows and the next iGaming trust layer. Built on WCOIN.CASINO's open, verifiable on-chain dataset (verified volume, all-chain proof-of-reserves, blended trust) as of 2026-07-03. Download the PDF.`
+  const title = `2026 H1 Crypto iGaming Market Outlook — Free Whitepaper (PDF) | Tekel Data`
+  const description = `Free data whitepaper: stablecoin payments, on-chain capital flows and the next iGaming trust layer. Built on Tekel Data's open, verifiable on-chain dataset (verified volume, all-chain proof-of-reserves, blended trust) as of 2026-07-03. Download the PDF.`
   const body =
     `<p class="sub"><strong>2026 H1 Crypto iGaming Market Outlook</strong> — stablecoin payments, on-chain capital flows, and the next iGaming trust layer. Built on our open, independently verifiable dataset, not estimates.</p>` +
-    `<p style="margin:22px 0"><a class="cta" style="display:inline-block;background:linear-gradient(90deg,#f5c542,#f5b100);color:#0a0a0f;font-weight:700;padding:13px 26px;border-radius:12px;text-decoration:none" href="${WHITEPAPER_PDF}" download>Download the whitepaper (PDF, free — no email required)</a></p>` +
+    `<p style="margin:22px 0"><a class="cta" style="display:inline-block;background:linear-gradient(90deg,#f5c542,#F2C200);color:#0C0C0C;font-weight:700;padding:13px 26px;border-radius:12px;text-decoration:none" href="${WHITEPAPER_PDF}" download>Download the whitepaper (PDF, free — no email required)</a></p>` +
     `<h2>What's inside</h2><div class="prose"><ul>` +
     `<li><strong>Market overview</strong> — verified on-chain casino volume (internal churn, double counts and wash/treasury-pattern flow excluded), daily trend from our measured snapshot archive, and net-flow structure.</li>` +
     `<li><strong>Operator landscape</strong> — the on-chain leaderboard by verified activity, all-chain proof-of-reserves with coverage levels, and blended third-party trust.</li>` +
@@ -1846,7 +1847,7 @@ function whitepaperPage(): { title: string; description: string; html: string } 
     `<li><strong>The trust layer</strong> — how public blockchains make casino solvency independently checkable, and what "Under review" volume flags mean.</li>` +
     `</ul></div>` +
     `<h2>Why this report is different</h2><p class="prose">Every figure traces to public, reproducible data: the wallet set, evidence classes, rule thresholds and the full export pipeline are published in our <a href="https://github.com/chenny2023/wcoin-casino-data" rel="noopener" target="_blank">open-data repository (GitHub)</a>, and the same numbers are served live by our <a href="/about">free public API</a>. Where measurement began mid-period, the report says so instead of extrapolating — honesty about coverage is the methodology.</p>` +
-    `<h2>Cite or share</h2><p class="prose">The report is free to share and cite with attribution to <strong>wcoin.casino</strong> (data: CC BY 4.0). For the always-current figures behind it, see the <a href="/daily">daily market report</a>, <a href="/best-crypto-casinos">rankings</a> and <a href="/proof-of-reserves">proof-of-reserves hub</a>.</p>`
+    `<h2>Cite or share</h2><p class="prose">The report is free to share and cite with attribution to <strong>tekeldata.com</strong> (data: CC BY 4.0). For the always-current figures behind it, see the <a href="/daily">daily market report</a>, <a href="/best-crypto-casinos">rankings</a> and <a href="/proof-of-reserves">proof-of-reserves hub</a>.</p>`
   const reportLd = {
     '@context': 'https://schema.org',
     '@type': 'Report',
@@ -1855,8 +1856,8 @@ function whitepaperPage(): { title: string; description: string; html: string } 
     datePublished: '2026-07-03',
     url,
     encoding: { '@type': 'MediaObject', contentUrl: SITE + WHITEPAPER_PDF, encodingFormat: 'application/pdf' },
-    author: { '@type': 'Organization', name: 'WCOIN.CASINO', url: SITE },
-    publisher: { '@type': 'Organization', name: 'WCOIN.CASINO', url: SITE },
+    author: { '@type': 'Organization', name: 'Tekel Data', url: SITE },
+    publisher: { '@type': 'Organization', name: 'Tekel Data', url: SITE },
     isAccessibleForFree: true,
     license: 'https://creativecommons.org/licenses/by/4.0/',
   }
@@ -1865,8 +1866,8 @@ function whitepaperPage(): { title: string; description: string; html: string } 
 
 function responsibleGamblingPage(): { title: string; description: string; html: string } {
   const url = `${SITE}/responsible-gambling`
-  const title = 'Responsible Gambling — Help & Resources | WCOIN.CASINO'
-  const description = 'Gambling can be addictive. WCOIN.CASINO is a data platform (18+). Find responsible-gambling tools and free, confidential help resources by region.'
+  const title = 'Responsible Gambling — Help & Resources | Tekel Data'
+  const description = 'Gambling can be addictive. Tekel Data is a data platform (18+). Find responsible-gambling tools and free, confidential help resources by region.'
   const orgs = [
     ['BeGambleAware (UK)', 'https://www.begambleaware.org', 'Free, confidential advice and a 24/7 helpline.'],
     ['GamCare (UK)', 'https://www.gamcare.org.uk', 'Support, information and counselling for problem gambling.'],
@@ -1876,7 +1877,7 @@ function responsibleGamblingPage(): { title: string; description: string; html: 
   ]
   const list = orgs.map(([n, u, d]) => `<tr><td><a href="${esc(u)}" rel="noopener nofollow" target="_blank">${esc(n)}</a></td><td>${esc(d)}</td></tr>`).join('')
   const body = `
-<p class="sub"><strong>You must be 18+ (or the legal age in your jurisdiction) to gamble.</strong> WCOIN.CASINO is an information and data platform — we do not operate gambling and do not take bets. Gambling can be addictive; please play responsibly.</p>
+<p class="sub"><strong>You must be 18+ (or the legal age in your jurisdiction) to gamble.</strong> Tekel Data is an information and data platform — we do not operate gambling and do not take bets. Gambling can be addictive; please play responsibly.</p>
 <h2>Signs it may be a problem</h2>
 <div class="prose"><p>Spending more than you can afford, chasing losses, borrowing to gamble, gambling to escape stress, or hiding it from people close to you. If any of this sounds familiar, free and confidential help is available.</p></div>
 <h2>Tools that help</h2>
@@ -1890,8 +1891,8 @@ function responsibleGamblingPage(): { title: string; description: string; html: 
 // §4.3 — /insights archive of the dated daily reports (hub for the digest pages)
 function insightsIndexPage(snaps: any[]): { title: string; description: string; html: string } {
   const url = `${SITE}/insights`
-  const title = 'Crypto Casino Insights — Daily On-Chain Market Reports | WCOIN.CASINO'
-  const description = `Archive of WCOIN.CASINO daily on-chain crypto-casino reports — tracked volume, reserve moves, whale flow and chain breakdown. ${snaps.length} editions and counting.`
+  const title = 'Crypto Casino Insights — Daily On-Chain Market Reports | Tekel Data'
+  const description = `Archive of Tekel Data daily on-chain crypto-casino reports — tracked volume, reserve moves, whale flow and chain breakdown. ${snaps.length} editions and counting.`
   const rows = snaps
     .slice(0, 120)
     .map((s) => `<tr><td><a href="/reports/daily/${s.snapshot_date}">Daily report — ${s.snapshot_date}</a></td><td class="n">${fmtUsd(s.tracked_volume_24h ?? 0)}</td><td class="n">${s.active_casinos ?? 0}</td></tr>`)
@@ -1910,18 +1911,18 @@ function submitPage(kind: 'casino' | 'kol'): { title: string; description: strin
   const isCasino = kind === 'casino'
   const url = `${SITE}/submit/${kind}`
   const title = isCasino
-    ? 'Submit Your Crypto Casino — Get Listed on WCOIN.CASINO (Free)'
-    : 'Submit a Crypto Casino Streamer or KOL — WCOIN.CASINO'
+    ? 'Submit Your Crypto Casino — Get Listed on Tekel Data (Free)'
+    : 'Submit a Crypto Casino Streamer or KOL — Tekel Data'
   const description = isCasino
-    ? 'Run a crypto casino? Submit your operator and on-chain wallets to be tracked on WCOIN.CASINO — independent, on-chain, free. We verify attribution before listing; we never sell rankings.'
-    : 'Submit a crypto-gambling streamer or KOL to WCOIN.CASINO’s public streamer index. Free, no login — reviewed before listing.'
+    ? 'Run a crypto casino? Submit your operator and on-chain wallets to be tracked on Tekel Data — independent, on-chain, free. We verify attribution before listing; we never sell rankings.'
+    : 'Submit a crypto-gambling streamer or KOL to Tekel Data’s public streamer index. Free, no login — reviewed before listing.'
   const inputStyle = 'width:100%;background:#ffffff08;border:1px solid var(--line);border-radius:9px;padding:10px 12px;color:var(--fg);font-size:14px;margin:6px 0'
   const form = `<form method="POST" action="/submit/${kind}" style="max-width:520px;margin:14px 0">
   <input name="name" required maxlength="120" placeholder="${isCasino ? 'Casino / operator name' : 'Streamer handle + platform (e.g. Kick / Xposed)'}" style="${inputStyle}">
   <input name="email" type="email" maxlength="200" placeholder="Email (optional — for follow-up only)" style="${inputStyle}">
   ${isCasino ? `<input name="evidence" maxlength="500" placeholder="On-chain wallet address(es) or block-explorer link" style="${inputStyle}">` : ''}
   <textarea name="message" required minlength="5" maxlength="3500" rows="4" placeholder="${isCasino ? 'Chains you settle on, which wallets are deposit vs hot, anything that helps us verify.' : 'Why they fit, links to their channels, affiliated casino.'}" style="${inputStyle}"></textarea>
-  <button type="submit" style="background:linear-gradient(135deg,#ffe27a,#f5b100);border:0;border-radius:9px;padding:11px 22px;font-weight:700;font-size:14px;color:#1a1205;cursor:pointer">Submit for review</button>
+  <button type="submit" style="background:linear-gradient(135deg,#ffe27a,#F2C200);border:0;border-radius:9px;padding:11px 22px;font-weight:700;font-size:14px;color:#1a1205;cursor:pointer">Submit for review</button>
 </form>`
   const body = isCasino
     ? `<p class="sub">Get your crypto casino tracked with verified on-chain data — independent and free. <strong>We never sell rankings; submitting does not buy placement or a higher score.</strong></p>
@@ -1974,8 +1975,8 @@ function guidePage(cfg: {
     description: cfg.description,
     datePublished: GUIDE_PUBLISHED,
     dateModified: new Date(updated).toISOString(),
-    author: { '@type': 'Organization', name: 'WCOIN.CASINO', url: SITE },
-    publisher: { '@type': 'Organization', name: 'WCOIN.CASINO', url: SITE, logo: { '@type': 'ImageObject', url: SITE + '/og.svg' } },
+    author: { '@type': 'Organization', name: 'Tekel Data', url: SITE },
+    publisher: { '@type': 'Organization', name: 'Tekel Data', url: SITE, logo: { '@type': 'ImageObject', url: SITE + '/og.svg' } },
     mainEntityOfPage: url,
     isAccessibleForFree: true,
   })
@@ -1991,7 +1992,7 @@ function guidePage(cfg: {
 function currencyReportPage(chainRows: { chain: string; v: number }[], total: number): { title: string; description: string; html: string } {
   const path = '/data/crypto-casino-deposit-currencies'
   const url = SITE + path
-  const title = `What Currencies & Chains Do Crypto Casinos Use? On-Chain Data ${YEAR} | WCOIN.CASINO`
+  const title = `What Currencies & Chains Do Crypto Casinos Use? On-Chain Data ${YEAR} | Tekel Data`
   const description = `On-chain breakdown of where crypto-casino money actually moves in ${YEAR}: stablecoins (USDT on Tron + Ethereum) dominate deposits & withdrawals; native BTC is a small share. Verified, wash/treasury-churn excluded.`
   const rows = chainRows
     .map((c) => `<tr><td><span class="pill">${esc(chainName(c.chain))}</span></td><td class="n">${fmtUsd(c.v)}</td><td class="n">${total > 0 ? ((100 * c.v) / total).toFixed(1) : '0'}%</td></tr>`)
@@ -2015,7 +2016,7 @@ function currencyReportPage(chainRows: { chain: string; v: number }[], total: nu
 function reservesReportPage(chainRes: { chain: string; v: number; casinos: number }[], total: number, top: { v: CasinoView; slug: string }[]): { title: string; description: string; html: string } {
   const path = '/data/crypto-casino-reserves'
   const url = SITE + path
-  const title = `Crypto Casino Reserves Report ${YEAR} — All-Chain On-Chain Reserves | WCOIN.CASINO`
+  const title = `Crypto Casino Reserves Report ${YEAR} — All-Chain On-Chain Reserves | Tekel Data`
   const description = `How much do crypto casinos actually hold? We track ${fmtUsd(total)} in all-chain on-chain reserves across the operators we map — by chain and by operator, independently verifiable.`
   const chainRows = chainRes
     .map((c) => `<tr><td><span class="pill">${esc(chainName(c.chain))}</span></td><td class="n">${fmtUsd(c.v)}</td><td class="n">${total > 0 ? ((100 * c.v) / total).toFixed(1) : '0'}%</td><td class="n">${c.casinos}</td></tr>`)
@@ -2041,7 +2042,7 @@ function reservesReportPage(chainRes: { chain: string; v: number; casinos: numbe
 function netFlowReportPage(rows: { v: CasinoView; slug: string; net: number; inflow: number; outflow: number }[]): { title: string; description: string; html: string } {
   const path = '/data/crypto-casino-net-flow'
   const url = SITE + path
-  const title = `Crypto Casino Net Flow Report ${YEAR} — On-Chain Deposits vs Withdrawals | WCOIN.CASINO`
+  const title = `Crypto Casino Net Flow Report ${YEAR} — On-Chain Deposits vs Withdrawals | Tekel Data`
   const description = `Which crypto casinos are net-receiving vs net-paying-out on-chain in ${YEAR}. 7-day external deposits minus withdrawals per operator — a neutral liquidity signal, verified and wash/treasury-excluded.`
   const body =
     `<p class="sub">Net on-chain flow = external <strong>deposits − withdrawals</strong> over 7 days. Positive means more money flowed in than out; negative means the operator paid out more than it took in. It's a liquidity signal, not a verdict — read it alongside <a href="/proof-of-reserves">reserves</a>.</p>` +
@@ -2085,7 +2086,7 @@ function attributionDataPage(): { title: string; description: string; html: stri
       return `<tr><td>${esc(e.label)}</td><td class="n">${fmtNum(r.wallets)}</td><td class="n">${fmtNum(r.brands)}</td><td style="font-size:12px;color:var(--dim)">${esc(e.note)}</td></tr>`
     })
     .join('')
-  const title = `How Crypto Casino Wallets Are Attributed — Evidence & Coverage ${YEAR} | WCOIN.CASINO`
+  const title = `How Crypto Casino Wallets Are Attributed — Evidence & Coverage ${YEAR} | Tekel Data`
   const description = `The evidence behind every crypto-casino wallet we track: ${fmtNum(totalWallets)} attributed wallets across ${fmtNum(namedBrands)} named operators, broken down by public evidence class. Fully auditable — every address is verifiable on a block explorer.`
   const body =
     `<p class="sub">A trust-data site should show its work. We attribute <strong>${fmtNum(totalWallets)}</strong> casino wallets to <strong>${fmtNum(namedBrands)}</strong> named operators — and here is exactly what evidence stands behind each, by class.</p>` +
@@ -2104,7 +2105,7 @@ function attributionDataPage(): { title: string; description: string; html: stri
 
 function dataHubPage(): { title: string; description: string; html: string } {
   const url = SITE + '/data'
-  const title = `Crypto Casino On-Chain Data & Reports ${YEAR} | WCOIN.CASINO`
+  const title = `Crypto Casino On-Chain Data & Reports ${YEAR} | Tekel Data`
   const description = `Unique on-chain data on the crypto-casino industry: deposit currencies, reserves, and net flow — verified, wash/treasury-excluded. Independent reports you can cite.`
   const body =
     `<p class="sub">Original, verifiable on-chain data on the crypto-casino industry — not affiliate marketing. Every figure is external-facing flow with wash and treasury churn excluded, so it reflects money players actually move.</p>` +
@@ -2130,7 +2131,7 @@ function dataHubPage(): { title: string; description: string; html: string } {
 function casinoTokensPage(rows: { v: CasinoView; slug: string; t: TokenInfo }[]): { title: string; description: string; html: string } {
   const path = '/data/crypto-casino-tokens'
   const url = SITE + path
-  const title = `Crypto Casino Tokens ${YEAR} — Prices, Market Caps & Buybacks | WCOIN.CASINO`
+  const title = `Crypto Casino Tokens ${YEAR} — Prices, Market Caps & Buybacks | Tekel Data`
   const description = `The native tokens of crypto casinos, ranked by market cap: live price, 24h/7d change, fully-diluted valuation and which run buyback-and-burn. Independent market data, updated continuously.`
   const totalMcap = rows.reduce((s, r) => s + (r.t.marketCap || 0), 0)
   const body =
@@ -2204,7 +2205,7 @@ function bestCasinosHubPage(views: CasinoView[], slugOfView: (v: CasinoView) => 
     .filter((v) => dataConfidence(v) !== 'low')
     .sort((a, b) => (blendedTrust(b)?.score ?? 0) - (blendedTrust(a)?.score ?? 0) || (b.onchain?.volume7d ?? 0) - (a.onchain?.volume7d ?? 0))
     .slice(0, 30)
-  const title = `Best Crypto Casinos ${YEAR} — Ranked by On-Chain Data & Independent Trust | WCOIN.CASINO`
+  const title = `Best Crypto Casinos ${YEAR} — Ranked by On-Chain Data & Independent Trust | Tekel Data`
   const lead = top.slice(0, 5).map((v) => v.name).join(', ')
   const description = `The best crypto casinos in ${YEAR}, ranked by independent trust and verified on-chain data — not affiliate payouts. Top operators: ${lead || '—'}. On-chain volume and reserves shown. Updated continuously.`
   const rows = top
@@ -2450,7 +2451,7 @@ export async function generateSeoPages(): Promise<void> {
   if (volTop.length >= 5)
     add('/highest-volume-crypto-casinos', 'rankings', topicListPage({
       path: '/highest-volume-crypto-casinos', h1: `Highest-volume crypto casinos ${YEAR}`, slugOfView,
-      title: `Highest-Volume Crypto Casinos ${YEAR} — Verified On-Chain Deposits | WCOIN.CASINO`,
+      title: `Highest-Volume Crypto Casinos ${YEAR} — Verified On-Chain Deposits | Tekel Data`,
       description: `Crypto casinos ranked by verified on-chain deposit/withdrawal volume in ${YEAR}. Internal hot-wallet churn, double-counts and wash/treasury flow are excluded, so the figures are real — not the inflated throughput most trackers publish.`,
       intro: `Ranked by <strong>verified external on-chain volume</strong> — real deposits and withdrawals. We strip out internal hot-wallet churn, double-counts and treasury/market-making flow, so this is volume you can actually trust.`,
       metricHead: '7d volume (verified)', rows: volTop.map((v) => ({ v, metric: fmtUsd(v.onchain?.volume7d ?? 0) })),
@@ -2463,7 +2464,7 @@ export async function generateSeoPages(): Promise<void> {
   if (porTop.length >= 5)
     add('/crypto-casinos-with-proof-of-reserves', 'rankings', topicListPage({
       path: '/crypto-casinos-with-proof-of-reserves', h1: `Crypto casinos with proof of reserves ${YEAR}`, slugOfView,
-      title: `Crypto Casinos With Proof of Reserves ${YEAR} — On-Chain Reserves Tracked | WCOIN.CASINO`,
+      title: `Crypto Casinos With Proof of Reserves ${YEAR} — On-Chain Reserves Tracked | Tekel Data`,
       description: `Crypto casinos whose on-chain reserves we map and track, ranked by total all-chain reserves in ${YEAR}. Independently verifiable wallet balances — solvency you can check, not claims.`,
       intro: `Crypto casinos whose reserves we map on-chain, ranked by <strong>total all-chain tracked reserves</strong>. These are wallet balances anyone can verify on the blockchain — solvency evidence, not marketing claims.`,
       metricHead: 'Mapped reserves', rows: porTop.map((v) => ({ v, metric: fmtUsd(v.onchain?.reserves ?? 0) })),
@@ -2476,7 +2477,7 @@ export async function generateSeoPages(): Promise<void> {
   if (mcTop.length >= 5)
     add('/multi-chain-crypto-casinos', 'rankings', topicListPage({
       path: '/multi-chain-crypto-casinos', h1: `Multi-chain crypto casinos ${YEAR}`, slugOfView,
-      title: `Multi-Chain Crypto Casinos ${YEAR} — Most Blockchains Supported | WCOIN.CASINO`,
+      title: `Multi-Chain Crypto Casinos ${YEAR} — Most Blockchains Supported | Tekel Data`,
       description: `Crypto casinos settling across the most blockchains in ${YEAR}, by tracked on-chain activity — Bitcoin, Ethereum, Tron, Solana and more. Updated continuously.`,
       intro: `Crypto casinos we observe settling across <strong>the most blockchains</strong> — a signal of operational scale and payment flexibility. Ranked by number of chains with tracked on-chain activity.`,
       metricHead: 'Chains tracked', rows: mcTop.map((v) => ({ v, metric: String(v.onchain?.byChain?.length ?? 0) })),
@@ -2563,7 +2564,7 @@ export async function generateSeoPages(): Promise<void> {
     if (top.length < 5) continue
     add(`/best-${cur.slug}-casinos`, 'rankings', topicListPage({
       path: `/best-${cur.slug}-casinos`, h1: `Best ${cur.name} casinos ${YEAR}`, slugOfView,
-      title: `Best ${cur.name} Casinos ${YEAR} — Ranked by Trust & On-Chain Data | WCOIN.CASINO`,
+      title: `Best ${cur.name} Casinos ${YEAR} — Ranked by Trust & On-Chain Data | Tekel Data`,
       description: `The most trusted crypto casinos accepting ${cur.name} in ${YEAR}, with verified on-chain ${cur.token} settlement. Ranked by independent trust, not volume — updated continuously.`,
       intro: `${cur.blurb} These operators have verified on-chain ${cur.token} settlement, ranked by independent trust (not volume).`,
       metricHead: `7d ${cur.token} settled`, rows: top.map(([v, vol]) => ({ v, metric: fmtUsd(vol) })),
@@ -2594,7 +2595,7 @@ export async function generateSeoPages(): Promise<void> {
     if (top.length < 5) continue
     add(`/best-${ca.slug}-casinos`, 'rankings', topicListPage({
       path: `/best-${ca.slug}-casinos`, h1: `Best ${ca.name} casinos ${YEAR}`, slugOfView,
-      title: `Best ${ca.name} Casinos ${YEAR} — Ranked by Trust & On-Chain Data | WCOIN.CASINO`,
+      title: `Best ${ca.name} Casinos ${YEAR} — Ranked by Trust & On-Chain Data | Tekel Data`,
       description: `The most trusted crypto casinos that accept ${ca.name} in ${YEAR}, with settlement we verify on-chain. Ranked by independent trust, not volume — updated continuously.`,
       intro: `${ca.blurb} Ranked by independent trust (not deposit volume), so the order reflects solvency and reputation rather than how much money churns through.`,
       metricHead: `7d settled on ${ca.name}`, rows: top.map(([v, vol]) => ({ v, metric: fmtUsd(vol) })),
@@ -2603,7 +2604,7 @@ export async function generateSeoPages(): Promise<void> {
   }
   add('/guide/crypto-casino-proof-of-reserves', 'guide', guidePage({
     path: '/guide/crypto-casino-proof-of-reserves', h1: 'Crypto casino proof of reserves, explained',
-    title: `Crypto Casino Proof of Reserves Explained (${YEAR}) | WCOIN.CASINO`,
+    title: `Crypto Casino Proof of Reserves Explained (${YEAR}) | Tekel Data`,
     description: `What proof of reserves means for a crypto casino, why it matters for solvency, how on-chain reserves are measured and verified, and the limits of the approach.`,
     intro: `"Proof of reserves" is the closest thing a crypto casino has to a public balance sheet — on-chain wallet balances anyone can verify. This guide explains what it actually proves, what it doesn't, the critical difference between proof of reserves and proof of custody, and how to read a reserve figure without fooling yourself.`,
     sections: [
@@ -2625,7 +2626,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/usdt-vs-bitcoin-casino-deposits', 'guide', guidePage({
     path: '/guide/usdt-vs-bitcoin-casino-deposits', h1: 'USDT vs Bitcoin for crypto casino deposits',
-    title: `USDT vs Bitcoin for Crypto Casino Deposits (${YEAR}) — On-Chain Data | WCOIN.CASINO`,
+    title: `USDT vs Bitcoin for Crypto Casino Deposits (${YEAR}) — On-Chain Data | Tekel Data`,
     description: `USDT (Tether) vs Bitcoin for crypto-casino deposits: fees, speed, volatility and what the on-chain data shows about which players actually use. USDT-TRC20 dominates — here's why.`,
     intro: `Should you deposit to a crypto casino in USDT or Bitcoin? Our on-chain data answers it clearly — and it's not close.`,
     sections: [
@@ -2646,7 +2647,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/are-crypto-casinos-safe', 'guide', guidePage({
     path: '/guide/are-crypto-casinos-safe', h1: 'Are crypto casinos safe?',
-    title: `Are Crypto Casinos Safe? How to Judge One With On-Chain Data (${YEAR}) | WCOIN.CASINO`,
+    title: `Are Crypto Casinos Safe? How to Judge One With On-Chain Data (${YEAR}) | Tekel Data`,
     description: `Are crypto casinos safe? The honest answer and a practical framework: what actually puts your funds at risk, and the on-chain + third-party signals that separate solid operators from risky ones.`,
     intro: `"Are crypto casinos safe?" has no single answer — safety is per-operator, and you can measure it instead of guessing. This guide lays out what actually puts your funds at risk, what licensing does and doesn't protect, why "provably fair" is not the same as solvent, and a concrete pre-deposit checklist built on signals you can verify yourself.`,
     sections: [
@@ -2656,7 +2657,7 @@ export async function generateSeoPages(): Promise<void> {
       { h: 'Signals that an operator is safer', body: `<p>Healthy, verifiable <a href="/proof-of-reserves">on-chain reserves</a> that comfortably cover recent withdrawal flow; a long operating history with consistent withdrawal reports; multiple independent trust ratings (casino.guru, Trustpilot, AskGamblers) that broadly <em>agree</em>; balanced two-way on-chain flow (deposits and withdrawals both moving); and the absence of a recent complaint spike. We blend the third-party ratings into one independent <a href="/rankings/trust">trust score</a> so you do not have to weigh them by hand.</p>` },
       { h: 'Red flags', body: `<p>Reserves that cannot be verified or that spike only around withdrawal periods; on-chain volume wildly out of line with the operator's reputation (a wash/treasury pattern we hold <em>under review</em> rather than featuring); a sudden flood of withdrawal complaints; deposits with almost no corresponding outflow (players may not be getting paid); and bonus terms with wagering requirements so high that funds are effectively locked. No single flag is conclusive — risk lives in <strong>clusters</strong>. One stale complaint is noise; falling reserves plus one-way outflow plus a complaint wave is a pattern.</p>` },
       { h: 'A pre-deposit checklist', body: `<p>Before funding any account: (1) check the operator has mapped, stable <a href="/crypto-casinos-with-proof-of-reserves">on-chain reserves</a>; (2) confirm two or more independent review sources broadly agree; (3) scan recent complaints for an <em>unresolved withdrawal</em> theme specifically; (4) read the bonus/wagering terms before opting in; (5) start with a small test deposit and a test withdrawal before committing real size. None of this is exotic — it is the same five minutes that separates most avoidable losses from avoided ones.</p>` },
-      { h: 'How to use WCOIN', body: `<p>We deliberately do not label any operator "safe" or "scam" — that is not something data can certify, and a false certification would be worse than none. Instead we surface verifiable signals and let you judge: <a href="/rankings/trust">trust rankings</a>, <a href="/crypto-casinos-with-proof-of-reserves">proof-of-reserves</a>, per-operator <a href="/guide/how-to-verify-a-crypto-casino">on-chain verification</a>, and a neutral, sourced <a href="/risk">risk registry</a>. Read them together and decide for yourself. 18+ only; <a href="/responsible-gambling">gamble responsibly</a>.</p>` },
+      { h: 'How to use Tekel Data', body: `<p>We deliberately do not label any operator "safe" or "scam" — that is not something data can certify, and a false certification would be worse than none. Instead we surface verifiable signals and let you judge: <a href="/rankings/trust">trust rankings</a>, <a href="/crypto-casinos-with-proof-of-reserves">proof-of-reserves</a>, per-operator <a href="/guide/how-to-verify-a-crypto-casino">on-chain verification</a>, and a neutral, sourced <a href="/risk">risk registry</a>. Read them together and decide for yourself. 18+ only; <a href="/responsible-gambling">gamble responsibly</a>.</p>` },
     ],
     faqs: [
       { q: 'Are crypto casinos safe to use?', a: 'It depends entirely on the operator. The biggest risk is solvency and conduct (exit scams, frozen withdrawals), not game fairness. Favour operators with verifiable on-chain reserves, long track records and consistent independent ratings, and always run a small test withdrawal first.' },
@@ -2669,7 +2670,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/how-to-verify-a-crypto-casino', 'guide', guidePage({
     path: '/guide/how-to-verify-a-crypto-casino', h1: 'How to verify a crypto casino on-chain',
-    title: `How to Verify a Crypto Casino On-Chain (${YEAR}) — Step by Step | WCOIN.CASINO`,
+    title: `How to Verify a Crypto Casino On-Chain (${YEAR}) — Step by Step | Tekel Data`,
     description: `A step-by-step guide to checking a crypto casino yourself using public blockchain data: finding its wallets, reading reserves, sanity-checking volume, and spotting wash/treasury churn.`,
     intro: `You don't have to take a casino's word for anything — the blockchain is public. This is the exact process we use to verify an operator: finding its wallets, reading reserves on the right explorer for each chain, telling real player flow from treasury churn, and the mistakes that lead people to wrong conclusions.`,
     sections: [
@@ -2691,7 +2692,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/crypto-casino-withdrawal-times', 'guide', guidePage({
     path: '/guide/crypto-casino-withdrawal-times', h1: 'Crypto casino withdrawal times by network',
-    title: `Crypto Casino Withdrawal Times by Network (${YEAR}) | WCOIN.CASINO`,
+    title: `Crypto Casino Withdrawal Times by Network (${YEAR}) | Tekel Data`,
     description: `How long crypto-casino withdrawals actually take by network — USDT-TRC20, USDT-ERC20, Bitcoin, Solana — and the operator-side factors (approval, reserves) that matter more than the chain.`,
     intro: `"How long does a crypto casino withdrawal take?" splits into two parts: the operator's approval time, and the network's confirmation time. This guide breaks down realistic timings per network, the operator-side factors that matter more than the chain, how to tell a benign delay from a solvency warning, and exactly what to do when a withdrawal is stuck.`,
     sections: [
@@ -2713,7 +2714,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/provably-fair-explained', 'guide', guidePage({
     path: '/guide/provably-fair-explained', h1: 'Provably fair, explained',
-    title: `Provably Fair Crypto Casinos Explained (${YEAR}) — How It Works | WCOIN.CASINO`,
+    title: `Provably Fair Crypto Casinos Explained (${YEAR}) — How It Works | Tekel Data`,
     description: `What "provably fair" actually means at a crypto casino, how the cryptographic check works in plain terms, what it does and doesn't protect against, and why it's separate from solvency.`,
     intro: `"Provably fair" is one of the few things at a crypto casino you can verify mathematically. Here's how it works — and what it doesn't cover.`,
     sections: [
@@ -2732,7 +2733,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/what-is-a-crypto-casino', 'guide', guidePage({
     path: '/guide/what-is-a-crypto-casino', h1: 'What is a crypto casino?',
-    title: `What Is a Crypto Casino? How They Work (${YEAR}) | WCOIN.CASINO`,
+    title: `What Is a Crypto Casino? How They Work (${YEAR}) | Tekel Data`,
     description: `What a crypto casino is, how it differs from a traditional online casino, how deposits and provably-fair games work, and the on-chain trade-offs — explained simply.`,
     intro: `A crypto casino is an online casino that takes deposits and pays winnings in cryptocurrency rather than fiat. That one change has big consequences — here's how they actually work.`,
     sections: [
@@ -2752,7 +2753,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/how-to-choose-a-crypto-casino', 'guide', guidePage({
     path: '/guide/how-to-choose-a-crypto-casino', h1: 'How to choose a crypto casino',
-    title: `How to Choose a Crypto Casino (${YEAR}) — A Data-Driven Checklist | WCOIN.CASINO`,
+    title: `How to Choose a Crypto Casino (${YEAR}) — A Data-Driven Checklist | Tekel Data`,
     description: `A practical, data-driven checklist for choosing a crypto casino: solvency and reserves, independent trust, withdrawal track record, deposit currency, and bonus fine print.`,
     intro: `Choosing a crypto casino comes down to one question — will it still pay you next month? Here's a checklist that puts solvency and evidence first.`,
     sections: [
@@ -2772,7 +2773,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/crypto-casino-bonuses-explained', 'guide', guidePage({
     path: '/guide/crypto-casino-bonuses-explained', h1: 'Crypto casino bonuses & wagering requirements explained',
-    title: `Crypto Casino Bonuses & Wagering Requirements Explained (${YEAR}) | WCOIN.CASINO`,
+    title: `Crypto Casino Bonuses & Wagering Requirements Explained (${YEAR}) | Tekel Data`,
     description: `How crypto casino bonuses really work: deposit matches, rakeback, no-deposit offers — and the wagering requirements, max-bet and game-weighting fine print that decides whether a bonus is worth taking.`,
     intro: `A "200% bonus" can be worth a lot or nothing — the headline number rarely matters; the terms do. Here's how to read a crypto casino bonus before you take it.`,
     sections: [
@@ -2793,7 +2794,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/crypto-gambling-glossary', 'guide', guidePage({
     path: '/guide/crypto-gambling-glossary', h1: 'Crypto gambling glossary',
-    title: `Crypto Gambling Glossary (${YEAR}) — Key Terms Explained | WCOIN.CASINO`,
+    title: `Crypto Gambling Glossary (${YEAR}) — Key Terms Explained | Tekel Data`,
     description: `Plain-English definitions of the crypto-casino terms that matter: proof of reserves, provably fair, hot/cold wallet, RTP, house edge, wagering requirement, rakeback, on-chain volume and more.`,
     intro: `The crypto-casino world mixes gambling and blockchain jargon. Here are the terms that actually matter, in plain English.`,
     sections: [
@@ -2811,7 +2812,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/are-crypto-casinos-legal', 'guide', guidePage({
     path: '/guide/are-crypto-casinos-legal', h1: 'Are crypto casinos legal?',
-    title: `Are Crypto Casinos Legal? Jurisdiction & Licensing Explained (${YEAR}) | WCOIN.CASINO`,
+    title: `Are Crypto Casinos Legal? Jurisdiction & Licensing Explained (${YEAR}) | Tekel Data`,
     description: `Whether crypto casinos are legal depends entirely on where you live and how the operator is licensed. A neutral overview of jurisdictions, licensing and what to check — not legal advice.`,
     intro: `"Is it legal?" has no single answer — it depends on your jurisdiction and the operator's licence. Here's a neutral framework for thinking about it. This is general information, not legal advice.`,
     sections: [
@@ -2832,7 +2833,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/crypto-casino-red-flags', 'guide', guidePage({
     path: '/guide/crypto-casino-red-flags', h1: 'Crypto casino red flags: warning signs to check',
-    title: `Crypto Casino Red Flags — Warning Signs Before You Deposit (${YEAR}) | WCOIN.CASINO`,
+    title: `Crypto Casino Red Flags — Warning Signs Before You Deposit (${YEAR}) | Tekel Data`,
     description: `The warning signs that a crypto casino may not pay out: thin or falling reserves, one-way net flow, opaque ownership, slow-withdrawal patterns and bonus traps. How to spot them with on-chain data.`,
     intro: `No single signal proves an operator is bad — but a cluster of red flags is a reason to slow down. This checklist covers the warning signs worth checking before you deposit: the on-chain solvency signals, the volume tricks, the bonus and conduct traps, how to weigh flags as clusters rather than singles, and — just as important — what is <em>not</em> actually a red flag so you don't scare yourself off a sound operator.`,
     sections: [
@@ -2855,7 +2856,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/crypto-casino-vs-online-casino', 'guide', guidePage({
     path: '/guide/crypto-casino-vs-online-casino', h1: 'Crypto casino vs traditional online casino',
-    title: `Crypto Casino vs Traditional Online Casino — Key Differences (${YEAR}) | WCOIN.CASINO`,
+    title: `Crypto Casino vs Traditional Online Casino — Key Differences (${YEAR}) | Tekel Data`,
     description: `How crypto casinos differ from traditional online casinos: deposits, speed, regulation, privacy, transparency and risk. A balanced comparison, with the on-chain angle that's unique to crypto.`,
     intro: `Crypto casinos and traditional online casinos look similar but differ in ways that matter for safety and convenience. Here's a balanced comparison of the trade-offs.`,
     sections: [
@@ -2875,7 +2876,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/best-crypto-for-casino-deposits', 'guide', guidePage({
     path: '/guide/best-crypto-for-casino-deposits', h1: 'Best crypto for casino deposits',
-    title: `Best Crypto for Casino Deposits — USDT, BTC, ETH, SOL Compared (${YEAR}) | WCOIN.CASINO`,
+    title: `Best Crypto for Casino Deposits — USDT, BTC, ETH, SOL Compared (${YEAR}) | Tekel Data`,
     description: `Which cryptocurrency is best for casino deposits? Fees, speed and stability compared across USDT, Bitcoin, Ethereum and Solana — with what the on-chain data actually shows players use.`,
     intro: `The best deposit asset depends on fees, speed and whether you want price stability. Here's how the main options compare — and what our on-chain data shows players actually pick.`,
     sections: [
@@ -2895,7 +2896,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/crypto-casino-rtp-and-house-edge', 'guide', guidePage({
     path: '/guide/crypto-casino-rtp-and-house-edge', h1: 'RTP and house edge at crypto casinos, explained',
-    title: `Crypto Casino RTP & House Edge Explained (${YEAR}) | WCOIN.CASINO`,
+    title: `Crypto Casino RTP & House Edge Explained (${YEAR}) | Tekel Data`,
     description: `What RTP and house edge mean at a crypto casino, typical values by game, why provably-fair does not mean better odds, and how the math guarantees the house wins over time.`,
     intro: `RTP and house edge are the two numbers that decide how much a game pays back over time. Here's what they mean, typical values, and why "provably fair" is about honesty, not odds.`,
     sections: [
@@ -2916,7 +2917,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/stablecoin-casinos-explained', 'guide', guidePage({
     path: '/guide/stablecoin-casinos-explained', h1: 'Stablecoin casinos explained (USDT & USDC)',
-    title: `Stablecoin Casinos Explained — USDT & USDC Gambling (${YEAR}) | WCOIN.CASINO`,
+    title: `Stablecoin Casinos Explained — USDT & USDC Gambling (${YEAR}) | Tekel Data`,
     description: `Why dollar stablecoins (USDT, USDC) dominate crypto-casino deposits, the networks they run on, the trade-offs vs volatile coins, and what the on-chain data shows.`,
     intro: `Most crypto-casino money moves as dollar stablecoins, not Bitcoin. Here's why USDT and USDC dominate, the networks they use, and the trade-offs.`,
     sections: [
@@ -2937,7 +2938,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/crypto-casino-kyc-and-anonymity', 'guide', guidePage({
     path: '/guide/crypto-casino-kyc-and-anonymity', h1: 'KYC and anonymity at crypto casinos',
-    title: `Crypto Casino KYC & Anonymity Explained (${YEAR}) | WCOIN.CASINO`,
+    title: `Crypto Casino KYC & Anonymity Explained (${YEAR}) | Tekel Data`,
     description: `What KYC means at a crypto casino, when operators ask for identity verification, the reality of "no-KYC" play, and the privacy and risk trade-offs. Neutral, not advice.`,
     intro: `Crypto casinos often let you start with just a wallet, but "anonymous" has limits. Here's what KYC is, when it kicks in, and the trade-offs. General information, not legal advice.`,
     sections: [
@@ -2958,8 +2959,8 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/how-on-chain-casino-tracking-works', 'guide', guidePage({
     path: '/guide/how-on-chain-casino-tracking-works', h1: 'How on-chain crypto casino tracking works',
-    title: `How On-Chain Crypto Casino Tracking Works (${YEAR}) | WCOIN.CASINO`,
-    description: `How WCOIN reads crypto-casino deposits, withdrawals and reserves directly from public blockchains — wallet attribution, external-flow filtering, and the limits of the method.`,
+    title: `How On-Chain Crypto Casino Tracking Works (${YEAR}) | Tekel Data`,
+    description: `How Tekel Data reads crypto-casino deposits, withdrawals and reserves directly from public blockchains — wallet attribution, external-flow filtering, and the limits of the method.`,
     intro: `Because crypto casinos settle on public blockchains, their money flow is independently observable. Here's how we turn raw on-chain data into the verified figures across this site.`,
     sections: [
       { h: 'Public settlement is the foundation', body: `<p>Every crypto-casino deposit and withdrawal is a transaction on a public blockchain. Anyone can read those transactions and the balances of the wallets involved — no permission from the operator needed. That single fact is what makes independent, verifiable casino data possible, unlike a traditional casino's private banking.</p>` },
@@ -2979,7 +2980,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/crypto-casino-deposit-not-showing', 'guide', guidePage({
     path: '/guide/crypto-casino-deposit-not-showing', h1: 'Crypto casino deposit not showing up — what to check',
-    title: `Crypto Casino Deposit Not Showing? Troubleshooting (${YEAR}) | WCOIN.CASINO`,
+    title: `Crypto Casino Deposit Not Showing? Troubleshooting (${YEAR}) | Tekel Data`,
     description: `Why a crypto-casino deposit can be delayed or missing — wrong network, unconfirmed transaction, memo/tag omitted, wrong token — and how to check each on a block explorer.`,
     intro: `A deposit that hasn't arrived is usually one of a few fixable things. Here's how to diagnose it on-chain before contacting support — and the one mistake that can lose funds.`,
     sections: [
@@ -3001,7 +3002,7 @@ export async function generateSeoPages(): Promise<void> {
   // ── Phase 2: competitor-gap authority pages (uncontested differentiation) ──────
   add('/guide/proof-of-reserves-vs-proof-of-custody', 'guide', guidePage({
     path: '/guide/proof-of-reserves-vs-proof-of-custody', h1: 'Proof of reserves vs proof of custody',
-    title: `Proof of Reserves vs Proof of Custody — Crypto Casinos (${YEAR}) | WCOIN.CASINO`,
+    title: `Proof of Reserves vs Proof of Custody — Crypto Casinos (${YEAR}) | Tekel Data`,
     description: `Proof of reserves shows assets exist on-chain; proof of custody shows the operator actually controls them and owes you. The critical distinction, with a comparison table.`,
     intro: `"Proof of reserves" is widely cited but widely misunderstood. It is not the same as proving an operator controls the funds, or that it can cover what it owes you. Here's the distinction that matters before you deposit.`,
     sections: [
@@ -3022,7 +3023,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/why-on-chain-data-beats-complaint-boards', 'guide', guidePage({
     path: '/guide/why-on-chain-data-beats-complaint-boards', h1: 'On-chain data vs complaint boards: verify before you play',
-    title: `On-Chain Casino Data vs Complaint Boards (${YEAR}) | WCOIN.CASINO`,
+    title: `On-Chain Casino Data vs Complaint Boards (${YEAR}) | Tekel Data`,
     description: `Complaint boards log problems after players lose money; on-chain reserve and flow data lets you check an operator BEFORE depositing. Why proactive verification beats reactive review.`,
     intro: `Most casino "review" sites are reactive: they record complaints after funds are already lost. On-chain data is proactive — you can check an operator's reserves and money flow before you deposit a cent. Here's how the two compare and combine.`,
     sections: [
@@ -3045,7 +3046,7 @@ export async function generateSeoPages(): Promise<void> {
   // ── Phase 3: intent-cluster guides (payout-failure / scam-detection / payment) ──
   add('/guide/how-to-spot-a-crypto-casino-that-wont-pay', 'guide', guidePage({
     path: '/guide/how-to-spot-a-crypto-casino-that-wont-pay', h1: 'How to spot a crypto casino that won\'t pay winners',
-    title: `How to Spot a Crypto Casino That Won't Pay (${YEAR}) | WCOIN.CASINO`,
+    title: `How to Spot a Crypto Casino That Won't Pay (${YEAR}) | Tekel Data`,
     description: `A pre-deposit checklist for identifying crypto casinos likely to block or stall withdrawals — using on-chain reserve/flow signals cross-checked with complaint data. Neutral, verifiable.`,
     intro: `The worst outcome at a crypto casino isn't a losing session — it's winning and not being able to withdraw. Here's a verifiable, pre-deposit checklist that combines on-chain signals with reputation data.`,
     sections: [
@@ -3066,7 +3067,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/on-chain-signs-of-a-casino-exit-scam', 'guide', guidePage({
     path: '/guide/on-chain-signs-of-a-casino-exit-scam', h1: 'On-chain signs a crypto casino may be in distress',
-    title: `On-Chain Signs of Crypto Casino Distress (${YEAR}) | WCOIN.CASINO`,
+    title: `On-Chain Signs of Crypto Casino Distress (${YEAR}) | Tekel Data`,
     description: `Verifiable on-chain warning signals worth watching — sudden reserve drain, sustained one-way outflow, wallet consolidation. Neutral, data-based signals, never an accusation.`,
     intro: `Some warning signs of operator distress are visible on-chain before any announcement. These are neutral, verifiable signals — not accusations against any operator — and any one can have an innocent explanation, so weigh them together.`,
     sections: [
@@ -3087,7 +3088,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/predict-casino-payout-risk-before-depositing', 'guide', guidePage({
     path: '/guide/predict-casino-payout-risk-before-depositing', h1: 'Predict casino payout risk before you deposit',
-    title: `Predict Crypto Casino Payout Risk Before Depositing (${YEAR}) | WCOIN.CASINO`,
+    title: `Predict Crypto Casino Payout Risk Before Depositing (${YEAR}) | Tekel Data`,
     description: `Treat funding a crypto casino as a risk-control decision. A concrete self-check across on-chain reserves, net flow, complaint trend and payment network to gauge payout risk first.`,
     intro: `Your payment choice and pre-deposit checks are a risk-control decision, not an afterthought. Here's a concrete self-check to gauge payout risk before you fund an account.`,
     sections: [
@@ -3109,7 +3110,7 @@ export async function generateSeoPages(): Promise<void> {
   // ── Phase 3b: priority-topic guides (payout / multi-crypto / event traffic) ────
   add('/guide/stablecoin-casino-withdrawals-fast-and-safe', 'guide', guidePage({
     path: '/guide/stablecoin-casino-withdrawals-fast-and-safe', h1: 'How fast & safe are stablecoin casino withdrawals?',
-    title: `Stablecoin Casino Withdrawals — How Fast & Safe? (${YEAR}) | WCOIN.CASINO`,
+    title: `Stablecoin Casino Withdrawals — How Fast & Safe? (${YEAR}) | Tekel Data`,
     description: `How fast stablecoin (USDT/USDC) casino withdrawals really are, what slows them, and how to check the money is there to pay you — a withdrawal safety self-check.`,
     intro: `Stablecoin withdrawals can be near-instant — or stuck for days. The network is rarely the bottleneck; the operator's process and solvency are. Here's how fast they really are and how to check the safety side.`,
     sections: [
@@ -3129,7 +3130,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/crypto-casino-payout-speed-vs-support', 'guide', guidePage({
     path: '/guide/crypto-casino-payout-speed-vs-support', h1: 'Payout speed vs support quality: which matters more?',
-    title: `Crypto Casino Payout Speed vs Support Quality (${YEAR}) | WCOIN.CASINO`,
+    title: `Crypto Casino Payout Speed vs Support Quality (${YEAR}) | Tekel Data`,
     description: `Fast payouts or responsive support — which should you prioritise at a crypto casino? The trade-offs, when each matters most, and how to evaluate both before depositing.`,
     intro: `Players often optimise for fast payouts and overlook support — until a withdrawal stalls and nobody answers. Here's how the two trade off and how to weigh them before you deposit.`,
     sections: [
@@ -3149,7 +3150,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/choosing-a-multi-crypto-casino-safely', 'guide', guidePage({
     path: '/guide/choosing-a-multi-crypto-casino-safely', h1: 'Choosing a multi-crypto casino safely',
-    title: `Choosing a Multi-Crypto Casino Safely (${YEAR}) | WCOIN.CASINO`,
+    title: `Choosing a Multi-Crypto Casino Safely (${YEAR}) | Tekel Data`,
     description: `Casinos accepting the widest crypto range aren't automatically the safest. The safety dimensions that actually matter, and how to use coin/network choice as risk control.`,
     intro: `Supporting many coins is convenient, but "accepts everything" isn't a safety signal on its own. Here's what actually matters when picking a multi-crypto casino, and how your asset choice is itself risk control.`,
     sections: [
@@ -3169,7 +3170,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/world-cup-crypto-betting-safety', 'guide', guidePage({
     path: '/guide/world-cup-crypto-betting-safety', h1: 'World Cup crypto betting: how to pick a safe sportsbook',
-    title: `World Cup Crypto Betting — Pick a Safe Sportsbook (${YEAR}) | WCOIN.CASINO`,
+    title: `World Cup Crypto Betting — Pick a Safe Sportsbook (${YEAR}) | Tekel Data`,
     description: `Big events bring traffic spikes and withdrawal stalls. How to choose a safe crypto sportsbook for the World Cup using the same on-chain reserve and flow checks — neutral, data-led.`,
     intro: `Major events like the World Cup drive a flood of new deposits — and a spike in stuck-withdrawal complaints right after. The safe-platform checks are the same on-chain ones we apply to casinos. Here's how to bet the event without funding the wrong book.`,
     sections: [
@@ -3190,7 +3191,7 @@ export async function generateSeoPages(): Promise<void> {
   // ── net-new pillar guides (expanding the informational / GEO surface) ──────────
   add('/guide/what-is-igaming', 'guide', guidePage({
     path: '/guide/what-is-igaming', h1: 'What is iGaming?',
-    title: `What Is iGaming? The Online Gambling Industry Explained (${YEAR}) | WCOIN.CASINO`,
+    title: `What Is iGaming? The Online Gambling Industry Explained (${YEAR}) | Tekel Data`,
     description: `iGaming means online gambling — casinos, sportsbooks, poker and more, played over the internet. What the term covers, how the industry is structured, how crypto changed it, and where the money actually flows.`,
     intro: `"iGaming" is the industry term for online gambling — real-money casino games, sports betting, poker and lotteries delivered over the internet. Here's what it covers, how it's built, and why crypto reshaped it.`,
     sections: [
@@ -3211,7 +3212,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/what-is-a-crypto-sportsbook', 'guide', guidePage({
     path: '/guide/what-is-a-crypto-sportsbook', h1: 'What is a crypto sportsbook?',
-    title: `What Is a Crypto Sportsbook? How Crypto Sports Betting Works (${YEAR}) | WCOIN.CASINO`,
+    title: `What Is a Crypto Sportsbook? How Crypto Sports Betting Works (${YEAR}) | Tekel Data`,
     description: `A crypto sportsbook is an online sportsbook that takes bets in cryptocurrency. How it differs from a crypto casino, how odds and liability work, the risks unique to betting, and how to check one is safe.`,
     intro: `A crypto sportsbook lets you bet on sports using cryptocurrency instead of fiat. It shares a lot with a crypto casino but has its own mechanics and risks. Here's how it works and how to judge one.`,
     sections: [
@@ -3232,7 +3233,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/wash-trading-in-crypto-casinos-explained', 'guide', guidePage({
     path: '/guide/wash-trading-in-crypto-casinos-explained', h1: 'Wash trading in crypto casinos, explained',
-    title: `Wash Trading in Crypto Casinos — Why Volume Is Inflated (${YEAR}) | WCOIN.CASINO`,
+    title: `Wash Trading in Crypto Casinos — Why Volume Is Inflated (${YEAR}) | Tekel Data`,
     description: `What wash trading and treasury churn are, how they inflate a crypto casino's on-chain volume, how to spot the pattern yourself, and why most trackers overstate volume by an order of magnitude.`,
     intro: `A crypto casino's headline "volume" is often mostly fake — inflated by wash trading and treasury churn, not real players. Here's what those are, how to spot them, and why they matter.`,
     sections: [
@@ -3240,20 +3241,20 @@ export async function generateSeoPages(): Promise<void> {
       { h: 'Treasury and market-making churn', body: `<p>Not all inflated volume is deliberate deception. Operators legitimately move large sums between their own hot and cold wallets, rebalance across exchanges, and run market-making for a native token. This <strong>treasury churn</strong> is real business activity — but it isn't player deposits and withdrawals, so counting it as "casino volume" is just as misleading as counting wash trades. Both must be stripped out to see real player flow.</p>` },
       { h: 'Why raw volume overstates activity', body: `<p>Most trackers report <strong>gross throughput</strong> — every token that moves through a wallet. That double-counts casino-to-casino transfers, includes internal churn, and folds in wash/treasury flow. The result routinely overstates real player volume by 5–10× or more. A casino "doing billions" on-chain may have a fraction of that in genuine deposits and withdrawals. This is the single biggest reason on-chain casino stats are widely misread.</p>` },
       { h: 'How to spot it yourself', body: `<p>Two tells, both checkable on a block explorer. <strong>Average transfer size:</strong> real player deposits/withdrawals run roughly $2–12K; a wallet averaging $50K, $400K or more per transfer is moving treasury, not taking player flow. <strong>Counterparty concentration:</strong> genuine casinos touch thousands of distinct addresses; volume concentrated in a handful of counterparties cycling similar amounts is a wash/treasury signature. When "volume" dwarfs the brand's actual reputation, that mismatch is itself the flag.</p>` },
-      { h: 'How WCOIN handles it', body: `<p>We exclude it. A precomputed internal-flow flag drops same-operator transfers and double counts; operators whose pattern trips our thresholds are flagged <code>volumeSuspect</code>, shown as <strong>"Under review"</strong>, ranked by trust only, and kept out of every volume leaderboard. The exact thresholds are public (avg-transfer ceiling $50K/tx, per-counterparty ceiling $50K, above a $50M floor) and the reasons are machine-readable — see <a href="/guide/how-on-chain-casino-tracking-works">how tracking works</a> and the <a href="https://github.com/chenny2023/wcoin-casino-data" rel="noopener" target="_blank">open-data repo</a>.</p>` },
+      { h: 'How Tekel Data handles it', body: `<p>We exclude it. A precomputed internal-flow flag drops same-operator transfers and double counts; operators whose pattern trips our thresholds are flagged <code>volumeSuspect</code>, shown as <strong>"Under review"</strong>, ranked by trust only, and kept out of every volume leaderboard. The exact thresholds are public (avg-transfer ceiling $50K/tx, per-counterparty ceiling $50K, above a $50M floor) and the reasons are machine-readable — see <a href="/guide/how-on-chain-casino-tracking-works">how tracking works</a> and the <a href="https://github.com/chenny2023/wcoin-casino-data" rel="noopener" target="_blank">open-data repo</a>.</p>` },
       { h: 'Why it matters to you', body: `<p>Inflated volume isn't just a vanity metric — players use "biggest / most active" as a trust proxy, and manufactured activity turns that instinct into a trap. A casino padding its numbers is telling you something about how it markets. Rank operators by <a href="/rankings/trust">independent trust</a> and <a href="/proof-of-reserves">verifiable reserves</a>, not by a volume figure that can be fabricated in an afternoon. 18+; <a href="/responsible-gambling">play responsibly</a>.</p>` },
     ],
     faqs: [
       { q: 'What is wash trading at a crypto casino?', a: 'Moving funds back and forth between addresses the operator controls to manufacture the appearance of volume. Real tokens move but no genuine economic activity occurs — it exists to look bigger and rank higher on "volume" leaderboards.' },
       { q: 'Why is a crypto casino\'s on-chain volume so high?', a: 'Because raw "volume" usually includes internal hot-wallet churn, casino-to-casino double counts, treasury movement and wash trading — not just player flow. This routinely overstates real activity by 5–10× or more.' },
       { q: 'How can I tell if a casino\'s volume is real?', a: 'Check average transfer size (real player flow is ~$2–12K; $50K+ signals treasury/wash) and counterparty spread (genuine casinos touch thousands of addresses; concentration in a few is a red flag). If volume dwarfs the brand\'s reputation, be sceptical.' },
-      { q: 'Does WCOIN remove wash-traded volume?', a: 'Yes. Internal churn and double counts are excluded via a precomputed flag, and operators with anomalous patterns are marked "Under review" and kept out of all volume rankings. The thresholds and reasons are published for audit.' },
+      { q: 'Does Tekel Data remove wash-traded volume?', a: 'Yes. Internal churn and double counts are excluded via a precomputed flag, and operators with anomalous patterns are marked "Under review" and kept out of all volume rankings. The thresholds and reasons are published for audit.' },
     ],
     related: `See <a href="/guide/how-on-chain-casino-tracking-works">how on-chain tracking works</a>, <a href="/guide/how-to-verify-a-crypto-casino">verify a casino on-chain</a>, and <a href="/highest-volume-crypto-casinos">verified-volume ranking</a>.`,
   }), 'featured_core')
   add('/guide/crypto-casino-hot-wallet-vs-cold-wallet', 'guide', guidePage({
     path: '/guide/crypto-casino-hot-wallet-vs-cold-wallet', h1: 'Crypto casino hot wallet vs cold wallet',
-    title: `Crypto Casino Hot Wallet vs Cold Wallet Explained (${YEAR}) | WCOIN.CASINO`,
+    title: `Crypto Casino Hot Wallet vs Cold Wallet Explained (${YEAR}) | Tekel Data`,
     description: `What hot wallets, cold wallets and deposit addresses are at a crypto casino, how each behaves on-chain, and what the split tells you about an operator's security and solvency.`,
     intro: `Crypto casinos hold player funds across different wallet types, each with a job. Understanding hot vs cold wallets tells you a lot about how an operator manages — and secures — money.`,
     sections: [
@@ -3274,7 +3275,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/crypto-casino-tokens-explained', 'guide', guidePage({
     path: '/guide/crypto-casino-tokens-explained', h1: 'Crypto casino tokens, explained',
-    title: `Crypto Casino Tokens Explained — Rewards, Buyback & Risk (${YEAR}) | WCOIN.CASINO`,
+    title: `Crypto Casino Tokens Explained — Rewards, Buyback & Risk (${YEAR}) | Tekel Data`,
     description: `Why crypto casinos issue their own tokens, how revenue-share and buyback-and-burn models work, the risks of holding a casino token, and what the on-chain data does and doesn't tell you.`,
     intro: `Many crypto casinos issue their own token — for rewards, revenue share, or fundraising. Here's how these tokens work, the buyback-and-burn model, and the real risks of holding one.`,
     sections: [
@@ -3295,7 +3296,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/crypto-casino-vip-and-rakeback-explained', 'guide', guidePage({
     path: '/guide/crypto-casino-vip-and-rakeback-explained', h1: 'Crypto casino VIP programs & rakeback, explained',
-    title: `Crypto Casino VIP Programs & Rakeback Explained (${YEAR}) | WCOIN.CASINO`,
+    title: `Crypto Casino VIP Programs & Rakeback Explained (${YEAR}) | Tekel Data`,
     description: `How crypto casino VIP tiers, rakeback and cashback actually work, how to calculate their real value against the house edge, and why loyalty perks should never override the solvency checks.`,
     intro: `VIP programs and rakeback are the main retention tools at crypto casinos — and, unlike big bonus headlines, some genuinely return value. Here's how they work and how to weigh them.`,
     sections: [
@@ -3316,7 +3317,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/how-crypto-casino-affiliate-marketing-works', 'guide', guidePage({
     path: '/guide/how-crypto-casino-affiliate-marketing-works', h1: 'How crypto casino affiliate marketing works',
-    title: `How Crypto Casino Affiliate Marketing Works — And Why It Biases Reviews (${YEAR}) | WCOIN.CASINO`,
+    title: `How Crypto Casino Affiliate Marketing Works — And Why It Biases Reviews (${YEAR}) | Tekel Data`,
     description: `How crypto casino affiliate deals, revenue share and streamer promotion work, why they bias "best casino" rankings, and how to find recommendations that aren't paid placements.`,
     intro: `Most crypto casino "reviews", top-10 lists and streamer promos are paid marketing. Understanding how affiliate deals work is the best defence against being sold an unsafe operator.`,
     sections: [
@@ -3337,7 +3338,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/how-to-read-crypto-casino-reserves', 'guide', guidePage({
     path: '/guide/how-to-read-crypto-casino-reserves', h1: 'How to read a crypto casino\'s on-chain reserves',
-    title: `How to Read a Crypto Casino's On-Chain Reserves (${YEAR}) | WCOIN.CASINO`,
+    title: `How to Read a Crypto Casino's On-Chain Reserves (${YEAR}) | Tekel Data`,
     description: `A practical guide to reading a crypto casino's reserves: what the number means, how to weigh it against withdrawal flow and coverage, spotting temporary top-ups, and the trend that matters most.`,
     intro: `A reserve figure is only useful if you read it correctly. Here's how to interpret a crypto casino's on-chain reserves without being misled by a big number.`,
     sections: [
@@ -3358,7 +3359,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/crypto-casino-self-exclusion-and-limits', 'guide', guidePage({
     path: '/guide/crypto-casino-self-exclusion-and-limits', h1: 'Crypto casino limits & self-exclusion',
-    title: `Crypto Casino Deposit Limits & Self-Exclusion — Staying in Control (${YEAR}) | WCOIN.CASINO`,
+    title: `Crypto Casino Deposit Limits & Self-Exclusion — Staying in Control (${YEAR}) | Tekel Data`,
     description: `Practical responsible-gambling tools at crypto casinos: deposit and loss limits, cool-off, self-exclusion, and the extra steps that matter because crypto play has fewer built-in brakes.`,
     intro: `Crypto casinos are fast, always-open and low-friction — which makes staying in control harder, and the responsible-gambling tools more important. Here's what's available and how to use it.`,
     sections: [
@@ -3379,7 +3380,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide/are-crypto-casino-winnings-taxable', 'guide', guidePage({
     path: '/guide/are-crypto-casino-winnings-taxable', h1: 'Are crypto casino winnings taxable?',
-    title: `Are Crypto Casino Winnings Taxable? What to Know (${YEAR}) | WCOIN.CASINO`,
+    title: `Are Crypto Casino Winnings Taxable? What to Know (${YEAR}) | Tekel Data`,
     description: `Whether crypto gambling winnings are taxable depends on your country and can involve both gambling tax and crypto capital-gains tax. A neutral overview of how it can work — general information, not tax advice.`,
     intro: `"Do I owe tax on crypto casino winnings?" has no single answer — it depends on where you live, and crypto adds a second layer most players miss. Here's a neutral overview. This is general information, not tax advice.`,
     sections: [
@@ -3399,7 +3400,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   add('/guide', 'guide', guidePage({
     path: '/guide', h1: 'Crypto casino guides',
-    title: `Crypto Casino Guides — On-Chain Data, Reserves & Deposits (${YEAR}) | WCOIN.CASINO`,
+    title: `Crypto Casino Guides — On-Chain Data, Reserves & Deposits (${YEAR}) | Tekel Data`,
     description: `Practical, data-backed guides to crypto casinos: proof of reserves, deposit currencies (USDT vs Bitcoin), how to verify an operator on-chain, and how to judge safety.`,
     intro: `Practical guides built on verifiable on-chain data — not affiliate marketing. Learn how to read reserves, choose a deposit currency, and check an operator yourself.`,
     sections: [
@@ -3663,7 +3664,7 @@ export function registerSeo(app: FastifyInstance) {
       .code(404)
       .type('text/html; charset=utf-8')
       .header('Cache-Control', 'no-store')
-      .send(`<!doctype html><meta charset="utf-8"><meta name="robots" content="noindex"><title>Not found — WCOIN.CASINO</title><body style="background:#0a0a0f;color:#e8e8ee;font:16px/1.6 system-ui;text-align:center;padding:80px"><h1 style="color:#f5b100">404</h1><p>This ${esc(kind)} page isn't available.</p><p><a style="color:#f5b100" href="/">← WCOIN.CASINO home</a></p></body>`)
+      .send(`<!doctype html><meta charset="utf-8"><meta name="robots" content="noindex"><title>Not found — Tekel Data</title><body style="background:#0C0C0C;color:#e8e8ee;font:16px/1.6 system-ui;text-align:center;padding:80px"><h1 style="color:#F2C200">404</h1><p>This ${esc(kind)} page isn't available.</p><p><a style="color:#F2C200" href="/">← Tekel Data home</a></p></body>`)
   }
   // OG image as PNG — Twitter/Facebook don't render an SVG og:image, so social
   // previews showed no image. Convert the static og.svg once via sharp, cache it.
@@ -3733,7 +3734,7 @@ export function registerSeo(app: FastifyInstance) {
   // §5.3 form post (x-www-form-urlencoded parser registered in server.ts) → record a
   // reviewed submission, reply with a branded HTML page (SSR pages run no JS).
   const submitReply = (reply: any, heading: string, msg: string) =>
-    reply.type('text/html; charset=utf-8').send(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${heading} — WCOIN.CASINO</title><body style="background:#0a0a0f;color:#e8e8ee;font:16px/1.6 system-ui,sans-serif;text-align:center;padding:72px 20px"><h1 style="color:#f5b100;font-size:22px">${heading}</h1><p style="color:#aab;max-width:440px;margin:12px auto">${esc(msg)}</p><p style="margin-top:24px"><a style="color:#f5b100" href="/">← WCOIN.CASINO home</a></p></body>`)
+    reply.type('text/html; charset=utf-8').send(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${heading} — Tekel Data</title><body style="background:#0C0C0C;color:#e8e8ee;font:16px/1.6 system-ui,sans-serif;text-align:center;padding:72px 20px"><h1 style="color:#F2C200;font-size:22px">${heading}</h1><p style="color:#aab;max-width:440px;margin:12px auto">${esc(msg)}</p><p style="margin-top:24px"><a style="color:#F2C200" href="/">← Tekel Data home</a></p></body>`)
   const handleSubmit = (kind: string) => async (req: any, reply: any) => {
     const b = (req.body ?? {}) as { name?: string; email?: string; message?: string; evidence?: string }
     const name = String(b.name ?? '').trim().slice(0, 120)

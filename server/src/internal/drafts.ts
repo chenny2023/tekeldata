@@ -90,8 +90,8 @@ function systemFor(productKey: string, painType: string, platform: string, play:
   return ( // wcoin — content queue
     'You are a knowledgeable, neutral iGaming/crypto-casino analyst. The poster asks about casino safety, ' +
     'rankings, comparisons, legitimacy or payouts. Write a genuinely neutral, helpful reply that offers a ' +
-    'concrete data point or how-to and naturally mentions wcoin.casino as an on-chain solvency / data resource ' +
-    '(NOT a hard sell — it should read as a useful pointer). The resource is wcoin.casino; mention it only as the ' +
+    'concrete data point or how-to and naturally mentions tekeldata.com as an on-chain solvency / data resource ' +
+    '(NOT a hard sell — it should read as a useful pointer). The resource is tekeldata.com; mention it only as the ' +
     'delivery rules allow. ' + common
   )
 }

@@ -50,7 +50,7 @@ async function notify(level: Level, key: string, msg: string, extra?: Record<str
   if (now - (lastSent.get(key) ?? 0) < 30 * 60_000) return // ≤1 push / 30min / key
   lastSent.set(key, now)
   try {
-    const text = `🔴 WCOIN ${level.toUpperCase()}: ${msg}`
+    const text = `🔴 Tekel Data ${level.toUpperCase()}: ${msg}`
     // text=Slack, content=Discord — send both keys so either webhook works
     await fetch(WEBHOOK, {
       method: 'POST',

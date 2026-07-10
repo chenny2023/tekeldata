@@ -53,7 +53,7 @@ export default function Login() {
         <div className="grid-noise absolute inset-0 opacity-30" />
         <div
           className="absolute -left-20 top-20 h-72 w-72 rounded-full blur-3xl"
-          style={{ background: 'radial-gradient(circle, rgba(245,177,0,0.25), transparent 70%)' }}
+          style={{ background: 'radial-gradient(circle, rgba(242,194,0,0.25), transparent 70%)' }}
         />
         <div
           className="absolute bottom-10 right-0 h-80 w-80 rounded-full blur-3xl"
@@ -69,7 +69,7 @@ export default function Login() {
             to unlock every feature: live on-chain intelligence, watchlists, alerts and trust votes.
           </p>
         </div>
-        <span className="relative text-sm text-white/30">© 2026 WCOIN.CASINO</span>
+        <span className="relative text-sm text-white/30">© 2026 Tekel Data</span>
       </div>
 
       {/* Right form */}

@@ -103,7 +103,7 @@ async function main() {
   // Lock CORS to our own origins in production (auth is a Bearer token, but there's
   // no reason to reflect arbitrary origins). Dev allows localhost.
   const allowedOrigins = (process.env.CORS_ORIGINS ||
-    'https://wcoin.casino,https://www.wcoin.casino,https://wcoin-production.up.railway.app')
+    'https://tekeldata.com,https://www.tekeldata.com,https://wcoin-production.up.railway.app')
     .split(',').map((s) => s.trim()).filter(Boolean)
   await app.register(cors, {
     origin: config.nodeEnv === 'production'
@@ -124,6 +124,18 @@ async function main() {
   registerSeo(app)
   registerIndexNow(app) // serve the IndexNow key file (search-engine ownership proof)
   // registerSocialIntel: 已拆到独立服务 wcoin-whale（/internal/social 不再由主站提供）
+  // Brand migration: 301 the legacy wcoin.casino domain → tekeldata.com (same path),
+  // preserving SEO equity + inbound links. Both domains point at this app; this hook
+  // runs FIRST so every legacy URL permanently redirects before any other handler.
+  const LEGACY_HOSTS = new Set(['wcoin.casino', 'www.wcoin.casino'])
+  app.addHook('onRequest', (req, reply, done) => {
+    const host = String(req.headers.host || '').toLowerCase()
+    if (LEGACY_HOSTS.has(host)) {
+      reply.code(301).header('Location', `https://tekeldata.com${req.url}`).header('Cache-Control', 'public, max-age=86400').send()
+      return
+    }
+    done()
+  })
   app.addHook('onRequest', edanicFastifyHook) // Edanic: SSR /answers/* pages BEFORE the SPA fallback (own slugs only, else passthrough)
 
   // Serve the built SPA in production (single-process deploy). Vite emits
@@ -215,7 +227,7 @@ async function main() {
   const primaryRpc = new URL(config.evmRpcs[0]).host
   const tronHost =
     config.tronMode === 'jsonrpc' ? new URL(config.tronJsonRpc).host : new URL(config.tronApi).host
-  console.log(`\n  WCOIN.CASINO API  ➜  http://localhost:${config.port}/api/health`)
+  console.log(`\n  Tekel Data API  ➜  http://localhost:${config.port}/api/health`)
   console.log(`  Indexing chains:  ETH (${primaryRpc}) + TRON (${tronHost}, ${config.tronMode})\n`)
 
   // Defer the heavy indexers ~45s after the server is listening. better-sqlite3

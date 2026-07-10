@@ -12,7 +12,7 @@ import { sendEmail } from './email.ts'
 // aggregate. Wording is strictly neutral: observed wallet data, never a solvency verdict.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const SITE = 'https://wcoin.casino'
+const SITE = 'https://tekeldata.com'
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 const DROP_THRESHOLD = -0.15 // reserves down ≥15% over the window → notify
 const REALERT_MS = 3 * 86_400_000 // at most one alert per (sub) per 3 days
@@ -28,33 +28,33 @@ function page(reply: any, heading: string, msg: string) {
     .header('content-type', 'text/html; charset=utf-8')
     .header('Cache-Control', 'no-store')
     .send(
-      `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(heading)} — WCOIN.CASINO</title>` +
+      `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(heading)} — Tekel Data</title>` +
         `<body style="font-family:-apple-system,system-ui,sans-serif;background:#0b0d12;color:#e8eaf0;display:grid;place-items:center;min-height:100vh;margin:0">` +
-        `<div style="text-align:center;padding:24px;max-width:440px"><div style="font-weight:700;color:#f5b100;letter-spacing:.04em">WCOIN.CASINO</div>` +
+        `<div style="text-align:center;padding:24px;max-width:440px"><div style="font-weight:700;color:#F2C200;letter-spacing:.04em">Tekel Data</div>` +
         `<h1 style="font-size:22px;margin:16px 0 6px">${esc(heading)}</h1><p style="color:#9aa0b4;line-height:1.6">${msg}</p>` +
-        `<a href="https://wcoin.casino/" style="display:inline-block;margin-top:18px;background:#f5b100;color:#0b0d12;font-weight:700;text-decoration:none;padding:11px 18px;border-radius:10px">← WCOIN.CASINO</a></div></body>`,
+        `<a href="https://tekeldata.com/" style="display:inline-block;margin-top:18px;background:#F2C200;color:#0b0d12;font-weight:700;text-decoration:none;padding:11px 18px;border-radius:10px">← Tekel Data</a></div></body>`,
     )
 }
 
 function confirmEmail(brand: string, confirmUrl: string): { subject: string; html: string; text: string } {
   const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#0b0d12;padding:32px;color:#e8eaf0"><div style="max-width:440px;margin:0 auto;background:#11141c;border:1px solid #1e2230;border-radius:16px;padding:32px">
-    <div style="font-weight:700;font-size:18px;letter-spacing:.04em;color:#f5b100">WCOIN.CASINO</div>
+    <div style="font-weight:700;font-size:18px;letter-spacing:.04em;color:#F2C200">Tekel Data</div>
     <h1 style="font-size:20px;margin:18px 0 6px">Confirm alerts for ${esc(brand)}</h1>
     <p style="color:#9aa0b4;font-size:14px;margin:0 0 22px">One click to get notified when ${esc(brand)}'s tracked on-chain reserves drop materially or a large net outflow is observed. Observed wallet data — not a solvency or safety statement.</p>
-    <a href="${esc(confirmUrl)}" style="display:block;background:#f5b100;color:#0b0d12;font-weight:700;text-decoration:none;padding:14px 18px;border-radius:12px;text-align:center;font-size:15px">Confirm alerts →</a>
+    <a href="${esc(confirmUrl)}" style="display:block;background:#F2C200;color:#0b0d12;font-weight:700;text-decoration:none;padding:14px 18px;border-radius:12px;text-align:center;font-size:15px">Confirm alerts →</a>
     <p style="color:#6b7080;font-size:12px;margin:22px 0 0">If you didn't request this, you can ignore this email.</p></div></div>`
-  return { subject: `Confirm WCOIN alerts for ${brand}`, html, text: `Confirm alerts for ${brand}: ${confirmUrl}` }
+  return { subject: `Confirm Tekel Data alerts for ${brand}`, html, text: `Confirm alerts for ${brand}: ${confirmUrl}` }
 }
 
 function alertEmail(brand: string, pct: number, reserves: number, unsubUrl: string): { subject: string; html: string; text: string } {
   const sign = pct >= 0 ? '+' : ''
   const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#0b0d12;padding:32px;color:#e8eaf0"><div style="max-width:440px;margin:0 auto;background:#11141c;border:1px solid #1e2230;border-radius:16px;padding:32px">
-    <div style="font-weight:700;font-size:18px;letter-spacing:.04em;color:#f5b100">WCOIN.CASINO</div>
+    <div style="font-weight:700;font-size:18px;letter-spacing:.04em;color:#F2C200">Tekel Data</div>
     <h1 style="font-size:19px;margin:18px 0 6px">Reserve movement — ${esc(brand)}</h1>
     <p style="color:#cdd2e0;font-size:14px;line-height:1.6;margin:0 0 14px">${esc(brand)}'s tracked all-chain reserves changed <strong style="color:#ff6b8a">${sign}${(pct * 100).toFixed(1)}%</strong> over the last ~7 days, now ~<strong>${fmtUsd(reserves)}</strong>.</p>
     <p style="color:#9aa0b4;font-size:13px;line-height:1.6;margin:0 0 18px">This is observed on-chain wallet data with partial coverage — <em>not</em> a statement on solvency, safety or legality. Always do your own research.</p>
-    <a href="${SITE}/casino/${esc(brand.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''))}" style="display:block;background:#f5b100;color:#0b0d12;font-weight:700;text-decoration:none;padding:13px 18px;border-radius:12px;text-align:center;font-size:15px">View ${esc(brand)}'s on-chain data →</a>
-    <p style="color:#6b7080;font-size:11px;margin:22px 0 0">You subscribed to ${esc(brand)} alerts at WCOIN.CASINO. <a href="${esc(unsubUrl)}" style="color:#9aa0b4">Unsubscribe</a>.</p></div></div>`
+    <a href="${SITE}/casino/${esc(brand.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''))}" style="display:block;background:#F2C200;color:#0b0d12;font-weight:700;text-decoration:none;padding:13px 18px;border-radius:12px;text-align:center;font-size:15px">View ${esc(brand)}'s on-chain data →</a>
+    <p style="color:#6b7080;font-size:11px;margin:22px 0 0">You subscribed to ${esc(brand)} alerts at Tekel Data. <a href="${esc(unsubUrl)}" style="color:#9aa0b4">Unsubscribe</a>.</p></div></div>`
   void dir
   return { subject: `Reserve movement: ${brand} ${sign}${(pct * 100).toFixed(1)}% (7d)`, html, text: `${brand} tracked reserves changed ${sign}${(pct * 100).toFixed(1)}% over ~7d, now ~${fmtUsd(reserves)}. Observed data, not a solvency statement. ${SITE}/daily  Unsubscribe: ${unsubUrl}` }
 }

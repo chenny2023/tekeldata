@@ -55,7 +55,7 @@ const esc = (s: string) => (s || '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '
 
 async function notify(s: AlertSignal): Promise<void> {
   const pname = productByKey(s.product)?.name || s.product
-  const panel = (process.env.PUBLIC_BASE_URL || 'https://wcoin.casino') + '/internal/social'
+  const panel = (process.env.PUBLIC_BASE_URL || 'https://tekeldata.com') + '/internal/social'
   // 当场生成中文解读（best-effort，失败则只发原文）
   let zh = ''
   try { zh = (await translateOne(s.id)) || '' } catch { /* ignore */ }

@@ -11,7 +11,7 @@ import { userFromRequest } from './auth.ts'
 // numbers come from the snapshot — no AI, no fabrication.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const SITE = 'https://wcoin.casino'
+const SITE = 'https://tekeldata.com'
 const SEND_HOUR = Number(process.env.DIGEST_SEND_HOUR_UTC ?? 13)
 const WEEKLY_DOW = Number(process.env.DIGEST_WEEKLY_DOW ?? 1) // Monday
 const utcDay = (ts = Date.now()) => new Date(ts).toISOString().slice(0, 10)
@@ -54,17 +54,17 @@ function buildDigestBodies(snap: any): { subject: string; html: string; text: st
 
   const section = (title: string, body: string) =>
     body
-      ? `<h2 style="font-size:15px;margin:24px 0 4px;color:#f5b100;letter-spacing:.02em">${title}</h2><table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">${body}</table>`
+      ? `<h2 style="font-size:15px;margin:24px 0 4px;color:#F2C200;letter-spacing:.02em">${title}</h2><table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">${body}</table>`
       : ''
 
   const html = `
   <div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#0b0d12;padding:24px;color:#e8eaf0">
     <div style="max-width:560px;margin:0 auto;background:#11141c;border:1px solid #1e2230;border-radius:16px;padding:28px">
-      <div style="font-weight:700;font-size:18px;letter-spacing:.04em;color:#f5b100">WCOIN.CASINO</div>
+      <div style="font-weight:700;font-size:18px;letter-spacing:.04em;color:#F2C200">Tekel Data</div>
       <div style="color:#6b7080;font-size:12px;margin-top:2px">Crypto Casino Market Daily · ${esc(date)} (UTC)</div>
       ${
         snap.aiMarketRead && (snap.aiMarketRead.what_changed || snap.aiMarketRead.why_it_matters)
-          ? `<div style="margin:22px 0 4px;background:#0e1320;border:1px solid #1e2230;border-radius:12px;padding:16px"><div style="font-size:13px;font-weight:700;color:#f5b100;margin-bottom:8px">Today's Market Read</div>` +
+          ? `<div style="margin:22px 0 4px;background:#0e1320;border:1px solid #1e2230;border-radius:12px;padding:16px"><div style="font-size:13px;font-weight:700;color:#F2C200;margin-bottom:8px">Today's Market Read</div>` +
             [['What changed', snap.aiMarketRead.what_changed], ['Why it matters', snap.aiMarketRead.why_it_matters], ['What to watch', snap.aiMarketRead.what_to_watch]]
               .filter(([, v]) => v)
               .map(([k, v]) => `<div style="margin-bottom:8px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#9aa0b4">${k}</div><div style="font-size:13.5px;color:#cdd2e0;line-height:1.5">${esc(String(v))}</div></div>`)
@@ -76,12 +76,12 @@ function buildDigestBodies(snap: any): { subject: string; html: string; text: st
       ${section('Biggest movers — verified 24h volume', movers)}
       ${section('Whale activity — aggregated (24h)', whales)}
       ${section('Tracked all-chain reserves', reserves)}
-      <div style="margin-top:26px"><a href="${SITE}/daily" style="display:inline-block;background:#f5b100;color:#0b0d12;font-weight:700;text-decoration:none;padding:11px 18px;border-radius:10px;font-size:14px">Read the full daily report →</a></div>
-      <p style="color:#6b7080;font-size:11px;margin:24px 0 0;line-height:1.6">Figures are on-chain observations &amp; third-party data with inherent attribution uncertainty — not a statement on any operator's solvency or legality. See methodology on the site.<br><br>You're receiving this because you subscribed at WCOIN.CASINO. <a href="{{UNSUB}}" style="color:#9aa0b4">Unsubscribe</a>.</p>
+      <div style="margin-top:26px"><a href="${SITE}/daily" style="display:inline-block;background:#F2C200;color:#0b0d12;font-weight:700;text-decoration:none;padding:11px 18px;border-radius:10px;font-size:14px">Read the full daily report →</a></div>
+      <p style="color:#6b7080;font-size:11px;margin:24px 0 0;line-height:1.6">Figures are on-chain observations &amp; third-party data with inherent attribution uncertainty — not a statement on any operator's solvency or legality. See methodology on the site.<br><br>You're receiving this because you subscribed at Tekel Data. <a href="{{UNSUB}}" style="color:#9aa0b4">Unsubscribe</a>.</p>
     </div>
   </div>`
   const text =
-    `WCOIN.CASINO — Crypto Casino Market Daily (${date} UTC)\n\n` +
+    `Tekel Data — Crypto Casino Market Daily (${date} UTC)\n\n` +
     `24h volume: ${fmtUsd(snap.tracked_volume_24h ?? 0)} | net flow: ${(net >= 0 ? '+' : '-') + fmtUsd(Math.abs(net))} | casinos: ${snap.active_casinos} | chains: ${snap.active_chains} | reserves: ${fmtUsd(snap.reserves_total ?? 0)}\n\n` +
     `Biggest movers: ${(p.topMovers ?? []).slice(0, 5).map((m: any) => `${m.label} ${fmtUsd(m.vol24h)}`).join(', ')}\n\n` +
     `Full report: ${SITE}/daily\nUnsubscribe: {{UNSUB}}`

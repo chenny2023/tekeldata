@@ -8,7 +8,7 @@ import { api } from '../data/api'
 
 type Format = 'csv' | 'json' | 'pdf'
 
-// Branded PDF export: a WCOIN.CASINO header, a diagonal "wcoin.casino" watermark on
+// Branded PDF export: a Tekel Data header, a diagonal "tekeldata.com" watermark on
 // every page, a data table (scalar columns only, so nested objects don't clutter it),
 // and a methodology footer. Built client-side so the server stays light.
 function brandedPdf(title: string, rows: any[]): jsPDF {
@@ -32,7 +32,7 @@ function brandedPdf(title: string, rows: any[]): jsPDF {
     startY: 72,
     margin: { top: 66, bottom: 46, left: 28, right: 28 },
     styles: { fontSize: 7, cellPadding: 3, overflow: 'ellipsize', textColor: [38, 38, 46], lineColor: [225, 225, 230], lineWidth: 0.4 },
-    headStyles: { fillColor: [17, 17, 24], textColor: [245, 177, 0], fontStyle: 'bold' },
+    headStyles: { fillColor: [17, 17, 24], textColor: [242, 194, 0], fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [248, 248, 250] },
     didDrawPage: (data) => {
       // faint diagonal watermark across the whole page (over content, low opacity)
@@ -42,24 +42,24 @@ function brandedPdf(title: string, rows: any[]): jsPDF {
       doc.setTextColor(120, 120, 130)
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(38)
-      for (let y = 130; y < H; y += 170) for (let x = -10; x < W; x += 290) doc.text('wcoin.casino', x, y, { angle: 28 })
+      for (let y = 130; y < H; y += 170) for (let x = -10; x < W; x += 290) doc.text('tekeldata.com', x, y, { angle: 28 })
       g.restoreGraphicsState?.()
       // header
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(15)
-      doc.setTextColor(245, 177, 0)
-      doc.text('WCOIN.CASINO', 28, 34)
+      doc.setTextColor(242, 194, 0)
+      doc.text('Tekel Data', 28, 34)
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(11)
       doc.setTextColor(55, 55, 64)
       doc.text(title, 28, 52)
       doc.setFontSize(8)
       doc.setTextColor(130, 130, 140)
-      doc.text(`Generated ${stampUtc} · ${rows.length} rows · wcoin.casino`, W - 28, 34, { align: 'right' })
+      doc.text(`Generated ${stampUtc} · ${rows.length} rows · tekeldata.com`, W - 28, 34, { align: 'right' })
       // footer
       doc.setFontSize(7)
       doc.setTextColor(130, 130, 140)
-      doc.text('Observed on-chain & third-party data — not financial advice, not a verdict on any operator. © WCOIN.CASINO', 28, H - 18)
+      doc.text('Observed on-chain & third-party data — not financial advice, not a verdict on any operator. © Tekel Data', 28, H - 18)
       doc.text(`Page ${data.pageNumber}`, W - 28, H - 18, { align: 'right' })
     },
   })

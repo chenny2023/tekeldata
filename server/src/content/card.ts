@@ -50,20 +50,20 @@ function buildSvg(d: CardData): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" font-family="DejaVu Sans, Arial, sans-serif">
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFE27A"/><stop offset="0.5" stop-color="#F5B100"/><stop offset="1" stop-color="#C8860A"/></linearGradient>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0a0a0f"/><stop offset="1" stop-color="#0d0d16"/></linearGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0C0C0C"/><stop offset="1" stop-color="#0d0d16"/></linearGradient>
     <radialGradient id="glow" cx="0.85" cy="0.1" r="0.7"><stop offset="0" stop-color="#F5B100" stop-opacity="0.14"/><stop offset="1" stop-color="#F5B100" stop-opacity="0"/></radialGradient>
   </defs>
   <rect width="${W}" height="${H}" fill="url(#bg)"/>
   <rect width="${W}" height="${H}" fill="url(#glow)"/>
   ${coin(80, 72, 84)}
-  <text x="184" y="128" font-size="44" font-weight="800" fill="#FFFFFF" letter-spacing="1">WCOIN<tspan fill="#F5B100">.CASINO</tspan></text>
+  <text x="184" y="128" font-size="44" font-weight="800" fill="#FFFFFF" letter-spacing="1">Tekel Data<tspan fill="#F5B100">.CASINO</tspan></text>
   <text x="186" y="166" font-size="22" font-weight="500" fill="#8a8f9f">On-chain intelligence for crypto casinos</text>
   <text x="80" y="262" font-size="52" font-weight="800" fill="#FFFFFF">${esc(d.title)}</text>
   ${d.subtitle ? `<text x="80" y="312" font-size="28" font-weight="500" fill="#aab0c0">${esc(d.subtitle)}</text>` : ''}
   ${rowSvg}
   <line x1="80" y1="980" x2="1000" y2="980" stroke="#ffffff12"/>
   <text x="80" y="1026" font-size="24" font-weight="600" fill="#9aa0b4">${esc(d.footer || 'No paid rankings — public, verifiable data')}</text>
-  <text x="1000" y="1026" font-size="24" font-weight="700" fill="#F5B100" text-anchor="end">wcoin.casino${d.date ? `  ·  ${esc(d.date)}` : ''}</text>
+  <text x="1000" y="1026" font-size="24" font-weight="700" fill="#F5B100" text-anchor="end">tekeldata.com${d.date ? `  ·  ${esc(d.date)}` : ''}</text>
   <rect x="2" y="2" width="${W - 4}" height="${H - 4}" rx="2" fill="none" stroke="#F5B10022" stroke-width="2"/>
 </svg>`
 }
@@ -107,7 +107,7 @@ function buildDailySvg(d: DailyCardData): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" font-family="DejaVu Sans, Arial, sans-serif">
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFE27A"/><stop offset="0.5" stop-color="#F5B100"/><stop offset="1" stop-color="#C8860A"/></linearGradient>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0a0a0f"/><stop offset="1" stop-color="#0d0d16"/></linearGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0C0C0C"/><stop offset="1" stop-color="#0d0d16"/></linearGradient>
     <radialGradient id="glow" cx="0.85" cy="0.08" r="0.7"><stop offset="0" stop-color="#F5B100" stop-opacity="0.16"/><stop offset="1" stop-color="#F5B100" stop-opacity="0"/></radialGradient>
     <radialGradient id="glow2" cx="0.1" cy="1" r="0.7"><stop offset="0" stop-color="#8b3df0" stop-opacity="0.14"/><stop offset="1" stop-color="#8b3df0" stop-opacity="0"/></radialGradient>
   </defs>
@@ -115,14 +115,14 @@ function buildDailySvg(d: DailyCardData): string {
   <rect width="${W}" height="${H}" fill="url(#glow)"/>
   <rect width="${W}" height="${H}" fill="url(#glow2)"/>
   ${coin(60, 54, 72)}
-  <text x="150" y="92" font-size="38" font-weight="800" fill="#FFFFFF" letter-spacing="1">WCOIN<tspan fill="#F5B100">.CASINO</tspan></text>
+  <text x="150" y="92" font-size="38" font-weight="800" fill="#FFFFFF" letter-spacing="1">Tekel Data<tspan fill="#F5B100">.CASINO</tspan></text>
   <text x="152" y="124" font-size="19" font-weight="500" fill="#8a8f9f">On-chain intelligence for crypto casinos</text>
   <text x="60" y="218" font-size="56" font-weight="800" fill="#FFFFFF">Crypto Casino Market — Daily</text>
   <text x="60" y="266" font-size="26" font-weight="500" fill="#aab0c0">Verified on-chain snapshot · ${esc(d.date)} (UTC)${d.topChain ? `  ·  ${esc(d.topChain)} leads chain volume` : ''}</text>
   ${tileSvg}
   <line x1="60" y1="566" x2="1140" y2="566" stroke="#ffffff12"/>
   <text x="60" y="606" font-size="22" font-weight="600" fill="#9aa0b4">Verified flow only · unattributed flow excluded</text>
-  <text x="1140" y="606" font-size="22" font-weight="700" fill="#F5B100" text-anchor="end">wcoin.casino/daily</text>
+  <text x="1140" y="606" font-size="22" font-weight="700" fill="#F5B100" text-anchor="end">tekeldata.com/daily</text>
   <rect x="2" y="2" width="${W - 4}" height="${H - 4}" rx="2" fill="none" stroke="#F5B10022" stroke-width="2"/>
 </svg>`
 }

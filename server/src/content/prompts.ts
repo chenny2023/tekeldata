@@ -9,7 +9,7 @@ import type { QaInput } from './qa.ts'
 // model invents.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const SITE = 'https://wcoin.casino'
+const SITE = 'https://tekeldata.com'
 function fmtUsd(n: number): string {
   const a = Math.abs(n || 0)
   if (a >= 1e9) return '$' + (n / 1e9).toFixed(2) + 'B'
@@ -184,7 +184,7 @@ function insightInput(): { input: any; brands: string[]; values: string[]; repor
 export function buildPrompt(contentType: string): BuiltPrompt | null {
   const s = snapshotInput()
   if (!s) return null
-  const base = 'You are the automated editorial engine for WCOIN.CASINO, an independent on-chain intelligence site for crypto casinos. '
+  const base = 'You are the automated editorial engine for Tekel Data, an independent on-chain intelligence site for crypto casinos. '
   const qa: QaInput = { allowedBrands: s.brands, allowedValues: s.values, requiredUrl: s.reportUrl }
 
   if (contentType === 'daily_market_thread') {

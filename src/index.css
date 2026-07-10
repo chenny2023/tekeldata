@@ -10,7 +10,7 @@
 
   --color-gold-300: #ffe27a;
   --color-gold-400: #ffd24a;
-  --color-gold-500: #f5b100;
+  --color-gold-500: #F2C200;
   --color-gold-600: #d99400;
 
   --color-violet-400: #a855f7;
@@ -54,7 +54,7 @@ body::before {
   z-index: -1;
   background:
     radial-gradient(900px 600px at 12% -5%, rgba(139, 61, 240, 0.16), transparent 60%),
-    radial-gradient(820px 560px at 95% 0%, rgba(245, 177, 0, 0.1), transparent 55%),
+    radial-gradient(820px 560px at 95% 0%, rgba(242, 194, 0, 0.1), transparent 55%),
     radial-gradient(1000px 700px at 50% 110%, rgba(139, 61, 240, 0.08), transparent 60%);
   pointer-events: none;
 }
@@ -90,11 +90,11 @@ body::before {
     transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease;
   }
   .glass-hover:hover {
-    border-color: rgba(245, 177, 0, 0.35);
+    border-color: rgba(242, 194, 0, 0.35);
     transform: translateY(-2px);
   }
   .text-gradient-gold {
-    background: linear-gradient(95deg, #ffe27a, #f5b100 55%, #d99400);
+    background: linear-gradient(95deg, #ffe27a, #F2C200 55%, #d99400);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -106,7 +106,7 @@ body::before {
     color: transparent;
   }
   .ring-gold {
-    box-shadow: 0 0 0 1px rgba(245, 177, 0, 0.4), 0 0 28px rgba(245, 177, 0, 0.18);
+    box-shadow: 0 0 0 1px rgba(242, 194, 0, 0.4), 0 0 28px rgba(242, 194, 0, 0.18);
   }
   .grid-noise {
     background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
@@ -135,7 +135,7 @@ body::before {
 }
 
 @keyframes row-flash {
-  from { background-color: rgba(245, 177, 0, 0.14); }
+  from { background-color: rgba(242, 194, 0, 0.14); }
   to { background-color: transparent; }
 }
 .row-flash {
@@ -181,7 +181,7 @@ body::before {
   opacity: 0;
   transition: opacity 0.35s ease;
   pointer-events: none;
-  background: radial-gradient(360px circle at var(--mx, 50%) var(--my, 50%), rgba(245, 177, 0, 0.14), transparent 62%);
+  background: radial-gradient(360px circle at var(--mx, 50%) var(--my, 50%), rgba(242, 194, 0, 0.14), transparent 62%);
 }
 .spotlight:hover::before {
   opacity: 1;
@@ -255,7 +255,7 @@ body::before {
 }
 .sheen-hover:hover::after { animation: sheen 0.8s ease; }
 
-/* ── Brand loader (in-app page/route loading) — the same flipping WCOIN coin as
+/* ── Brand loader (in-app page/route loading) — the same flipping Tekel Data coin as
    the boot splash, reused for lazy-route chunks, the auth gate, and any page-level
    load so the loading moment is consistent site-wide. ──────────────────────────── */
 .brand-loader { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; min-height: 48vh; }
@@ -263,22 +263,21 @@ body::before {
   position: fixed; inset: 0; z-index: 50; min-height: 100vh;
   background: var(--color-ink-950);
   background-image:
-    radial-gradient(820px 560px at 50% 32%, rgba(245, 177, 0, 0.12), transparent 60%),
+    radial-gradient(820px 560px at 50% 32%, rgba(242, 194, 0, 0.12), transparent 60%),
     radial-gradient(700px 520px at 50% 122%, rgba(139, 61, 240, 0.12), transparent 60%);
 }
 .bl-coin {
-  width: 72px; height: 72px; border-radius: 50%; display: grid; place-items: center;
-  background: radial-gradient(circle at 33% 27%, #ffe98f, #f5b100 52%, #9c6b00);
-  box-shadow: 0 0 0 2px rgba(245, 177, 0, 0.55), 0 0 36px rgba(245, 177, 0, 0.4), inset 0 3px 10px rgba(255, 255, 255, 0.45), inset 0 -6px 12px rgba(0, 0, 0, 0.35);
-  animation: bl-flip 1.6s cubic-bezier(0.55, 0.08, 0.3, 1) infinite;
+  width: 72px; height: 72px; border-radius: 18px; display: grid; place-items: center;
+  background: #0C0C0C;
+  box-shadow: 0 0 0 1.5px rgba(242, 194, 0, 0.45), 0 0 36px rgba(242, 194, 0, 0.28);
+  animation: bl-flip 2.2s ease-in-out infinite;
 }
-.bl-coin b { font-family: var(--font-display); font-weight: 800; font-size: 32px; color: #3a2700; line-height: 1; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4); }
-@keyframes bl-flip { 0% { transform: perspective(440px) rotateY(0); } 100% { transform: perspective(440px) rotateY(1080deg); } }
+@keyframes bl-flip { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
 .bl-tag { font-size: 12.5px; letter-spacing: 0.02em; color: #8b90a4; }
 .bl-bar { width: 170px; height: 4px; border-radius: 99px; background: rgba(255, 255, 255, 0.08); overflow: hidden; position: relative; }
 .bl-bar::before {
   content: ''; position: absolute; top: 0; left: 0; height: 100%; width: 42%; border-radius: 99px;
-  background: linear-gradient(90deg, transparent, #f5b100, #ffe27a, #f5b100, transparent);
+  background: linear-gradient(90deg, transparent, #F2C200, #ffe27a, #F2C200, transparent);
   animation: bl-sweep 1.15s ease-in-out infinite;
 }
 @keyframes bl-sweep { 0% { transform: translateX(-130%); } 100% { transform: translateX(360%); } }

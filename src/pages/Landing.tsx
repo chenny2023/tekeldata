@@ -20,7 +20,7 @@ import { fmtUsd, fmtNum } from '../data/format'
 
 const FEATURES = [
   { icon: Boxes, title: 'Blockchain Mapping', desc: 'Track casino wallets across ETH, TRX, SEI, BTC & SOL with full on-chain flow visibility.', accent: '#8b3df0' },
-  { icon: Radio, title: 'Streamer Analytics', desc: 'Monitor gambling streamers, affiliations and player-acquisition performance in real time.', accent: '#f5b100' },
+  { icon: Radio, title: 'Streamer Analytics', desc: 'Monitor gambling streamers, affiliations and player-acquisition performance in real time.', accent: '#F2C200' },
   { icon: Users, title: 'Player Segmentation', desc: 'Cohort analysis and LTV modelling to surface your highest-value segments.', accent: '#2ee6a6' },
   { icon: Gauge, title: 'Real-time Dashboards', desc: 'Live deposits, withdrawals, player activity and market trends — updated by the second.', accent: '#5b8cff' },
   { icon: FileBarChart, title: 'Custom Reports', desc: 'On-demand report generation with flexible filters and CSV / JSON / PDF export.', accent: '#ff8a3d' },
@@ -358,7 +358,7 @@ export default function Landing() {
         <Card className="ring-gold relative overflow-hidden p-8 text-center sm:p-12">
           <div
             className="pointer-events-none absolute -top-24 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full blur-3xl"
-            style={{ background: 'radial-gradient(circle, rgba(245,177,0,0.18), transparent 70%)' }}
+            style={{ background: 'radial-gradient(circle, rgba(242,194,0,0.18), transparent 70%)' }}
           />
           <span className="relative inline-block rounded-full bg-gradient-to-r from-gold-400 to-gold-600 px-3 py-0.5 text-[11px] font-bold tracking-wide text-ink-950">
             100% FREE — FOR EVERYONE
@@ -400,7 +400,7 @@ export default function Landing() {
       <footer className="border-t border-white/7 bg-ink-900/40">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-5 py-8 sm:flex-row">
           <Logo />
-          <p className="text-sm text-white/40">© 2026 WCOIN.CASINO — The Intelligence Layer for iGaming</p>
+          <p className="text-sm text-white/40">© 2026 Tekel Data — The Intelligence Layer for iGaming</p>
           <div className="flex gap-5 text-sm text-white/50">
             <Link to="/app" className="hover:text-white">Dashboard</Link>
             <Link to="/daily" className="hover:text-white">Daily report</Link>

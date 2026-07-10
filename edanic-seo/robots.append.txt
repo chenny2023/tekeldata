@@ -1,6 +1,6 @@
 # Append to your existing robots.txt (do NOT replace the whole file).
 # Idempotent: skip any line below that already exists verbatim in your robots.txt.
-Sitemap: https://wcoin.casino/sitemap.xml
+Sitemap: https://tekeldata.com/sitemap.xml
 
 # Let AI answer engines read your content (GEO — added by Edanic):
 User-agent: GPTBot

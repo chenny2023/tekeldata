@@ -10,7 +10,7 @@ import { fmtUsd, fmtNum, shortHash, CHAIN_COLOR } from '../data/format'
 // casino.guru's own bands: 8+ very good, 6–8 fair, <6 caution. An external
 // reputation signal blended alongside our on-chain trust score.
 function GuruChip({ score }: { score: number }) {
-  const color = score >= 8 ? '#2ee6a6' : score >= 6 ? '#f5b100' : '#ff5c7a'
+  const color = score >= 8 ? '#2ee6a6' : score >= 6 ? '#F2C200' : '#ff5c7a'
   return (
     <span
       title={`casino.guru Safety Index ${score}/10 — independent expert review`}
@@ -24,7 +24,7 @@ function GuruChip({ score }: { score: number }) {
 
 // Trustpilot consumer rating (★/5) — live page, Wayback fallback.
 function TrustpilotChip({ score }: { score: number }) {
-  const color = score >= 4 ? '#2ee6a6' : score >= 3 ? '#f5b100' : '#ff5c7a'
+  const color = score >= 4 ? '#2ee6a6' : score >= 3 ? '#F2C200' : '#ff5c7a'
   return (
     <span
       title={`Trustpilot ${score}/5 — consumer rating`}
@@ -38,7 +38,7 @@ function TrustpilotChip({ score }: { score: number }) {
 
 // casino.org editorial rating (/5) — a recognised editorial review score.
 function EditorialChip({ score }: { score: number }) {
-  const color = score >= 4 ? '#2ee6a6' : score >= 3 ? '#f5b100' : '#ff5c7a'
+  const color = score >= 4 ? '#2ee6a6' : score >= 3 ? '#F2C200' : '#ff5c7a'
   return (
     <span
       title={`casino.org editorial rating ${score}/5`}
@@ -52,7 +52,7 @@ function EditorialChip({ score }: { score: number }) {
 
 // AskGamblers expert rating (/10) — recognised industry review score.
 function AskGamblersChip({ score }: { score: number }) {
-  const color = score >= 7 ? '#2ee6a6' : score >= 5 ? '#f5b100' : '#ff5c7a'
+  const color = score >= 7 ? '#2ee6a6' : score >= 5 ? '#F2C200' : '#ff5c7a'
   return (
     <span
       title={`AskGamblers expert rating ${score}/10`}
@@ -97,7 +97,7 @@ function TokenBadge({ token }: { token: NonNullable<Row['token']> }) {
 // when there are none on record.
 function ComplaintsChip({ count, unresolved }: { count: number; unresolved: number | null }) {
   const u = unresolved && unresolved > 0 ? unresolved : 0
-  const color = u > 0 ? '#ff5c7a' : count > 0 ? '#f5b100' : '#2ee6a6'
+  const color = u > 0 ? '#ff5c7a' : count > 0 ? '#F2C200' : '#2ee6a6'
   const desc = u > 0 ? `${count} complaints · ${u} unresolved` : count > 0 ? `${count} complaints in casino.guru's database` : 'no complaints on record'
   return (
     <span
@@ -212,7 +212,7 @@ function MoneyFlow({ id }: { id: number }) {
   }
   const src = band(sources, totalIn)
   const snk = band(sinks, totalOut)
-  const IN = '#2ee6a6', OUT = '#f5b100'
+  const IN = '#2ee6a6', OUT = '#F2C200'
 
   // links also stacked along the entity bar (left = inflow order, right = outflow)
   let ly = top
@@ -525,7 +525,7 @@ export default function Casinos() {
                                 title="Composite reputation (0–100) — blends casino.guru Safety Index, Trustpilot, casino.org and the complaint record. Distinct from the on-chain trust bar above."
                                 className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold tabular-nums"
                                 style={{
-                                  color: c.reputation >= 70 ? '#2ee6a6' : c.reputation >= 45 ? '#f5b100' : '#ff5c7a',
+                                  color: c.reputation >= 70 ? '#2ee6a6' : c.reputation >= 45 ? '#F2C200' : '#ff5c7a',
                                   background: 'rgba(255,255,255,0.06)',
                                 }}
                               >

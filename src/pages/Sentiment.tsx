@@ -171,7 +171,7 @@ export default function Sentiment() {
                       <td className="px-4 py-3">
                         <div className="flex h-2.5 overflow-hidden rounded-full">
                           <div style={{ width: `${inPct}%`, background: '#2ee6a6' }} />
-                          <div style={{ width: `${100 - inPct}%`, background: '#f5b100' }} />
+                          <div style={{ width: `${100 - inPct}%`, background: '#F2C200' }} />
                         </div>
                         <div className="mt-1 flex justify-between text-[11px] text-white/40">
                           <span className="text-mint-400">in {fmtUsd(s.inflow7d)}</span>

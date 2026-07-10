@@ -89,12 +89,12 @@ export interface ProductConfig {
 export const PRODUCTS: ProductConfig[] = [
   {
     key: 'wcoin',
-    name: 'wcoin.casino',
-    url: 'https://wcoin.casino',
+    name: 'tekeldata.com',
+    url: 'https://tekeldata.com',
     pitch:
-      'wcoin.casino 是面向加密赌场的链上情报/偿付能力分析平台，帮玩家判断某家赌场是否安全、是否有足够储备金、是否还在正常运营。',
+      'tekeldata.com 是面向加密赌场的链上情报/偿付能力分析平台，帮玩家判断某家赌场是否安全、是否有足够储备金、是否还在正常运营。',
     reddit: {
-      brand: ['wcoin.casino', 'wcoin casino'],
+      brand: ['tekeldata.com', 'wcoin casino'],
       competitor: ['casino.guru', 'askgamblers', 'casinoscores'],
       demand: [
         'is this casino safe',
@@ -262,7 +262,7 @@ export const PRODUCTS: ProductConfig[] = [
     url: 'https://wcoingame.com',
     // 自家产品：已上线两年的加密货币「直播体育 + iGaming」平台。slogan 读自官网 2026-06：
     // "Predict, Play, Win the World! Live Sports & iGaming Platform"。受众=加密赌场/体育博彩玩家。
-    // ⚠️ 与 wcoin.casino 区分：wcoin 是面向玩家的"赌场安全/偿付数据工具"；wcoingame 是真正的赌场/博彩
+    // ⚠️ 与 tekeldata.com 区分：wcoin 是面向玩家的"赌场安全/偿付数据工具"；wcoingame 是真正的赌场/博彩
     // 运营方（目标=把玩家引导来玩）。支付定位为用户确认（2026-06）；具体玩法明细可继续按官网细化。
     pitch:
       'wcoingame.com 是已上线两年的加密货币「直播体育 + iGaming」平台（"Predict, Play, Win the World"）：支持几乎所有主流加密货币、充提灵活、稳定币支持业内最全；提供体育博彩 + 在线赌场玩法。核心卖点=加密支付灵活、稳定币选择最多，面向想用加密货币（尤其稳定币）娱乐博彩的玩家。',

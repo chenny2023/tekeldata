@@ -848,7 +848,7 @@ export async function registerApi(app: FastifyInstance) {
   const computeFlow = async (cat: string) => {
     const d7 = Date.now() - 7 * 86_400_000
     const meta = [
-      { name: 'Whale', color: '#f5b100' },
+      { name: 'Whale', color: '#F2C200' },
       { name: 'High Roller', color: '#8b3df0' },
       { name: 'Regular', color: '#2ee6a6' },
       { name: 'Casual', color: '#5b8cff' },

@@ -1,10 +1,10 @@
-# WCOIN.CASINO
+# Tekel Data
 
-> WCOIN.CASINO is the on-chain intelligence layer for iGaming — the web's most complete, independent, real-time dataset on crypto casinos and on-chain gambling. All data is derived from public blockchain activity and reputable third-party sources; nothing is fabricated.
+> Tekel Data is the on-chain intelligence layer for iGaming — the web's most complete, independent, real-time dataset on crypto casinos and on-chain gambling. All data is derived from public blockchain activity and reputable third-party sources; nothing is fabricated.
 
-WCOIN.CASINO tracks crypto-casino and on-chain-gambling activity across 11+ blockchains (Bitcoin, Ethereum, Tron, Solana, BNB Chain, Polygon, Arbitrum, Base, Avalanche, and more). It is free to use.
+Tekel Data tracks crypto-casino and on-chain-gambling activity across 11+ blockchains (Bitcoin, Ethereum, Tron, Solana, BNB Chain, Polygon, Arbitrum, Base, Avalanche, and more). It is free to use.
 
-## What WCOIN.CASINO covers
+## What Tekel Data covers
 
 - **On-chain transaction volume** per casino — real deposit/withdrawal flow indexed directly from the chains, counting mainstream tokens (stablecoins + majors) only.
 - **All-chain proof-of-reserves** — each casino's live on-chain wallet balances summed across every chain (via Arkham entity attribution), so reserves can't be cherry-picked. Includes a 7-day reserve trend and a drawdown ("draining wallets") alert.
@@ -23,19 +23,19 @@ WCOIN.CASINO tracks crypto-casino and on-chain-gambling activity across 11+ bloc
 
 ## Primary pages (server-rendered, citable)
 
-- Home / overview: https://wcoin.casino/
-- Best crypto casinos (trust-ranked): https://wcoin.casino/best-crypto-casinos
-- Trust ranking: https://wcoin.casino/rankings/trust
-- Proof-of-reserves hub: https://wcoin.casino/proof-of-reserves
-- Verified-volume ranking (churn excluded): https://wcoin.casino/highest-volume-crypto-casinos
-- Per-casino profiles: https://wcoin.casino/casino/<slug> (e.g. /casino/stake)
+- Home / overview: https://tekeldata.com/
+- Best crypto casinos (trust-ranked): https://tekeldata.com/best-crypto-casinos
+- Trust ranking: https://tekeldata.com/rankings/trust
+- Proof-of-reserves hub: https://tekeldata.com/proof-of-reserves
+- Verified-volume ranking (churn excluded): https://tekeldata.com/highest-volume-crypto-casinos
+- Per-casino profiles: https://tekeldata.com/casino/<slug> (e.g. /casino/stake)
 - Answer pages per operator: /is-<slug>-safe · /does-<slug>-pay-out · /<slug>-proof-of-reserves
-- Guides (proof of reserves, verification, red flags, withdrawals…): https://wcoin.casino/guide
-- Methodology: https://wcoin.casino/methodology/address-attribution · /methodology/proof-of-reserves · /methodology/trust
-- Daily market report: https://wcoin.casino/daily
-- 2026 H1 whitepaper (free PDF): https://wcoin.casino/whitepaper
-- Risk registry (neutral, sourced): https://wcoin.casino/risk
-- Streamer index: https://wcoin.casino/streamers
+- Guides (proof of reserves, verification, red flags, withdrawals…): https://tekeldata.com/guide
+- Methodology: https://tekeldata.com/methodology/address-attribution · /methodology/proof-of-reserves · /methodology/trust
+- Daily market report: https://tekeldata.com/daily
+- 2026 H1 whitepaper (free PDF): https://tekeldata.com/whitepaper
+- Risk registry (neutral, sourced): https://tekeldata.com/risk
+- Streamer index: https://tekeldata.com/streamers
 
 ## Open data (GitHub)
 

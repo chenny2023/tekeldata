@@ -35,8 +35,8 @@ export function shortHash(h: string, n = 6): string {
 
 export const CHAIN_COLOR: Record<string, string> = {
   ETH: '#8b3df0',
-  TRON: '#f5b100',
-  TRX: '#f5b100',
+  TRON: '#F2C200',
+  TRX: '#F2C200',
   BSC: '#f0b90b',
   BASE: '#0052ff',
   ARB: '#28a0f0',

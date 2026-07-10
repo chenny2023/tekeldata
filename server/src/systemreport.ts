@@ -17,7 +17,7 @@ import { config } from './config.ts'
 
 const TO = process.env.SYSTEM_REPORT_TO || 'chennywang@live.com'
 const SEND_HOUR_UTC = Number(process.env.SYSTEM_REPORT_HOUR_UTC ?? 1) // 01:00 UTC = 09:00 Beijing
-const SITE = 'https://wcoin.casino'
+const SITE = 'https://tekeldata.com'
 const utcDay = (ts = Date.now()) => new Date(ts).toISOString().slice(0, 10)
 const fmtUsd = (n: number) => (n >= 1e9 ? `$${(n / 1e9).toFixed(2)}B` : n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(0)}K` : `$${Math.round(n)}`)
 const fmtNum = (n: number) => (n || 0).toLocaleString('en-US')
@@ -164,7 +164,7 @@ function buildSections(d: Awaited<ReturnType<typeof collect>>): Section[] {
 export function generateSystemReport(sections: Section[], today: string, sitemap: number, transfers: number): { subject: string; html: string; text: string } {
   const overall = sections.reduce((s, sec) => worst(s, sec.status), 'ok' as Status)
   const overallLabel = overall === 'ok' ? '全绿 · 系统正常' : overall === 'warn' ? '有需关注项' : '有故障需处理'
-  const subject = `${DOT[overall]} WCOIN 系统日报 ${today} — ${overallLabel}`
+  const subject = `${DOT[overall]} Tekel Data 系统日报 ${today} — ${overallLabel}`
 
   const secHtml = sections
     .map(
@@ -182,7 +182,7 @@ export function generateSystemReport(sections: Section[], today: string, sitemap
   const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#0b0d12;padding:28px;color:#e8eaf0">
   <div style="max-width:600px;margin:0 auto;background:#11141c;border:1px solid #1e2230;border-radius:16px;overflow:hidden">
     <div style="padding:20px 18px;background:#0e1017;border-bottom:1px solid #1e2230">
-      <div style="font-size:18px;font-weight:700">${DOT[overall]} WCOIN.CASINO 系统日报</div>
+      <div style="font-size:18px;font-weight:700">${DOT[overall]} Tekel Data 系统日报</div>
       <div style="font-size:13px;color:#8a90a2;margin-top:4px">${esc(today)} · ${esc(overallLabel)}</div>
     </div>
     <table style="width:100%;border-collapse:collapse">${secHtml}</table>
@@ -193,7 +193,7 @@ export function generateSystemReport(sections: Section[], today: string, sitemap
   </div>
 </div>`
 
-  const text = `WCOIN 系统日报 ${today} — ${overallLabel}\n\n` + sections.map((s) => `${DOT[s.status]} ${s.title}\n` + s.rows.map(([k, v]) => `  ${k}: ${v}`).join('\n') + (s.note ? `\n  ⚠ ${s.note}` : '')).join('\n\n')
+  const text = `Tekel Data 系统日报 ${today} — ${overallLabel}\n\n` + sections.map((s) => `${DOT[s.status]} ${s.title}\n` + s.rows.map(([k, v]) => `  ${k}: ${v}`).join('\n') + (s.note ? `\n  ⚠ ${s.note}` : '')).join('\n\n')
 
   // remember today's counters so tomorrow can show deltas
   stateSet('sysreport:last:sitemap', sitemap)

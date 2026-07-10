@@ -113,8 +113,8 @@ export default function Overview() {
                       <stop offset="100%" stopColor="#8b3df0" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="wd" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#f5b100" stopOpacity={0.45} />
-                      <stop offset="100%" stopColor="#f5b100" stopOpacity={0} />
+                      <stop offset="0%" stopColor="#F2C200" stopOpacity={0.45} />
+                      <stop offset="100%" stopColor="#F2C200" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid stroke="#ffffff10" vertical={false} />
@@ -122,7 +122,7 @@ export default function Overview() {
                   <YAxis tick={{ fill: '#ffffff40', fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={(v) => fmtUsd(v)} width={56} />
                   <Tooltip content={<ChartTip />} />
                   <Area type="monotone" dataKey="deposits" stroke="#8b3df0" strokeWidth={2} fill="url(#dep)" />
-                  <Area type="monotone" dataKey="withdrawals" stroke="#f5b100" strokeWidth={2} fill="url(#wd)" />
+                  <Area type="monotone" dataKey="withdrawals" stroke="#F2C200" strokeWidth={2} fill="url(#wd)" />
                 </AreaChart>
               </ResponsiveContainer>
             )}

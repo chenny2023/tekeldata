@@ -1,4 +1,4 @@
-# wcoin.casino — open data-media site. Everything public is crawlable.
+# tekeldata.com — open data-media site. Everything public is crawlable.
 # NOTE: if a "Cloudflare Managed content" / "Block AI Scrapers" block appears ABOVE
 # this in the served file, it is injected by Cloudflare and overrides these rules for
 # the bots it lists (GPTBot, ClaudeBot, Google-Extended…). Disable it in the
@@ -37,5 +37,5 @@ Allow: /
 User-agent: CCBot
 Allow: /
 
-Sitemap: https://wcoin.casino/sitemap.xml
-Sitemap: https://wcoin.casino/edanic-sitemap.xml
+Sitemap: https://tekeldata.com/sitemap.xml
+Sitemap: https://tekeldata.com/edanic-sitemap.xml

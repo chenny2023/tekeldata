@@ -376,7 +376,7 @@ function NotableSignals({ signals }: { signals: string[] }) {
 // share to X (web intent — visitor's own account), view methodology.
 function ShareBar({ date }: { date?: string }) {
   const [copied, setCopied] = useState(false)
-  const pageUrl = 'https://wcoin.casino/daily'
+  const pageUrl = 'https://tekeldata.com/daily'
   const imgUrl = `/api/share/daily.png${date ? `?date=${encodeURIComponent(date)}` : ''}`
   const xUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent('Crypto Casino Market — Daily: verified on-chain volume, reserves & whale activity.')}&url=${encodeURIComponent(pageUrl)}`
   const copy = async () => {
@@ -712,7 +712,7 @@ export default function Daily() {
       <footer className="border-t border-white/7 bg-ink-900/40">
         <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-4 px-5 py-8 sm:flex-row">
           <Logo />
-          <p className="text-sm text-white/40">© 2026 WCOIN.CASINO — The Intelligence Layer for iGaming</p>
+          <p className="text-sm text-white/40">© 2026 Tekel Data — The Intelligence Layer for iGaming</p>
           <Link to="/" className="text-sm text-white/50 hover:text-white">
             ← Back home
           </Link>

@@ -15,7 +15,7 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 const CODE_TTL_MS = 10 * 60_000
 const MAX_CODES_PER_WINDOW = 5
 const MAX_VERIFY_ATTEMPTS = 5
-const SITE = 'https://wcoin.casino'
+const SITE = 'https://tekeldata.com'
 
 export function registerSubscribe(app: FastifyInstance) {
   // step 1 — request a confirmation code
@@ -48,7 +48,7 @@ export function registerSubscribe(app: FastifyInstance) {
   // form-friendly subscribe for the server-rendered SEO pages (no JS): a plain
   // <form> POST → branded HTML reply (the SPA still uses the JSON /api/subscribe).
   const htmlPage = (heading: string, msg: string) =>
-    `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${heading} — WCOIN.CASINO</title><body style="background:#0a0a0f;color:#e8e8ee;font:16px/1.6 system-ui,sans-serif;text-align:center;padding:72px 20px"><h1 style="color:#f5b100;font-size:22px">${heading}</h1><p style="color:#aab;max-width:440px;margin:12px auto">${msg}</p><p style="margin-top:24px"><a style="color:#f5b100" href="/">← Back to WCOIN.CASINO</a></p></body>`
+    `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${heading} — Tekel Data</title><body style="background:#0C0C0C;color:#e8e8ee;font:16px/1.6 system-ui,sans-serif;text-align:center;padding:72px 20px"><h1 style="color:#F2C200;font-size:22px">${heading}</h1><p style="color:#aab;max-width:440px;margin:12px auto">${msg}</p><p style="margin-top:24px"><a style="color:#F2C200" href="/">← Back to Tekel Data</a></p></body>`
   app.post('/subscribe', async (req, reply) => {
     const email = String((req.body as { email?: string })?.email ?? '').trim().toLowerCase()
     const send = (h: string, m: string) => reply.type('text/html; charset=utf-8').send(htmlPage(h, m))
@@ -107,20 +107,20 @@ export function registerSubscribe(app: FastifyInstance) {
         .header('content-type', 'text/html; charset=utf-8')
         .header('Cache-Control', 'no-store')
         .send(
-          `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${heading} — WCOIN.CASINO</title>` +
+          `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${heading} — Tekel Data</title>` +
             `<body style="font-family:-apple-system,system-ui,sans-serif;background:#0b0d12;color:#e8eaf0;display:grid;place-items:center;min-height:100vh;margin:0">` +
-            `<div style="text-align:center;padding:24px;max-width:420px"><div style="font-weight:700;color:#f5b100;letter-spacing:.04em">WCOIN.CASINO</div>` +
+            `<div style="text-align:center;padding:24px;max-width:420px"><div style="font-weight:700;color:#F2C200;letter-spacing:.04em">Tekel Data</div>` +
             `<h1 style="font-size:22px;margin:16px 0 6px">${heading}</h1>` +
             `<p style="color:#9aa0b4;line-height:1.6">${msg}</p>` +
-            `<a href="https://wcoin.casino/daily" style="display:inline-block;margin-top:18px;background:#f5b100;color:#0b0d12;font-weight:700;text-decoration:none;padding:11px 18px;border-radius:10px">View today's report →</a></div></body>`,
+            `<a href="https://tekeldata.com/daily" style="display:inline-block;margin-top:18px;background:#F2C200;color:#0b0d12;font-weight:700;text-decoration:none;padding:11px 18px;border-radius:10px">View today's report →</a></div></body>`,
         )
     if (!token) return page('Invalid link', 'This confirmation link is missing its token.')
     const sub = db.prepare('SELECT email FROM email_subscriber WHERE confirm_token=?').get(token) as { email: string } | undefined
-    if (!sub) return page('Link expired or already used', 'This confirmation link is no longer valid. If you still want the WCOIN Daily, just subscribe again at wcoin.casino.')
+    if (!sub) return page('Link expired or already used', 'This confirmation link is no longer valid. If you still want the Tekel Data Daily, just subscribe again at tekeldata.com.')
     const now = Date.now()
     db.prepare("UPDATE email_subscriber SET status='active', verified_at=COALESCE(verified_at,?), confirm_token=NULL, updated_at=? WHERE email=?").run(now, now, sub.email)
     db.prepare('DELETE FROM verification_codes WHERE email=?').run(sub.email) // burn the paired code
-    return page('Subscription confirmed ✓', "You're in — the next WCOIN Daily lands in your inbox tomorrow morning. On-chain flows, reserves and signals, summarised.")
+    return page('Subscription confirmed ✓', "You're in — the next Tekel Data Daily lands in your inbox tomorrow morning. On-chain flows, reserves and signals, summarised.")
   })
 
   // one-click unsubscribe (token in every email; no login; non-enumerable)
@@ -131,11 +131,11 @@ export function registerSubscribe(app: FastifyInstance) {
       .header('content-type', 'text/html; charset=utf-8')
       .header('Cache-Control', 'no-store')
       .send(
-        `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Unsubscribed — WCOIN.CASINO</title>` +
+        `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Unsubscribed — Tekel Data</title>` +
           `<body style="font-family:-apple-system,system-ui,sans-serif;background:#0b0d12;color:#e8eaf0;display:grid;place-items:center;min-height:100vh;margin:0">` +
-          `<div style="text-align:center;padding:24px"><div style="font-weight:700;color:#f5b100;letter-spacing:.04em">WCOIN.CASINO</div>` +
+          `<div style="text-align:center;padding:24px"><div style="font-weight:700;color:#F2C200;letter-spacing:.04em">Tekel Data</div>` +
           `<h1 style="font-size:22px;margin:16px 0 6px">You're unsubscribed</h1>` +
-          `<p style="color:#9aa0b4">You won't receive the WCOIN Daily anymore.<br><a href="https://wcoin.casino" style="color:#f5b100">← Back to WCOIN.CASINO</a></p></div></body>`,
+          `<p style="color:#9aa0b4">You won't receive the Tekel Data Daily anymore.<br><a href="https://tekeldata.com" style="color:#F2C200">← Back to Tekel Data</a></p></div></body>`,
       )
   })
 
