@@ -4,4 +4,5 @@
      server at /sitemap-pages.xml. Submit THIS file to Google Search Console. -->
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <sitemap><loc>https://wcoin.casino/sitemap-pages.xml</loc></sitemap>
+  <sitemap><loc>https://wcoin.casino/edanic-sitemap.xml</loc></sitemap>
 </sitemapindex>
