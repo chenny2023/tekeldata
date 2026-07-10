@@ -1,5 +1,6 @@
 import { db, stateGet, stateSet } from '../db.ts'
 import { webFetch } from '../net.ts'
+import { recordOp } from '../opmetrics.ts'
 import { unlockedFetch } from './unlocker.ts'
 import { brandKey, brandName, matchCasinoMeta } from '../casinometa.ts'
 
@@ -358,6 +359,7 @@ export async function runReviewsOnce() {
       fetchOk = false // transient network/HTTP error — leave it unmarked so it retries
       const cause = (e as { cause?: { message?: string } }).cause?.message
       const why = cause ? `${(e as Error).message}: ${cause}` : (e as Error).message
+      recordOp(/\b403\b/.test(why) ? 'casino.guru.403' : 'casino.guru.error')
       console.warn(`[reviews] ${name}: casino.guru fetch error (${why}), will retry`)
     }
     // only cache a genuine "no rating found" miss; a transient error retries next cycle

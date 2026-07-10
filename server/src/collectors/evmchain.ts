@@ -2,6 +2,7 @@ import { TRANSFER_TOPIC } from '../config.ts'
 import { db, stmt, stateGet, stateSet, WatchRow } from '../db.ts'
 import { emitTransfer } from '../bus.ts'
 import { webFetch } from '../net.ts'
+import { recordOp } from '../opmetrics.ts'
 import { config } from '../config.ts'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -281,7 +282,7 @@ export function makeEvmChain(cfg: EvmChainCfg): EvmChain {
   function start() {
     console.log(`[${cfg.key.toLowerCase()}] ${cfg.name} collector active${cfg.useProxy ? ' (via proxy)' : ''}`)
     const forward = async () => {
-      try { await forwardOnce() } catch (e) { console.warn(`[${cfg.key.toLowerCase()}] forward error:`, (e as Error).message) }
+      try { await forwardOnce() } catch (e) { recordOp(`rpc.forward_error.${cfg.key.toLowerCase()}`); console.warn(`[${cfg.key.toLowerCase()}] forward error:`, (e as Error).message) }
       finally { setTimeout(forward, cfg.pollMs) }
     }
     forward()

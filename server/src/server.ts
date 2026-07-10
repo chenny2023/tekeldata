@@ -17,6 +17,7 @@ import { registerSubscribe } from './subscribe.ts'
 import { registerCasinoAlert, startCasinoAlerts } from './casinoalert.ts'
 import { startRiskEvents } from './riskevents.ts'
 import { startDigest, registerDigest } from './digest.ts'
+import { startSystemReport, registerSystemReport } from './systemreport.ts'
 import { startEvm } from './collectors/evm.ts'
 import { startBackfill } from './collectors/backfill.ts'
 import { startTron } from './collectors/tron.ts'
@@ -116,6 +117,7 @@ async function main() {
   registerSubscribe(app) // email digest subscription (double opt-in)
   registerCasinoAlert(app) // per-casino public reserve-alert subscription (double opt-in)
   registerDigest(app) // admin digest preview + test send
+  registerSystemReport(app) // admin system-report preview + test send (internal ops digest)
   // Phase 2 SEO: stored, server-rendered landing pages + dynamic sitemap. MUST be
   // registered BEFORE fastifyStatic/notFoundHandler so /casino, /rankings, /chains,
   // /methodology and /sitemap.xml are served as real HTML, not the SPA shell.
@@ -268,6 +270,7 @@ async function main() {
   startSnapshots() // 1.0 content layer: daily market snapshot (homepage + email source)
   startDailyInsight() // LLM "Today's Market Read" + Notable Signals for the daily report (QA-gated)
   startDigest() // 1.0 daily email digest scheduler (sends at DIGEST_SEND_HOUR_UTC)
+  startSystemReport() // internal daily system-health report → operator email (01:00 UTC)
   startSeo() // Phase 2: rebuild stored SEO landing pages from the warm aggregate cache
   startBrandStore() // 1.0: materialise the persistent brand layer (history / audit)
   startDirectory() // casino directory crawler (site/X/email vetting for outreach)
