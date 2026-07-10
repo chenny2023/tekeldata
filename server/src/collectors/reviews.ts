@@ -180,7 +180,11 @@ async function fetchSafetyIndex(slug: string): Promise<GuruTrust | null> {
   // error we RETRY, and since webFetch picks a fresh random agent each call the
   // retry rolls onto a different proxy. A 404 (wrong slug) is a real miss → null.
   let lastErr: Error | null = null
-  for (let attempt = 0; attempt < 3; attempt++) {
+  // 5 (not 3) attempts: webFetch rolls a fresh random proxy each call, so a 403 from a
+  // datacenter-flagged IP is retried onto a different one. Extra passes cut the "all
+  // proxies bad" miss rate roughly an order of magnitude; the retry path is rare and
+  // the page is gzipped (~80KB on the wire), so the added cost is negligible.
+  for (let attempt = 0; attempt < 5; attempt++) {
     try {
       const res = await webFetch(`https://casino.guru/${slug}-casino-review`, {
         headers: { 'User-Agent': UA, 'Accept-Encoding': 'gzip, deflate' },

@@ -63,11 +63,24 @@ export const config = {
   // (proxy). NOTE: BEP20 USDT/USDC use 18 decimals (not 6 like ETH/Tron).
   // publicnode caps eth_getLogs at ~2000 blocks; the collector adapts.
   bscEnabled: (env.BSC_ENABLED ?? '1') !== '0',
+  // Keyless public BSC nodes. "[bsc] forward error: limit exceeded" fires only when
+  // the getLogs range is already at RANGE_FLOOR AND every endpoint here rate-limits in
+  // one pass — i.e. a per-provider CU/rate cap, not a range issue (shrinking won't help).
+  // The fix is a WIDER rotation pool so the (proxy-IP × provider) rate budget is spread
+  // across more providers. Binance's dataseed1-4 are the canonical official nodes; the
+  // rest are established keyless aggregators. A dead/slow one is just rotated past.
   bscRpcs: [
     ...(env.BSC_RPC ? [env.BSC_RPC] : []),
     'https://bsc-rpc.publicnode.com',
     'https://1rpc.io/bnb',
     'https://bsc-dataseed.binance.org',
+    'https://bsc-dataseed1.binance.org',
+    'https://bsc-dataseed2.binance.org',
+    'https://bsc-dataseed3.binance.org',
+    'https://bsc-dataseed4.binance.org',
+    'https://binance.llamarpc.com',
+    'https://bsc.meowrpc.com',
+    'https://bsc.drpc.org',
   ],
   bscTokens: [
     { symbol: 'USDT', address: '0x55d398326f99059ff775485246999027b3197955', decimals: 18 },
