@@ -1,7 +1,7 @@
 ---
 edanic_page_id: "ps_142c5dfd5ba1ac"
 edanic_version: 1
-slug: "wcoin-casino-vs-dappradar-vs-l2beat"
+slug: "tekel-data-vs-dappradar-vs-l2beat"
 lang: "en"
 form: "comparison"
 funnel: "MOFU"

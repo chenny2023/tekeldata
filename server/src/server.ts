@@ -128,10 +128,22 @@ async function main() {
   // preserving SEO equity + inbound links. Both domains point at this app; this hook
   // runs FIRST so every legacy URL permanently redirects before any other handler.
   const LEGACY_HOSTS = new Set(['wcoin.casino', 'www.wcoin.casino'])
+  // Legacy wcoin-branded slugs → their tekel-branded replacements (Edanic pages renamed
+  // during the rebrand). Keeps any already-indexed old URLs alive as 301s.
+  const LEGACY_PATHS: Record<string, string> = {
+    '/wcoin-casino-faq': '/tekel-data-faq',
+    '/wcoin-casino-vs-dappradar-vs-l2beat': '/tekel-data-vs-dappradar-vs-l2beat',
+  }
   app.addHook('onRequest', (req, reply, done) => {
     const host = String(req.headers.host || '').toLowerCase()
     if (LEGACY_HOSTS.has(host)) {
       reply.code(301).header('Location', `https://tekeldata.com${req.url}`).header('Cache-Control', 'public, max-age=86400').send()
+      return
+    }
+    const path = req.url.split('?')[0]
+    const moved = LEGACY_PATHS[path]
+    if (moved) {
+      reply.code(301).header('Location', moved).header('Cache-Control', 'public, max-age=86400').send()
       return
     }
     done()

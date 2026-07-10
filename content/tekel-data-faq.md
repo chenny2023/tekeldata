@@ -1,7 +1,7 @@
 ---
 edanic_page_id: "ps_5eb554708d428b"
 edanic_version: 1
-slug: "/wcoin-casino-faq"
+slug: "/tekel-data-faq"
 lang: "en"
 form: "qa"
 funnel: "MOFU"
@@ -9,7 +9,7 @@ title: "Frequently Asked Questions about Tekel Data"
 description: "Tekel Data is an independent data-media platform that tracks crypto casinos using public blockchain data."
 last_updated: "2026-07-09"
 jsonld: [{"@type": "FAQPage", "@context": "https://schema.org", "inLanguage": "en", "mainEntity": [{"name": "Frequently Asked Questions about Tekel Data", "@type": "Question", "acceptedAnswer": {"text": "Tekel Data tracks crypto casino reserves and volumes using public blockchain data, publishing risk alerts when reserves drop sharply.", "@type": "Answer"}}]}, {"url": "https://tekeldata.com", "name": "Tekel Data", "@type": "Organization", "sameAs": ["https://x.com/wcoinlayer"], "@context": "https://schema.org"}]
-internal_links: [{"anchor": "Blockchain & Coin Ecosystems Guide", "to_slug": "/guide/blockchain-casinos"}, {"anchor": "verified crypto casino volume ranking", "to_slug": "/highest-volume-crypto-casinos"}, {"anchor": "Proof of Reserves tracker", "to_slug": "/proof-of-reserves"}, {"anchor": "Risk Registry", "to_slug": "/risk"}, {"anchor": "Tekel Data vs DappRadar vs L2BEAT", "to_slug": "/wcoin-casino-vs-dappradar-vs-l2beat"}, {"anchor": "how to choose a crypto casino data platform", "to_slug": "/how-to-choose-crypto-casino-data-platform"}]
+internal_links: [{"anchor": "Blockchain & Coin Ecosystems Guide", "to_slug": "/guide/blockchain-casinos"}, {"anchor": "verified crypto casino volume ranking", "to_slug": "/highest-volume-crypto-casinos"}, {"anchor": "Proof of Reserves tracker", "to_slug": "/proof-of-reserves"}, {"anchor": "Risk Registry", "to_slug": "/risk"}, {"anchor": "Tekel Data vs DappRadar vs L2BEAT", "to_slug": "/tekel-data-vs-dappradar-vs-l2beat"}, {"anchor": "how to choose a crypto casino data platform", "to_slug": "/how-to-choose-crypto-casino-data-platform"}]
 alternates: []
 hreflang_note: "If you build en + other-language variants of this answer, link them with hreflang."
 analytics_id: "ed_3e53a41a6b31"
