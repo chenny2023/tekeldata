@@ -25,13 +25,13 @@ From a recent sample of 218 public discussions across the broader crypto-gamblin
 
 Most publicly cited "volume" figures for crypto casinos are inflated by internal hot-wallet transfers, double-counting, and treasury-to-market-maker movements. The tool strips those out. It identifies and removes internal hot-wallet churn, eliminates double calculations, and excludes treasury and market-maker fund flows that have nothing to do with real player activity. What remains is a verified-volume ranking that reflects actual deposits and withdrawals.
 
-The high-volume ranking currently includes 30 operators with medium or higher data confidence. You can explore the full list on our [verified crypto casino volume ranking](https://wcoin.casino/highest-volume-crypto-casinos) page.
+The high-volume ranking includes every operator with medium or higher data confidence. You can explore the full, always-current list on our [verified crypto casino volume ranking](https://wcoin.casino/highest-volume-crypto-casinos) page.
 
 ## What is Proof of Reserves and how is it tracked?
 
 Proof of Reserves (PoR) is a cryptographic or on-chain method for a platform to demonstrate it holds enough assets to cover user balances. In crypto gambling, this matters because a casino can look fully operational while quietly being insolvent.
 
-The platform maps and tracks the on-chain wallets of 44 operators, reading their all-chain reserves in real time. The total tracked reserves currently sit at approximately $311.8 million. It displays each operator's reserve coverage so you can see whether holdings are sufficient relative to what players are owed. For the full breakdown, visit the [Proof of Reserves tracker](https://wcoin.casino/proof-of-reserves).
+The platform maps and tracks the on-chain wallets of dozens of operators, reading their all-chain reserves in real time — currently hundreds of millions of dollars in total verified reserves. It displays each operator's reserve coverage so you can see whether holdings are sufficient relative to what players are owed. For the current operator count and reserve total, see the live [Proof of Reserves tracker](https://wcoin.casino/proof-of-reserves).
 
 ## How does the Risk Registry work?
 
@@ -49,7 +49,7 @@ On-chain data refreshes approximately every 30 minutes. This means reserve figur
 
 ## What blockchains and operators does WCOIN.CASINO cover?
 
-The platform tracks 11+ public blockchains and maps wallets for 44 operators in its Proof of Reserves section. Its best-crypto-casinos ranking includes 30 operators, and its trust ranking covers 15 operators, each backed by at least 2 independent data sources. The platform also tracks 90+ prediction market protocols.
+The platform tracks 11+ public blockchains and maps operator wallets in its Proof of Reserves section, ranks operators by verified volume and by a trust score (each backed by at least 2 independent data sources), and also tracks a growing set of prediction-market protocols. The current counts for each are shown live on the [Proof of Reserves](https://wcoin.casino/proof-of-reserves), [volume ranking](https://wcoin.casino/highest-volume-crypto-casinos) and [trust ranking](https://wcoin.casino/rankings/trust) pages.
 
 ---
 

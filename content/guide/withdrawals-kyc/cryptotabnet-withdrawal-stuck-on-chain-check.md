@@ -29,7 +29,7 @@ To understand if a platform like CryptoTabnet can actually pay you, you have to 
 
 ## Using WCOIN.CASINO to Track On-Chain Reserves
 
-This is where independent data platforms come in. WCOIN.CASINO maps and tracks the on-chain wallets of 44 operators across 11+ blockchains, reading their all-chain proof of reserves in real-time. We currently track approximately $311.8M in total reserves, updating the data roughly every 30 minutes. 
+This is where independent data platforms come in. WCOIN.CASINO maps and tracks the on-chain wallets of dozens of operators across 11+ blockchains, reading their all-chain proof of reserves and refreshing roughly every 30 minutes. The current number of tracked operators and total verified reserves is shown live on our [Proof of Reserves](https://wcoin.casino/proof-of-reserves) page. 
 
 If you are dealing with a stalled withdrawal, you can use our [Proof of Reserves](https://wcoin.casino/proof-of-reserves) tracker to see if the operator maintains a healthy coverage ratio. We strip out internal hot wallet churn, double-counting, and treasury funds to show the actual liquidity available for payouts. 
 
