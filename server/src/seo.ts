@@ -1430,7 +1430,7 @@ ${factsBlock}
 }
 
 // ── daily report archive ──────────────────────────────────────────────────────
-function reportPage(snap: any, prev: string | null, next: string | null): { title: string; description: string; html: string } {
+function reportPage(snap: any, prev: string | null, next: string | null, weekLink: string | null): { title: string; description: string; html: string } {
   const date = snap.snapshot_date
   const url = `${SITE}/reports/daily/${date}`
   const p = snap.payload || {}
@@ -1524,7 +1524,7 @@ function reportPage(snap: any, prev: string | null, next: string | null): { titl
 
   const body = `
 <p class="sub">Verified on-chain snapshot of the crypto-casino market for <strong>${esc(date)} (UTC)</strong> — verified flow only; unattributed flow shown separately.</p>
-<p class="upd">Archived daily report · <a href="/reports/weekly/${isoWeek(date).key}">week ${esc(isoWeek(date).key)} summary</a> · <a href="/daily">today's live report</a></p>
+<p class="upd">Archived daily report${weekLink ? ` · <a href="/reports/weekly/${weekLink}">week ${esc(weekLink)} summary</a>` : ''} · <a href="/daily">today's live report</a></p>
 ${pager}
 ${stats}
 ${readT}
@@ -3633,13 +3633,10 @@ export async function generateSeoPages(): Promise<void> {
   }
   await yieldLoop()
   // daily report archive (prev = older, next = newer)
-  snaps.forEach((s, i) => {
-    const next = i > 0 ? snaps[i - 1].snapshot_date : null // newer
-    const prev = i < snaps.length - 1 ? snaps[i + 1].snapshot_date : null // older
-    add(`/reports/daily/${s.snapshot_date}`, 'report', reportPage(s, prev, next))
-  })
   // weekly reports — group daily snapshots by ISO week; one evergreen page per week
-  // with ≥3 covered days (prev/next link only to other generated weeks).
+  // with ≥3 covered days (prev/next link only to other generated weeks). Compute the
+  // eligible-week set first so daily pages only link to a weekly summary that actually
+  // gets generated — otherwise the in-progress (thin) current week is a dangling 404.
   const weeks = new Map<string, any[]>()
   for (const s of snaps) {
     const k = isoWeek(s.snapshot_date).key
@@ -3647,6 +3644,12 @@ export async function generateSeoPages(): Promise<void> {
   }
   const weekKeys = [...weeks.keys()].sort()
   const has = (k: string) => (weeks.get(k)?.length ?? 0) >= 3
+  snaps.forEach((s, i) => {
+    const next = i > 0 ? snaps[i - 1].snapshot_date : null // newer
+    const prev = i < snaps.length - 1 ? snaps[i + 1].snapshot_date : null // older
+    const wk = isoWeek(s.snapshot_date).key
+    add(`/reports/daily/${s.snapshot_date}`, 'report', reportPage(s, prev, next, has(wk) ? wk : null))
+  })
   weekKeys.forEach((key, idx) => {
     if (!has(key)) return
     const days = (weeks.get(key) ?? []).slice().sort((a, b) => (a.snapshot_date < b.snapshot_date ? -1 : 1))
