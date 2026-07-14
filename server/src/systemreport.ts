@@ -255,19 +255,4 @@ export function registerSystemReport(app: FastifyInstance) {
     const ok = await sendSystemReport()
     return reply.send({ ok, to: TO })
   })
-  // TEMP: confirm Resend accepts a send from the current RESEND_FROM (returns the API's
-  // status/body — no login gate; reveals only whether email delivery is configured).
-  app.get('/api/sysreport/mailcheck', async (_req, reply) => {
-    try {
-      const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${config.resendApiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: config.resendFrom, to: [TO], subject: 'Tekel Data — mail delivery check', html: '<p>Delivery check — you can ignore this.</p>', text: 'Delivery check.' }),
-        signal: AbortSignal.timeout(15_000),
-      })
-      return reply.send({ from: config.resendFrom, to: TO, status: res.status, body: (await res.text()).slice(0, 300) })
-    } catch (e) {
-      return reply.send({ from: config.resendFrom, error: (e as Error).message })
-    }
-  })
 }
