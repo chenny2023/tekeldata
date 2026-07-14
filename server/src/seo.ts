@@ -3622,6 +3622,7 @@ function buildSitemap(): string {
   const core = [
     { loc: '/', freq: 'hourly', pr: '1.0' },
     { loc: '/daily', freq: 'hourly', pr: '0.9' },
+    { loc: '/answers', freq: 'weekly', pr: '0.7' }, // Edanic answer/guide hub (edanic-ssr)
   ]
   // only indexable lifecycle states belong in the sitemap; limited_public_noindex /
   // internal_only / archived pages are accessible on-site but excluded from search.

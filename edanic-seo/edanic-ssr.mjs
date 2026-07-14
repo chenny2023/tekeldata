@@ -23,7 +23,33 @@ function renderPage(fm,bodyHtml){const jl=Array.isArray(fm.jsonld)?fm.jsonld:(fm
 const _FOOT='<footer class="ea-foot"><p><strong>Tekel Data</strong> — the transparent data layer for iGaming. We surface verifiable on-chain signals and <strong>never label any operator &quot;safe&quot;, &quot;scam&quot; or &quot;solvent&quot;</strong>; this is observed data, not financial, legal or investment advice. <strong>18+.</strong> Gambling can be addictive — see <a href="/responsible-gambling">responsible gambling resources</a>.</p><p><a href="/">tekeldata.com</a> · <a href="/about">About</a> · <a href="/proof-of-reserves">Proof of reserves</a> · <a href="/methodology/address-attribution">Methodology</a> · <a href="/rankings/trust">Trust ranking</a></p></footer>'
 let _map=null;function _find(pathname){if(!_map){_map=new Map();for(const p of listPages(CONTENT_DIR))_map.set(p.slug,p)}try{const raw=decodeURIComponent(String(pathname||'').split('?')[0]);const p=raw.replace(/\/+$/,'')||'/';return _map.get(p)||null}catch(e){return null}}
 // 框架无关核心:传入路径,命中 Edanic 页 → 返回完整 HTML;否则 null。任何 server 都能用(Fastify/Koa/Hono/raw http)。
-export function edanicHtml(pathname){const hit=_find(pathname);if(!hit)return null;try{const{fm,body}=parseFront(fs.readFileSync(hit.file,'utf8'));return renderPage(fm,mdToHtml(body))}catch(e){return null}}
+// /answers — a native hub that groups + internal-links every delivered content page,
+// so they're not orphan islands (crawl-discoverable already via sitemap, but a hub adds
+// internal-link equity + a human entry point). Built dynamically from the content map.
+const HUB_PATH='/answers'
+function hubHtml(){
+  const pages=listPages(CONTENT_DIR)
+  const cat=(p)=>{const s=p.slug;if(String(p.fm.lang||'en')!=='en')return 'Other languages · 기타 언어'
+    if(s.startsWith('/guide/verification'))return 'Verify it yourself'
+    if(s.startsWith('/guide/trust-evaluation'))return 'Trust & ratings'
+    if(s.startsWith('/guide/'))return 'Guides'
+    if(s.startsWith('/operator/'))return 'Operator analysis'
+    if(s.startsWith('/answers/'))return 'Questions & answers'
+    return 'About Tekel Data'}
+  const order=['Verify it yourself','Trust & ratings','Operator analysis','Guides','Questions & answers','About Tekel Data','Other languages · 기타 언어']
+  const groups={}
+  for(const p of pages){if(p.slug===HUB_PATH)continue;(groups[cat(p)]=groups[cat(p)]||[]).push(p)}
+  const secs=order.filter(k=>groups[k]).map(k=>{
+    const items=groups[k].sort((a,b)=>String(a.fm.title||'').localeCompare(String(b.fm.title||''))).map(p=>'<li><a href="'+esc(p.slug)+'">'+esc(p.fm.title||p.slug)+'</a>'+(p.fm.description?' — <span style="opacity:.65">'+esc(p.fm.description)+'</span>':'')+'</li>').join('')
+    return '<h2>'+esc(k)+'</h2><ul>'+items+'</ul>'}).join('')
+  const fm={title:'Answers & Guides — Tekel Data',description:'Every Tekel Data guide and answer: how to verify a crypto casino on-chain, spot fake volume, read proof of reserves, and evaluate operator trust — built on public, verifiable data.',slug:HUB_PATH,lang:'en'}
+  const body='<p class="sub">Plain-answer guides and analyses built on Tekel Data’s public on-chain data — how to verify a crypto casino yourself, spot wash trading, read proof of reserves, and judge operator trust.</p>'+secs
+  return renderPage(fm,body)
+}
+export function edanicHtml(pathname){
+  const norm=(()=>{try{return decodeURIComponent(String(pathname||'').split('?')[0]).replace(/\/+$/,'')||'/'}catch(e){return ''}})()
+  if(norm===HUB_PATH)return hubHtml()
+  const hit=_find(pathname);if(!hit)return null;try{const{fm,body}=parseFront(fs.readFileSync(hit.file,'utf8'));return renderPage(fm,mdToHtml(body))}catch(e){return null}}
 // Express / Connect:app.use(edanicSSR())
 export function edanicSSR(){return function(req,res,next){if((req.method||'GET')!=='GET')return next();const html=edanicHtml(req.path||req.url||'');if(html==null)return next();res.statusCode=200;res.setHeader('Content-Type','text/html; charset=utf-8');res.end(html)}}
 // Fastify:app.addHook('onRequest', edanicFastifyHook)  —— 加在 root 实例上=全局(插件里加会被封装、不生效)。命中回 HTML 短路,否则放行。
