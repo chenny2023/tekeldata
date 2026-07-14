@@ -735,11 +735,29 @@ function comparePage(a: CasinoView, b: CasinoView, slugA: string, slugB: string)
       ? `On our recommended metric — a blend of independent third-party trust ratings — <strong>${esc(bta.score > btb.score ? a.name : b.name)}</strong> currently scores higher (${Math.max(bta.score, btb.score)} vs ${Math.min(bta.score, btb.score)} / 100). On-chain volume differences are shown for context only and are <em>not</em> a quality signal — volume is easily inflated by wash trading.`
       : `Both operators are compared on independent third-party trust ratings (our recommended metric) and observed on-chain activity. On-chain volume is shown for context only — it is easily inflated and is not a quality signal.`
 
+  // answer-first FAQ so comparison queries ("is X or Y more trustworthy") get an
+  // extractable answer; derived from live trust data, no hardcoded volatile numbers.
+  const trustAns =
+    bta && btb && bta.score !== btb.score
+      ? `On Tekel Data's recommended metric — a blend of independent third-party trust ratings (casino.guru, Trustpilot, AskGamblers) — ${esc(bta.score > btb.score ? a.name : b.name)} currently scores higher (${Math.max(bta.score, btb.score)} vs ${Math.min(bta.score, btb.score)} out of 100). Both are compared on the same public signals, and the figures update continuously — see the live table on this page.`
+      : `Tekel Data compares ${esc(a.name)} and ${esc(b.name)} on independent third-party trust ratings and observed on-chain activity rather than declaring a winner. Trust scores are close or not both available; check the live table for the current figures.`
+  const faqs: { q: string; a: string }[] = [
+    { q: `Is ${a.name} or ${b.name} more trustworthy?`, a: trustAns },
+    {
+      q: `Should I compare ${a.name} and ${b.name} by volume?`,
+      a: `No. On-chain volume is easily inflated by wash trading, so Tekel Data never treats it as a quality signal — it is shown for context only, and any operator whose volume shows a wash/treasury pattern is held "under review" and not rendered as a comparable figure. Compare on independent trust and verifiable on-chain reserves instead.`,
+    },
+    {
+      q: `How does Tekel Data compare ${a.name} vs ${b.name}?`,
+      a: `Both operators are placed side by side on the same public, verifiable signals: a 0–100 blended trust score (casino.guru + Trustpilot + AskGamblers), observed on-chain reserves summed across every mapped chain, and churn-excluded activity. Everything is measured from public data and updates roughly every 30 minutes.`,
+    },
+  ]
   const body =
     `<p class="sub">A neutral, data-led comparison of <strong>${esc(a.name)}</strong> and <strong>${esc(b.name)}</strong> — independent trust ratings, observed on-chain volume and mapped reserves, side by side.</p>` +
     `<p class="upd">Updated continuously from indexed on-chain data and third-party ratings.</p>` +
     `<table><thead><tr><th>Metric</th><th style="text-align:right">${esc(a.name)}</th><th style="text-align:right">${esc(b.name)}</th></tr></thead><tbody>${rows}</tbody></table>` +
     `<p class="prose" style="margin-top:14px">${verdict}</p>` +
+    `<h2>FAQ</h2>${faqs.map((f) => `<div class="prose"><strong>${esc(f.q)}</strong><br>${f.a}</div>`).join('')}` +
     `<h2>Full profiles</h2><div class="chips"><a class="pill" href="/casino/${slugA}">${esc(a.name)} data →</a><a class="pill" href="/casino/${slugB}">${esc(b.name)} data →</a></div>` +
     `<p class="prose" style="margin-top:18px">See the full <a href="/rankings/trust">trust ranking</a> (our recommended ordering — not volume), or how the blended score is built in <a href="/methodology/trust">the methodology</a>.</p>`
 
@@ -750,7 +768,7 @@ function comparePage(a: CasinoView, b: CasinoView, slugA: string, slugB: string)
       title,
       description,
       canonical: url,
-      jsonLd: [],
+      jsonLd: [{ '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faqs.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a.replace(/<[^>]+>/g, '') } })) }],
       breadcrumb: [
         { name: 'Home', url: SITE + '/' },
         { name: 'Rankings', url: SITE + '/rankings' },
@@ -795,12 +813,24 @@ function alternativesPage(
   const selfLine = bt
     ? `For reference, ${esc(target.name)} currently carries a blended trust score of <strong>${bt.score}/100</strong>${oc && oc.reserves > 0 ? ` with ${fmtUsd(oc.reserves)} in mapped on-chain reserves` : ''}. The operators below are ranked the same way.`
     : `The operators below are ranked by the same independent blended-trust metric we apply everywhere.`
+  const topAlt = alts[0]
+  const faqs: { q: string; a: string }[] = [
+    {
+      q: `What are the best alternatives to ${target.name}?`,
+      a: `${topAlt ? `${esc(topAlt.v.name)} is currently the highest-trust alternative that settles on a chain ${esc(target.name)} also uses` : `Tekel Data lists ${alts.length} alternatives that settle on the same chains as ${esc(target.name)}`}, ranked by independent blended trust (casino.guru + Trustpilot + AskGamblers) and verifiable on-chain reserves — not by affiliate commission. The live table on this page shows the current order, updated roughly every 30 minutes.`,
+    },
+    {
+      q: `How are ${target.name} alternatives ranked?`,
+      a: `By the same independent blended-trust metric Tekel Data applies everywhere — a blend of third-party trust ratings — restricted to operators with attributed on-chain activity on a chain ${esc(target.name)} also uses. On-chain volume is deliberately excluded because it is easily wash-traded. Every reserve figure is a wallet balance verifiable on a block explorer.`,
+    },
+  ]
   const body =
     `<p class="sub">Reasonable alternatives to <strong>${esc(target.name)}</strong> — crypto casinos that settle on the <strong>same blockchains</strong>, ranked by <a href="/methodology/trust">independent blended trust</a> and verifiable on-chain reserves, <em>not</em> by who pays the biggest affiliate commission.</p>` +
     `<p class="upd">${selfLine} Updated continuously from indexed on-chain data and third-party ratings.</p>` +
     `<table><thead><tr><th>Operator</th><th style="text-align:right">Trust /100</th><th style="text-align:right">Mapped reserves</th><th>Shared chains</th><th>vs ${esc(target.name)}</th></tr></thead><tbody>${rows}</tbody></table>` +
     `<h2>How this list is built</h2><div class="prose"><p>We start from every operator with <a href="/methodology/address-attribution">attributed on-chain activity</a> on a chain ${esc(target.name)} also uses, then rank by a blend of independent third-party trust ratings — the same metric behind our <a href="/rankings/trust">trust ranking</a>. On-chain volume is deliberately excluded because it is <a href="/guide/wash-trading-in-crypto-casinos-explained">easily wash-traded</a>. Every reserve figure is a wallet balance you can verify yourself on a block explorer.</p></div>` +
     `<h2>Before you switch</h2><div class="prose"><p>Check the alternative's <a href="/proof-of-reserves">proof of reserves</a> and read <a href="/guide/how-to-spot-a-crypto-casino-that-wont-pay">how to spot a casino that won't pay</a>. A higher trust score is a starting signal, not a guarantee — verify solvency and terms before depositing. <strong>18+ only.</strong> See <a href="/responsible-gambling">responsible gambling resources</a>.</p></div>` +
+    `<h2>FAQ</h2>${faqs.map((f) => `<div class="prose"><strong>${esc(f.q)}</strong><br>${f.a}</div>`).join('')}` +
     `<h2>Explore</h2><div class="chips"><a class="pill" href="/casino/${targetSlug}">${esc(target.name)} full data →</a><a class="pill" href="/rankings/trust">Trust ranking</a><a class="pill" href="/best-crypto-casinos">Best crypto casinos</a></div>`
   const upd = Date.now()
   return {
@@ -810,7 +840,7 @@ function alternativesPage(
       title,
       description,
       canonical: url,
-      jsonLd: [],
+      jsonLd: [{ '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faqs.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a.replace(/<[^>]+>/g, '') } })) }],
       breadcrumb: [
         { name: 'Home', url: SITE + '/' },
         { name: 'Rankings', url: SITE + '/rankings' },
