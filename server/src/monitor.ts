@@ -21,20 +21,50 @@ const LAG_WARN_MS = Number(process.env.MONITOR_LAG_WARN_MS ?? 5_000) // event-lo
 const VOLUME_LIMIT_GB = Number(process.env.VOLUME_LIMIT_GB ?? 10)
 const volumeDir = dirname(config.dbPath)
 
-async function volumeUsedBytes(): Promise<number> {
+// Recursive size of a path (file or directory). Directories only report their own
+// inode size from stat(), so a shallow readdir+stat MISSES everything inside a
+// subdirectory — e.g. litestream's `.wcoin.db-litestream/` shadow WAL. That blind
+// spot let the volume fill to ~100GB while the monitor reported ~10GB (the top-level
+// .db + .db-wal + .db-shm only). Walk into directories so the number is the truth.
+async function pathSizeBytes(p: string): Promise<number> {
+  let st
+  try {
+    st = await stat(p)
+  } catch {
+    return 0 // vanished mid-checkpoint
+  }
+  if (!st.isDirectory()) return st.size
+  let total = 0
+  let entries: string[] = []
+  try {
+    entries = await readdir(p)
+  } catch {
+    return total
+  }
+  for (const e of entries) total += await pathSizeBytes(join(p, e))
+  return total
+}
+
+// True recursive volume usage plus a per-top-level-entry breakdown (descending),
+// so the monitor log shows exactly what is eating the disk.
+export async function volumeUsage(): Promise<{ total: number; breakdown: { name: string; bytes: number }[] }> {
+  const breakdown: { name: string; bytes: number }[] = []
   let total = 0
   try {
     for (const f of await readdir(volumeDir)) {
-      try {
-        total += (await stat(join(volumeDir, f))).size
-      } catch {
-        /* file may vanish mid-checkpoint */
-      }
+      const bytes = await pathSizeBytes(join(volumeDir, f))
+      total += bytes
+      breakdown.push({ name: f, bytes })
     }
   } catch {
     /* dir not ready */
   }
-  return total
+  breakdown.sort((a, b) => b.bytes - a.bytes)
+  return { total, breakdown }
+}
+
+async function volumeUsedBytes(): Promise<number> {
+  return (await volumeUsage()).total
 }
 
 type Level = 'info' | 'warn' | 'crit'
@@ -78,16 +108,22 @@ function startLagSampler() {
   }, 1_000).unref?.()
 }
 
+// format bytes compactly for the breakdown line
+const gb = (b: number) => (b / 1e9).toFixed(2) + 'GB'
+
 async function check() {
   try {
-    const usedB = await volumeUsedBytes()
+    const { total: usedB, breakdown } = await volumeUsage()
     const usedGB = +(usedB / 1e9).toFixed(2)
     const usedPct = VOLUME_LIMIT_GB > 0 ? (usedGB / VOLUME_LIMIT_GB) * 100 : 0
     const tx = (db.prepare('SELECT MAX(id) n FROM transfers').get() as any).n ?? 0
-    const s = { volPct: +usedPct.toFixed(1), usedGB, limitGB: VOLUME_LIMIT_GB, tx }
-    if (usedPct >= DISK_CRIT) await notify('crit', 'disk', `volume ${s.volPct}% (${usedGB}/${VOLUME_LIMIT_GB}GB) — write failures imminent, prune or resize NOW`, s)
-    else if (usedPct >= DISK_WARN) await notify('warn', 'disk', `volume ${s.volPct}% (${usedGB}/${VOLUME_LIMIT_GB}GB)`, s)
-    else console.log(`[monitor:info] ok volume=${s.volPct}% (${usedGB}/${VOLUME_LIMIT_GB}GB) tx=${tx}`)
+    // top entries by size — reveals whether it's the .db, the WAL, or a subdir
+    // (e.g. litestream's shadow dir) that is actually consuming the volume.
+    const top = breakdown.slice(0, 6).map((e) => `${e.name}=${gb(e.bytes)}`).join(' ')
+    const s = { volPct: +usedPct.toFixed(1), usedGB, limitGB: VOLUME_LIMIT_GB, tx, top: breakdown.slice(0, 6) }
+    if (usedPct >= DISK_CRIT) await notify('crit', 'disk', `volume ${s.volPct}% (${usedGB}/${VOLUME_LIMIT_GB}GB) — write failures imminent, prune or resize NOW · ${top}`, s)
+    else if (usedPct >= DISK_WARN) await notify('warn', 'disk', `volume ${s.volPct}% (${usedGB}/${VOLUME_LIMIT_GB}GB) · ${top}`, s)
+    else console.log(`[monitor:info] ok volume=${s.volPct}% (${usedGB}/${VOLUME_LIMIT_GB}GB) tx=${tx} · ${top}`)
   } catch (e) {
     console.warn('[monitor] check failed:', (e as Error).message)
   }

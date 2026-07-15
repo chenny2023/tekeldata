@@ -3,6 +3,7 @@ import { db, stmt, stateGet, stateSet, externalFlowClause, attributedClause, INF
 import { bus, TransferEvent } from './bus.ts'
 import { aggregateEntities, aggregateBrands, maintainedPlayers, isUnattributed } from './aggregate.ts'
 import { runDataQualityChecks, lastDataQuality } from './dataquality.ts'
+import { volumeUsage } from './monitor.ts'
 import { brandHistory } from './brandstore.ts'
 import { renderDailyShareCard } from './content/card.ts'
 import { reserveSeries } from './reservehistory.ts'
@@ -1165,6 +1166,19 @@ export async function registerApi(app: FastifyInstance) {
     if (!data) return { at: 0, results: [], note: 'no run yet — append ?run=1 to force' }
     const fails = data.results.filter((d) => d.status !== 'pass').length
     return { ...data, summary: `${data.results.length - fails}/${data.results.length} passed`, ok: fails === 0 }
+  })
+
+  // diag: true recursive volume usage + per-entry breakdown. Reveals what is
+  // actually consuming the Railway volume (the monitor's old shallow count missed
+  // subdirectories like litestream's shadow WAL). Admin-gated — exposes file names.
+  app.get('/api/diag/volume', async (req, reply) => {
+    if (!requireAdmin(req, reply)) return
+    const { total, breakdown } = await volumeUsage()
+    const GB = (b: number) => +(b / 1e9).toFixed(3)
+    return {
+      totalGB: GB(total),
+      entries: breakdown.map((e) => ({ name: e.name, gb: GB(e.bytes), pct: total ? +((e.bytes / total) * 100).toFixed(1) : 0 })),
+    }
   })
 
   // diag: aggregated Arkham per-chain casino volume (the BTC/Tron attribution layer).
