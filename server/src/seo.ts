@@ -598,7 +598,7 @@ function casinoPage(
 // issues one) + an as-of date + the verifiable basis, then the relevant on-chain data
 // and a FAQ using the exact phrasings players search. Distinct from the full /casino
 // profile (focused on one question), which they link to.
-type AnswerType = 'is_safe' | 'does_pay' | 'proof_of_reserves'
+type AnswerType = 'is_safe' | 'does_pay' | 'proof_of_reserves' | 'solvent'
 function entityAnswerPage(v: CasinoView, slug: string, type: AnswerType, asOf: string, casinoSlug: string): { title: string; description: string; html: string } {
   const url = `${SITE}/${slug}`
   const oc = v.onchain
@@ -646,6 +646,32 @@ function entityAnswerPage(v: CasinoView, slug: string, type: AnswerType, asOf: s
       { q: `Why is my ${v.name} withdrawal slow or not paying?`, a: `Delays are often network confirmations, a wrong-network send, or a missing memo rather than refusal to pay — see our <a href="/guide/crypto-casino-deposit-not-showing">troubleshooting guide</a>. If the on-chain transaction is confirmed to the right address and still not credited, contact support with the transaction hash. Persistent unexplained non-payment across users is a red flag.` },
       { q: `How fast does ${v.name} pay withdrawals?`, a: `Speed depends on the network and the operator's processing. On-chain settlement itself is seconds-to-minutes (USDT-TRC20, Solana) once released; the operator's internal review is the variable. We track net flow and reserves, not individual payout times — the full profile shows ${v.name}'s observed flow.` },
     ]
+  } else if (type === 'solvent') {
+    // per-brand version of the reserve-drawdown story: is this operator's on-chain
+    // reserve balance rising or falling right now? Neutral — a signal, never a verdict.
+    const prior = oc && oc.reserves > 0 ? priorReserves(v.name, 7) : null
+    const deltaPct = prior && prior.reserves > 0 ? ((oc!.reserves - prior.reserves) / prior.reserves) * 100 : null
+    const trendPhrase =
+      deltaPct != null && prior
+        ? `its mapped reserves are ${deltaPct >= 0 ? 'up' : 'down'} ${Math.abs(deltaPct).toFixed(1)}% over the last 7 days (${fmtUsd(prior.reserves)} → ${fmtUsd(oc!.reserves)})`
+        : oc && oc.reserves > 0
+          ? `we don't yet have enough reserve history to show a 7-day trend`
+          : `we don't yet map verifiable on-chain reserves for it`
+    h1 = `Is ${v.name} solvent right now? On-chain reserve data (${asOf})`
+    title = `Is ${v.name} Solvent Right Now? On-Chain Reserve Trend (${YEAR}) | Tekel Data`
+    description = `Is ${v.name} solvent right now? The verifiable on-chain data as of ${asOf}: ${reservesPhrase}, ${trendPhrase}, and ${flowPhrase}. A reserve-balance signal you can check yourself — not a solvency verdict.`
+    answer =
+      oc && oc.reserves > 0
+        ? `<p class="prose"><strong>The verifiable data (as of ${asOf}):</strong> ${v.name} holds ${reservesPhrase}, and ${trendPhrase}. On-chain it shows ${flowPhrase}${covRatio ? `, with ${covRatio}` : ''}. A rising or stable reserve that comfortably covers withdrawals is a positive signal; a sharp, sustained drop is one to watch. But reserves show <em>assets, not liabilities</em>, so this can't prove solvency on its own — treat it as a checkable signal, not a verdict.</p>`
+        : `<p class="prose"><strong>As of ${asOf}:</strong> Tekel Data does not yet map verifiable on-chain reserves for ${v.name}, so we can't show a reserve-balance trend. That is <em>not</em> evidence of insolvency — it usually means we haven't attributed enough of its wallets yet. ${trustPhrase.charAt(0).toUpperCase() + trustPhrase.slice(1)} is available in the meantime.</p>`
+    body2 =
+      `<h2>What "solvent" can and can't be shown on-chain</h2><p class="prose">On-chain data shows an operator's <strong>reserve assets</strong> and how they're trending — it cannot see the operator's <strong>liabilities</strong> (what it owes players), so no on-chain figure proves solvency outright. What it <em>can</em> do is flag the direction of travel: reserves steadily draining while withdrawals pile up is the pattern worth worrying about. That's why we show the reserve <strong>trend</strong> alongside net flow and coverage, and never print a "solvent/insolvent" label. See the industry-wide <a href="/data/crypto-casino-reserve-drawdown">reserve-drawdown data</a> for how ${esc(v.name)} compares.</p>` +
+      `<h2>Check ${esc(v.name)} yourself</h2><p class="prose">Every figure here is a wallet balance you can open on a public block explorer. The <a href="/casino/${casinoSlug}">full ${esc(v.name)} profile</a> shows the reserve trend chart and per-chain breakdown; <a href="/guide/how-to-verify-a-crypto-casino">how to verify a casino on-chain</a> walks through reading the wallets, and <a href="/methodology/proof-of-reserves">our methodology</a> explains exactly how reserves are measured.</p>`
+    faqs = [
+      { q: `Is ${v.name} solvent right now?`, a: `Tekel Data does not issue solvency verdicts. As of ${asOf}, the verifiable on-chain signals for ${v.name} are: ${reservesPhrase}, ${trendPhrase}, and ${flowPhrase}. Reserves show assets, not liabilities, so they can't prove solvency alone — use the trend and coverage as checkable signals and decide for yourself.` },
+      { q: `Are ${v.name}'s reserves going up or down?`, a: deltaPct != null && prior ? `As of ${asOf}, ${v.name}'s mapped on-chain reserves are ${deltaPct >= 0 ? 'up' : 'down'} ${Math.abs(deltaPct).toFixed(1)}% over the last 7 days (${fmtUsd(prior.reserves)} → ${fmtUsd(oc!.reserves)}). This is the actual wallet-balance change, read from public blockchains and updated continuously.` : `Tekel Data ${oc && oc.reserves > 0 ? `maps ${reservesPhrase} for ${v.name} but doesn't yet have enough history to show a reliable 7-day trend` : `does not yet map verifiable on-chain reserves for ${v.name}`}. The trend appears here as coverage and history expand.` },
+      { q: `Is ${v.name} running out of money?`, a: `We don't make that claim. ${deltaPct != null && deltaPct < 0 ? `${v.name}'s mapped reserves did fall ${Math.abs(deltaPct).toFixed(1)}% in the last 7 days, which is worth watching — but a drop can also mean it's honouring withdrawals or moving funds to a wallet we haven't mapped, not that it's out of money.` : `${v.name}'s mapped reserves are ${deltaPct != null ? `up ${deltaPct.toFixed(1)}% over the last 7 days` : 'shown above'}.`} Cross-read the <a href="/data/crypto-casino-net-flow">net-flow report</a> and unresolved-complaint trend before drawing conclusions.` },
+    ]
   } else {
     h1 = `${v.name} proof of reserves & solvency (${asOf})`
     title = `${v.name} Proof of Reserves & Solvency — On-Chain (${YEAR}) | Tekel Data`
@@ -664,7 +690,10 @@ function entityAnswerPage(v: CasinoView, slug: string, type: AnswerType, asOf: s
   }
 
   const faqHtml = `<h2>Frequently asked questions</h2>${faqs.map((f) => `<div style="margin:10px 0"><p style="font-weight:600;margin:0 0 2px">${esc(f.q)}</p><p class="prose" style="margin:0;font-size:14px">${f.a}</p></div>`).join('')}`
-  const guideLinks = `<div class="chips" style="margin-top:18px"><a class="pill" href="/casino/${casinoSlug}">Full ${esc(v.name)} profile</a><a class="pill" href="/rankings/trust">Trust ranking</a><a class="pill" href="/proof-of-reserves">Proof of reserves</a><a class="pill" href="/guide/how-to-verify-a-crypto-casino">Verify on-chain</a></div>`
+  // cross-link the sibling answer pages for this operator; the solvent page only exists
+  // when reserves are mapped, so only surface that chip then (and not on itself).
+  const solventChip = oc && oc.reserves > 0 && type !== 'solvent' ? `<a class="pill" href="/is-${casinoSlug}-solvent">Is ${esc(v.name)} solvent?</a>` : ''
+  const guideLinks = `<div class="chips" style="margin-top:18px"><a class="pill" href="/casino/${casinoSlug}">Full ${esc(v.name)} profile</a>${solventChip}<a class="pill" href="/rankings/trust">Trust ranking</a><a class="pill" href="/proof-of-reserves">Proof of reserves</a><a class="pill" href="/guide/how-to-verify-a-crypto-casino">Verify on-chain</a></div>`
   const body = `<p class="upd">As of ${asOf} · data confidence: ${conf} · independently verifiable</p>${answer}${disclaimer}${dataTiles}${body2}${faqHtml}${guideLinks}`
 
   const jsonLd: object[] = [
@@ -2609,6 +2638,9 @@ export async function generateSeoPages(): Promise<void> {
     add(`/is-${slug}-safe`, 'casino', entityAnswerPage(v, `is-${slug}-safe`, 'is_safe', asOf, slug), lc)
     add(`/does-${slug}-pay-out`, 'casino', entityAnswerPage(v, `does-${slug}-pay-out`, 'does_pay', asOf, slug), lc)
     add(`/${slug}-proof-of-reserves`, 'casino', entityAnswerPage(v, `${slug}-proof-of-reserves`, 'proof_of_reserves', asOf, slug), lc)
+    // "is-X-solvent" — only for operators with mapped reserves, else it just repeats the
+    // proof-of-reserves "not mapped yet" page. High-intent ("is X running out of money").
+    if ((v.onchain?.reserves ?? 0) > 0) add(`/is-${slug}-solvent`, 'casino', entityAnswerPage(v, `is-${slug}-solvent`, 'solvent', asOf, slug), lc)
   }
   // curated brands first (hand-picked keyword slugs)
   for (const e of ENTITY_REVIEW) {

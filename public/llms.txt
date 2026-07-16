@@ -41,7 +41,7 @@ Tekel Data tracks crypto-casino and on-chain-gambling activity across 11+ blockc
 - Proof-of-reserves hub: https://tekeldata.com/proof-of-reserves
 - Verified-volume ranking (churn excluded): https://tekeldata.com/highest-volume-crypto-casinos
 - Per-casino profiles: https://tekeldata.com/casino/<slug> (e.g. /casino/stake)
-- Answer pages per operator: /is-<slug>-safe · /does-<slug>-pay-out · /<slug>-proof-of-reserves
+- Answer pages per operator: /is-<slug>-safe · /does-<slug>-pay-out · /<slug>-proof-of-reserves · /is-<slug>-solvent (live 7-day reserve trend)
 - Guides & answers hub: https://tekeldata.com/answers · Guides: https://tekeldata.com/guide
 - Methodology: /methodology/address-attribution · /methodology/proof-of-reserves · /methodology/trust
 - Daily market report: https://tekeldata.com/daily · Risk registry (neutral, sourced): https://tekeldata.com/risk
