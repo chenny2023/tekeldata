@@ -2299,6 +2299,97 @@ function fakeVolumeDataPage(brands: BrandAgg[]): { title: string; description: s
   }
 }
 
+// Industry-trend story — the macro "state of on-chain crypto gambling": is the
+// industry growing or shrinking? Built from the daily_market_snapshot time-series
+// (verified, wash/treasury-excluded). Distinct from /daily (single-day archive) — this
+// shows direction over weeks. Highly citable ("how big is the crypto casino industry").
+function industryTrendPage(): { title: string; description: string; html: string } | null {
+  const path = '/data/crypto-casino-industry-trends'
+  const url = SITE + path
+  const rows = db
+    .prepare('SELECT snapshot_date, tracked_volume_24h, reserves_total, active_casinos, active_chains, net_flow_24h FROM daily_market_snapshot ORDER BY snapshot_date DESC LIMIT 90')
+    .all() as { snapshot_date: string; tracked_volume_24h: number; reserves_total: number; active_casinos: number; active_chains: number; net_flow_24h: number }[]
+  if (rows.length < 14) return null // need ≥2 weeks of history for a trend
+  const chrono = rows.slice().reverse() // oldest → newest
+  const latest = chrono[chrono.length - 1]
+  const ago = (n: number) => chrono[Math.max(0, chrono.length - 1 - n)]
+  const spanDays = chrono.length - 1
+  const pct = (now: number, then: number) => (then > 0 ? ((now - then) / then) * 100 : null)
+  const deltaCell = (now: number, then: number) => {
+    const p = pct(now, then)
+    if (p == null) return '<span style="color:var(--dim)">—</span>'
+    const cls = p >= 0 ? 'mint' : 'rose'
+    return `<span class="${cls}">${p >= 0 ? '+' : '−'}${Math.abs(p).toFixed(1)}%</span>`
+  }
+  const d7 = ago(7)
+  const d30 = ago(Math.min(30, spanDays))
+  const win = Math.min(30, spanDays)
+  // headline tiles with 7d/30d deltas
+  const tiles =
+    `<div class="grid">` +
+    stat('Verified 24h volume', fmtUsd(latest.tracked_volume_24h ?? 0), 'gold') +
+    stat('Tracked reserves', fmtUsd(latest.reserves_total ?? 0), 'mint') +
+    stat('Active operators', fmtNum(latest.active_casinos ?? 0)) +
+    stat('Active chains', String(latest.active_chains ?? 0)) +
+    `</div>`
+  // sparklines for the three headline series (oldest→newest)
+  const sparkRow = (label: string, series: number[], now: string) =>
+    `<tr><td>${esc(label)}</td><td class="n">${now}</td><td>${sparkline(series)}</td><td class="n">${deltaCell(series[series.length - 1], series[Math.max(0, series.length - 1 - 7)])}</td><td class="n">${deltaCell(series[series.length - 1], series[0])}</td></tr>`
+  const volSeries = chrono.map((r) => r.tracked_volume_24h ?? 0)
+  const resSeries = chrono.map((r) => r.reserves_total ?? 0)
+  const opsSeries = chrono.map((r) => r.active_casinos ?? 0)
+  const trendTable =
+    `<table><thead><tr><th>Metric (on-chain, verified)</th><th style="text-align:right">Now</th><th>Trend (${spanDays}d)</th><th style="text-align:right">7d</th><th style="text-align:right">${win}d</th></tr></thead><tbody>` +
+    sparkRow('24h verified volume', volSeries, fmtUsd(latest.tracked_volume_24h ?? 0)) +
+    sparkRow('Tracked reserves', resSeries, fmtUsd(latest.reserves_total ?? 0)) +
+    sparkRow('Active operators', opsSeries, fmtNum(latest.active_casinos ?? 0)) +
+    `</tbody></table>`
+  const resDir = pct(latest.reserves_total ?? 0, d30.reserves_total ?? 0)
+  const opsDir = (latest.active_casinos ?? 0) - (d30.active_casinos ?? 0)
+  const title = `Crypto Casino Industry On-Chain Trends ${YEAR} — Volume, Reserves & Growth | Tekel Data`
+  const description = `Is the crypto-casino industry growing or shrinking? Tracked on-chain: ${fmtUsd(latest.reserves_total ?? 0)} in operator reserves across ${latest.active_casinos ?? 0} active operators as of ${latest.snapshot_date}, with ${win}-day trend. Verified, wash/treasury-excluded, independently checkable.`
+  const faqs: { q: string; a: string }[] = [
+    {
+      q: 'How big is the crypto casino industry on-chain?',
+      a: `As of ${latest.snapshot_date}, Tekel Data tracks ${fmtUsd(latest.reserves_total ?? 0)} in mapped on-chain reserves across ${latest.active_casinos ?? 0} active crypto-casino operators on ${latest.active_chains ?? 0} chains, with ${fmtUsd(latest.tracked_volume_24h ?? 0)} in verified 24-hour volume. These are wash/treasury-excluded on-chain figures — a floor on real activity, not the inflated "volume" operators advertise — and every number is verifiable on public blockchains.`,
+    },
+    {
+      q: 'Is crypto gambling growing or shrinking?',
+      a: `Over the last ${win} days, mapped on-chain reserves across tracked operators are ${resDir == null ? 'roughly flat' : `${resDir >= 0 ? 'up' : 'down'} ${Math.abs(resDir).toFixed(1)}%`} and the count of active operators ${opsDir === 0 ? 'is unchanged' : `${opsDir > 0 ? 'rose' : 'fell'} by ${Math.abs(opsDir)}`}. Tekel Data reports the direction as observed on-chain and updates it continuously; see the live trend table on this page for the current figures.`,
+    },
+    {
+      q: 'How many active crypto casinos are there?',
+      a: `Tekel Data currently tracks ${latest.active_casinos ?? 0} active crypto-casino operators with attributed on-chain activity as of ${latest.snapshot_date}. This counts operators with verifiable on-chain wallets we've mapped — the true number of live brands is larger, since attribution is deliberately conservative.`,
+    },
+  ]
+  const body =
+    `<p class="sub">Is on-chain crypto gambling growing or shrinking? We snapshot the whole tracked market daily — verified volume, mapped reserves and active operators — and show the direction. Every figure excludes wash and treasury churn, so it's a floor on real activity, not the inflated numbers operators advertise.</p>` +
+    `<p class="upd">As of ${esc(latest.snapshot_date)} · ${spanDays} days of history · verified on-chain data, refreshed daily.</p>` +
+    tiles +
+    `<h2>${win}-day trend</h2>${trendTable}` +
+    `<h2>How to read this</h2><div class="prose"><p>These are <strong>verified</strong> on-chain figures — internal churn, double-counts and wash/treasury volume removed — so they run lower than headline "industry" numbers but reflect money players actually move. Reserves and active-operator counts are the most stable signals; single-day volume is noisier, so read its trend line rather than any one day. Coverage expands as we attribute more wallets, which can lift the operator count independently of real growth. Cross-read the <a href="/data/crypto-casino-reserves">reserves report</a>, <a href="/data/crypto-casino-fake-volume">fake-volume data</a> and the <a href="/daily">daily report</a>.</p></div>` +
+    `<h2>FAQ</h2>${faqs.map((f) => `<div class="prose"><strong>${esc(f.q)}</strong><br>${f.a}</div>`).join('')}` +
+    `<h2>Explore</h2><div class="chips"><a class="pill" href="/data/crypto-casino-reserves">Reserves</a><a class="pill" href="/data/crypto-casino-reserve-drawdown">Reserve drawdown</a><a class="pill" href="/data/crypto-casino-fake-volume">Fake volume</a><a class="pill" href="/daily">Daily report</a><a class="pill" href="/data">All data</a></div>`
+  const upd = Date.now()
+  return {
+    title,
+    description,
+    html: layout({
+      title,
+      description,
+      canonical: url,
+      jsonLd: [
+        datasetLd('Crypto Casino Industry On-Chain Trend', description, url, upd, ['daily verified 24h volume (USD)', 'total tracked reserves (USD)', 'active operators', 'active chains']),
+        { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faqs.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a.replace(/<[^>]+>/g, '') } })) },
+      ],
+      breadcrumb: [{ name: 'Home', url: SITE + '/' }, { name: 'Data', url }],
+      h1: `Crypto casino industry on-chain trends ${YEAR}`,
+      updated: upd,
+      body,
+    }),
+  }
+}
+
 function dataHubPage(): { title: string; description: string; html: string } {
   const url = SITE + '/data'
   const title = `Crypto Casino On-Chain Data & Reports ${YEAR} | Tekel Data`
@@ -2310,6 +2401,7 @@ function dataHubPage(): { title: string; description: string; html: string } {
     `<p><strong><a href="/data/crypto-casino-reserves">Reserves report</a></strong> — how much operators hold on-chain, aggregated and broken down by chain and by operator. Proof of reserves at an industry level: wallet balances anyone can verify, not self-reported claims.</p>` +
     `<p><strong><a href="/data/crypto-casino-net-flow">Net flow report</a></strong> — external deposits minus withdrawals per operator over 7 days, a neutral liquidity signal that helps spot operators paying out versus taking in.</p>` +
     `<p><strong><a href="/data/crypto-casino-reserve-drawdown">Which casinos are draining their reserves?</a></strong> — daily on-chain reserve-balance snapshots ranked by 7-day change, so you can see whose reserves are shrinking. A solvency-watch signal (not a verdict), and a balance can't be faked the way volume can.</p>` +
+    `<p><strong><a href="/data/crypto-casino-industry-trends">Industry trends — is crypto gambling growing?</a></strong> — the macro picture: verified on-chain volume, total reserves and active-operator count tracked daily, with the multi-week direction. A floor on real activity, wash-excluded.</p>` +
     `<p><strong><a href="/data/crypto-casino-tokens">Casino tokens report</a></strong> — the native tokens crypto casinos issue, by market cap: live price, change and which run buyback-and-burn.</p>` +
     `<p><strong><a href="/data/crypto-casino-wallet-attribution">Wallet attribution</a></strong> — how many casino wallets we attribute and the public evidence behind each, by class. A "show your work" breakdown, fully auditable on-chain and in our open-data repo.</p>` +
     `<p><strong><a href="/data/crypto-casino-fake-volume">How much volume is fake?</a></strong> — we measure what share of raw on-chain casino "volume" is wash/treasury-pattern (held under review), with every flagged operator and the reason. The number is high — and it's why we never rank by volume.</p>` +
@@ -2792,6 +2884,7 @@ export async function generateSeoPages(): Promise<void> {
   if (tokenRows.length >= 5) add('/data/crypto-casino-tokens', 'data', casinoTokensPage(tokenRows), 'featured_core')
   add('/data/crypto-casino-wallet-attribution', 'data', attributionDataPage(), 'featured_core')
   add('/data/crypto-casino-fake-volume', 'data', fakeVolumeDataPage(onchainBrands), 'featured_core')
+  { const itp = industryTrendPage(); if (itp) add('/data/crypto-casino-industry-trends', 'data', itp, 'featured_core') }
   // reserve-drawdown story — needs ≥5 operators with ≥7d of reserve history to be
   // meaningful (early on the history table is too thin to publish).
   {
