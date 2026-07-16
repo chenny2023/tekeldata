@@ -3094,7 +3094,7 @@ export async function generateSeoPages(): Promise<void> {
     related: `Use our <a href="/crypto-casinos-with-proof-of-reserves">proof-of-reserves list</a>, <a href="/highest-volume-crypto-casinos">verified volume ranking</a>, <a href="/methodology/address-attribution">attribution methodology</a>, and the deeper <a href="/guide/crypto-casino-proof-of-reserves">proof of reserves explainer</a>.`,
   }), 'featured_core')
   add('/guide/crypto-casino-withdrawal-times', 'guide', guidePage({
-    path: '/guide/crypto-casino-withdrawal-times', h1: 'Crypto casino withdrawal times by network',
+    path: '/guide/crypto-casino-withdrawal-times', h1: 'Crypto casino withdrawal times by network', alternates: guideHreflang('crypto-casino-withdrawal-times'),
     title: `Crypto Casino Withdrawal Times by Network (${YEAR}) | Tekel Data`,
     description: `How long crypto-casino withdrawals actually take by network — USDT-TRC20, USDT-ERC20, Bitcoin, Solana — and the operator-side factors (approval, reserves) that matter more than the chain.`,
     intro: `"How long does a crypto casino withdrawal take?" splits into two parts: the operator's approval time, and the network's confirmation time. This guide breaks down realistic timings per network, the operator-side factors that matter more than the chain, how to tell a benign delay from a solvency warning, and exactly what to do when a withdrawal is stuck.`,
@@ -3155,7 +3155,7 @@ export async function generateSeoPages(): Promise<void> {
     related: `Next: <a href="/guide/how-to-choose-a-crypto-casino">how to choose a crypto casino</a>, <a href="/guide/crypto-casino-vs-online-casino">crypto vs traditional online casino</a>, or browse the <a href="/best-crypto-casinos">best crypto casinos</a>.`,
   }), 'featured_core')
   add('/guide/how-to-choose-a-crypto-casino', 'guide', guidePage({
-    path: '/guide/how-to-choose-a-crypto-casino', h1: 'How to choose a crypto casino',
+    path: '/guide/how-to-choose-a-crypto-casino', h1: 'How to choose a crypto casino', alternates: guideHreflang('how-to-choose-a-crypto-casino'),
     title: `How to Choose a Crypto Casino (${YEAR}) — A Data-Driven Checklist | Tekel Data`,
     description: `A practical, data-driven checklist for choosing a crypto casino: solvency and reserves, independent trust, withdrawal track record, deposit currency, and bonus fine print.`,
     intro: `Choosing a crypto casino comes down to one question — will it still pay you next month? Here's a checklist that puts solvency and evidence first.`,
@@ -3214,7 +3214,7 @@ export async function generateSeoPages(): Promise<void> {
     related: `Put it to use: <a href="/guide/how-to-choose-a-crypto-casino">how to choose a crypto casino</a>, <a href="/guide/crypto-casino-proof-of-reserves">proof of reserves</a>, and the <a href="/data/crypto-casino-deposit-currencies">on-chain data</a>.`,
   }), 'featured_core')
   add('/guide/are-crypto-casinos-legal', 'guide', guidePage({
-    path: '/guide/are-crypto-casinos-legal', h1: 'Are crypto casinos legal?',
+    path: '/guide/are-crypto-casinos-legal', h1: 'Are crypto casinos legal?', alternates: guideHreflang('are-crypto-casinos-legal'),
     title: `Are Crypto Casinos Legal? Jurisdiction & Licensing Explained (${YEAR}) | Tekel Data`,
     description: `Whether crypto casinos are legal depends entirely on where you live and how the operator is licensed. A neutral overview of jurisdictions, licensing and what to check — not legal advice.`,
     intro: `"Is it legal?" has no single answer — it depends on your jurisdiction and the operator's licence. Here's a neutral framework for thinking about it. This is general information, not legal advice.`,
@@ -3593,7 +3593,7 @@ export async function generateSeoPages(): Promise<void> {
   }), 'featured_core')
   // ── net-new pillar guides (expanding the informational / GEO surface) ──────────
   add('/guide/what-is-igaming', 'guide', guidePage({
-    path: '/guide/what-is-igaming', h1: 'What is iGaming?',
+    path: '/guide/what-is-igaming', h1: 'What is iGaming?', alternates: guideHreflang('what-is-igaming'),
     title: `What Is iGaming? The Online Gambling Industry Explained (${YEAR}) | Tekel Data`,
     description: `iGaming means online gambling — casinos, sportsbooks, poker and more, played over the internet. What the term covers, how the industry is structured, how crypto changed it, and where the money actually flows.`,
     intro: `"iGaming" is the industry term for online gambling — real-money casino games, sports betting, poker and lotteries delivered over the internet. Here's what it covers, how it's built, and why crypto reshaped it.`,
