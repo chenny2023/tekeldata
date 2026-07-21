@@ -32,6 +32,7 @@ export const I18N_LOCALES: LocaleCfg[] = [
   { code: 'ko', hreflang: 'ko', label: '한국어', homeLabel: '홈', guidesLabel: '가이드', faqHeading: '자주 묻는 질문' },
   { code: 'pt', hreflang: 'pt-BR', label: 'Português (BR)', homeLabel: 'Início', guidesLabel: 'Guias', faqHeading: 'Perguntas frequentes' },
   { code: 'es', hreflang: 'es', label: 'Español', homeLabel: 'Inicio', guidesLabel: 'Guías', faqHeading: 'Preguntas frecuentes' },
+  { code: 'de', hreflang: 'de', label: 'Deutsch', homeLabel: 'Start', guidesLabel: 'Ratgeber', faqHeading: 'Häufige Fragen' },
 ]
 
 // Localized chrome for the per-language /{locale}/guide hub. The guide LIST is built
@@ -66,6 +67,13 @@ export const GUIDE_HUB_I18N: Record<string, HubTx> = {
     intro: `Guías prácticas basadas en datos on-chain verificables — no marketing de afiliados. Abajo, las guías disponibles en español.`,
     heading: `Lista de guías`,
     moreLabel: `Ver más guías (en inglés) →`,
+  },
+  de: {
+    title: `Krypto-Casino-Ratgeber — mit On-Chain-Daten lernen | Tekel Data`,
+    description: `Praktische Krypto-Casino-Ratgeber auf Basis überprüfbarer On-Chain-Daten: Reservenachweis, Sicherheit beurteilen, On-Chain-Verifizierung.`,
+    intro: `Praktische Ratgeber auf Basis überprüfbarer On-Chain-Daten — kein Affiliate-Marketing. Unten die auf Deutsch verfügbaren Ratgeber.`,
+    heading: `Ratgeber-Übersicht`,
+    moreLabel: `Weitere Ratgeber (auf Englisch) →`,
   },
 }
 
@@ -155,6 +163,27 @@ export const GUIDE_I18N: Record<string, Record<string, GuideTx>> = {
         { q: '¿Un casino provably-fair es automáticamente seguro?', a: 'No. Provably-fair prueba que los resultados individuales no fueron manipulados; no dice nada sobre si el operador puede financiar tu retiro. Justicia y solvencia son separadas — un casino justo aún puede volverse insolvente o negarse a pagar.' },
       ],
       related: `Usa nuestro <a href="/rankings/trust">ranking de confianza</a>, los <a href="/crypto-casinos-with-proof-of-reserves">casinos con prueba de reservas</a>, la <a href="/guide/how-to-verify-a-crypto-casino">verificación on-chain por operador</a> y el <a href="/risk">registro de riesgo</a> neutral. Solo mayores de 18. <a href="/responsible-gambling">Juega con responsabilidad</a>.`,
+    },
+    de: {
+      h1: 'Sind Krypto-Casinos sicher?',
+      title: `Sind Krypto-Casinos Sicher? Mit On-Chain-Daten Beurteilen | Tekel Data`,
+      description: `Sind Krypto-Casinos sicher? Was dein Geld wirklich gefährdet und die On-Chain- und Drittanbieter-Signale, die solide von riskanten Betreibern trennen — mit einer praktischen Checkliste.`,
+      intro: `"Sind Krypto-Casinos sicher?" hat keine pauschale Antwort — Sicherheit ist betreiberspezifisch, und du kannst sie <strong>messen</strong>, statt zu raten. Dieser Ratgeber erklärt, was dein Geld wirklich gefährdet, was eine Lizenz schützt (und was nicht), warum "provably fair" nicht dasselbe wie zahlungsfähig ist, und eine Checkliste vor der Einzahlung auf Basis von Signalen, die du selbst prüfen kannst.`,
+      sections: [
+        { h: 'Die echten Risiken (und die unnötigen Sorgen)', body: `<p>Die meisten Krypto-Casinos sind unlizenziert oder in laxen Gerichtsbarkeiten lizenziert, sodass selten eine Aufsichtsbehörde deine Gelder zurückholt. Das dominierende Risiko ist kein manipuliertes Spiel — Provably-Fair-Systeme sind verbreitet und mathematisch überprüfbar — sondern die <strong>Zahlungsfähigkeit und das Verhalten des Betreibers</strong>: ein Exit-Scam, stille Insolvenz oder eingefrorene, gedeckelte oder unter unmöglichen Prüfanforderungen begrabene Auszahlungen. Spieler sorgen sich oft zu sehr um die Spielfairness und zu wenig darum, ob der Betreiber sie tatsächlich auszahlen kann. Deine Sorgfalt sollte sich auf Letzteres konzentrieren.</p>` },
+        { h: 'Was eine Lizenz bedeutet (und was nicht)', body: `<p>Eine Curaçao- oder Anjouan-Lizenz ist billig zu bekommen und bietet dem Spieler wenig praktischen Schutz — sie ähnelt eher einem Handelsregistereintrag als dem Verbraucherschutz einer britischen oder maltesischen Lizenz. Es ist nicht nichts (sie impliziert ein gewisses KYC/AML-Verfahren und eine widerrufbare Erlaubnis), aber behandle sie als <strong>schwaches Signal</strong>, nicht als Garantie. Lass das Lizenzsiegel nicht die Prüfung ersetzen, ob der Betreiber Mittel hat und auszahlt. Der stärkste Schutz hier ist nicht regulatorisch, sondern <strong>Transparenz und überprüfbares On-Chain-Verhalten</strong>.</p>` },
+        { h: 'Provably fair ≠ zahlungsfähig', body: `<p>Provably-Fair-Kryptografie erlaubt dir zu prüfen, dass das Ergebnis einer bestimmten Wette nicht manipuliert wurde. Das ist nützlich, sagt aber nichts darüber aus, ob das Casino deine Auszahlung decken kann. Ein Betreiber kann völlig faire Spiele haben und dennoch insolvent werden oder die Zahlung verweigern. Fairness und Zahlungsfähigkeit sind unabhängige Achsen — siehe <a href="/guide/provably-fair-explained">Provably Fair erklärt</a> und halte es gedanklich von der Geldfrage getrennt.</p>` },
+        { h: 'Signale eines sichereren Betreibers', body: `<p>Gesunde, überprüfbare <a href="/proof-of-reserves">On-Chain-Reserven</a>, die die jüngste Auszahlungsnachfrage bequem decken; eine lange Betriebshistorie mit konsistenten Auszahlungsberichten; mehrere unabhängige Bewertungen (casino.guru, Trustpilot, AskGamblers), die im Großen und Ganzen <em>übereinstimmen</em>; ausgewogener On-Chain-Fluss in beide Richtungen (Ein- und Auszahlungen in Bewegung); und das Fehlen einer jüngsten Beschwerdewelle. Wir kombinieren die Drittanbieter-Bewertungen zu einem einzigen unabhängigen <a href="/rankings/trust">Vertrauens-Score</a>, damit du sie nicht von Hand gewichten musst.</p>` },
+        { h: 'Warnsignale (Red Flags)', body: `<p>Reserven, die nicht überprüfbar sind oder nur rund um Auszahlungsphasen steigen; On-Chain-Volumen völlig außer Verhältnis zum Ruf des Betreibers (ein Wash-/Treasury-Muster, das wir <em>in Prüfung</em> halten, statt es hervorzuheben); eine plötzliche Welle <em>ungelöster</em> Auszahlungsbeschwerden; Einzahlungen mit fast keinem Abfluss (Spieler werden womöglich nicht ausgezahlt); und Bonusbedingungen mit so hohen Umsatzanforderungen, dass Gelder faktisch gesperrt sind. Kein einzelnes Signal ist beweisend — Risiko lebt in <strong>Clustern</strong>. Eine alte Beschwerde ist Rauschen; sinkende Reserven plus Einbahnfluss plus eine Beschwerdewelle ist ein Muster.</p>` },
+        { h: 'Eine Checkliste vor der Einzahlung', body: `<p>Vor der Einzahlung auf ein Konto: (1) prüfe, ob der Betreiber kartierte, stabile <a href="/crypto-casinos-with-proof-of-reserves">On-Chain-Reserven</a> hat; (2) bestätige, dass zwei oder mehr unabhängige Bewertungsquellen übereinstimmen; (3) durchsuche jüngste Beschwerden gezielt nach einem <em>ungelösten Auszahlungs</em>-Thema; (4) lies die Bonus-/Umsatzbedingungen, bevor du zusagst; (5) starte mit einer kleinen Testeinzahlung und einer Testauszahlung, bevor du echte Summen einsetzt. Nichts davon ist exotisch — es sind dieselben fünf Minuten, die die meisten vermeidbaren Verluste von den vermiedenen trennen.</p>` },
+      ],
+      faqs: [
+        { q: 'Sind Krypto-Casinos sicher zu nutzen?', a: 'Das hängt ganz vom Betreiber ab. Das größte Risiko ist Zahlungsfähigkeit und Verhalten (Exit-Scams, eingefrorene Auszahlungen), nicht die Spielfairness. Bevorzuge Betreiber mit überprüfbaren On-Chain-Reserven, langer Historie und konsistenten unabhängigen Bewertungen, und mache immer zuerst eine kleine Testauszahlung.' },
+        { q: 'Wie prüfe ich, ob ein Krypto-Casino seriös ist?', a: 'Prüfe seine On-Chain-Reserven in einem Block-Explorer, kontrolliere, ob mehrere unabhängige Bewertungsquellen übereinstimmen, sichte jüngste Beschwerden nach ungelösten Auszahlungsthemen und achte auf anomales Volumen. Wir aggregieren diese Signale, damit du auf einen Blick beurteilen kannst.' },
+        { q: 'Macht eine Curaçao- oder Anjouan-Lizenz ein Casino sicher?', a: 'Nur schwach. Diese Lizenzen sind billig und bieten dem Spieler wenig praktischen Rückgriff verglichen mit britischer oder maltesischer Regulierung. Behandle die Lizenz als kleinen Pluspunkt, nicht als Garantie — überprüfbare On-Chain-Reserven und eine Auszahlungshistorie zählen weit mehr.' },
+        { q: 'Ist ein Provably-Fair-Casino automatisch sicher?', a: 'Nein. Provably Fair beweist, dass einzelne Ergebnisse nicht manipuliert wurden; es sagt nichts darüber aus, ob der Betreiber deine Auszahlung decken kann. Fairness und Zahlungsfähigkeit sind getrennt — ein faires Casino kann dennoch insolvent werden oder die Zahlung verweigern.' },
+      ],
+      related: `Nutze unser <a href="/rankings/trust">Vertrauens-Ranking</a>, die <a href="/crypto-casinos-with-proof-of-reserves">Casinos mit Reservenachweis</a>, die <a href="/guide/how-to-verify-a-crypto-casino">On-Chain-Verifizierung pro Betreiber</a> und das neutrale <a href="/risk">Risikoregister</a>. Nur ab 18. <a href="/responsible-gambling">Spiele verantwortungsbewusst</a>.`,
     },
   },
 
@@ -321,6 +350,25 @@ export const GUIDE_I18N: Record<string, Record<string, GuideTx>> = {
         { q: '¿Cómo ganan dinero los casinos cripto?', a: 'Con la ventaja de la casa incorporada en cada juego — con el tiempo el operador gana y los saldos de los jugadores bajan, sin importar si los juegos son provably-fair. Muchos también dependen fuertemente del marketing de afiliados y streamers, por eso buena parte del contenido "mejor casino" es colocación pagada.' },
       ],
       related: `A continuación: <a href="/guide/how-to-choose-a-crypto-casino">cómo elegir un casino cripto</a>, <a href="/guide/crypto-casino-vs-online-casino">cripto vs casino online tradicional</a>, o explora los <a href="/best-crypto-casinos">mejores casinos cripto</a>.`,
+    },
+    de: {
+      h1: 'Was ist ein Krypto-Casino?',
+      title: `Was Ist ein Krypto-Casino? So Funktionieren Sie | Tekel Data`,
+      description: `Was ein Krypto-Casino ist, wie es sich von einem herkömmlichen Online-Casino unterscheidet, wie Einzahlungen und Provably-Fair-Spiele funktionieren, und die On-Chain-Kompromisse — einfach erklärt.`,
+      intro: `Ein Krypto-Casino ist ein Online-Casino, das Einzahlungen annimmt und Gewinne in Kryptowährung statt in Fiat auszahlt. Diese eine Änderung hat große Folgen — so funktionieren sie wirklich.`,
+      sections: [
+        { h: 'Wie ein Krypto-Casino funktioniert', body: `<p>Du zahlst Krypto (meist <a href="/best-usdt-casinos">USDT</a>, manchmal Bitcoin oder Ethereum) an eine Adresse ein, die das Casino dir gibt, spielst mit diesem Guthaben und ziehst wieder On-Chain ab. Da die Abwicklung auf einer öffentlichen Blockchain erfolgt, sind Einzahlungen und Auszahlungen <strong>unabhängig sichtbar</strong> — die Grundlage der On-Chain-Transparenz, auf der diese Seite aufbaut.</p>` },
+        { h: 'Wie es sich von einem herkömmlichen Online-Casino unterscheidet', body: `<p>Herkömmliche Casinos nutzen Banken und Kartenabwickler und sind damit an regulierte Zahlungswege, KYC und Rückbuchungen gebunden. Krypto-Casinos wickeln direkt auf der Blockchain ab: schnellere Auszahlungen, weniger Zahlungssperren, oft leichteres KYC — aber auch <strong>weniger regulatorischer Schutz</strong>. In der Regel gibt es keine Einlagensicherung und keine Aufsichtsbehörde, die Gelder zurückholt, was die Last der Sorgfaltsprüfung auf dich verlagert.</p>` },
+        { h: 'Provably Fair', body: `<p>Viele Krypto-Casinos bieten <a href="/guide/provably-fair-explained">Provably-Fair</a>-Spiele, bei denen eine kryptografische Zusage dir erlaubt zu prüfen, dass jedes Ergebnis nicht manipuliert wurde. Das ist ein echter Vorteil gegenüber herkömmlichen Online-Casinos — es beweist jedoch die Fairness des Spiels, nicht, dass der Betreiber dich auszahlt.</p>` },
+        { h: 'Wer sie betreibt und wie sie Geld verdienen', body: `<p>Ein Krypto-Casino ist ein Geschäft wie jedes andere: Es profitiert vom <a href="/guide/crypto-casino-rtp-and-house-edge">Hausvorteil</a>, der in jedem Spiel steckt, sodass der Betreiber mit der Zeit gewinnt und die Guthaben der Spieler tendenziell sinken — daran ändert faires Spiel nichts. Die meisten stehen hinter Offshore-Holdings mit einer leichten Lizenz (häufig Curaçao) und finanzieren Wachstum stark über Affiliates und Streamer. Das Modell zu verstehen ist wichtig, weil es die zwei Dinge erklärt, auf die man achten sollte: ob der Betreiber zahlungsfähig genug bleibt, um dich auszuzahlen, und warum so viel Marketing ("bestes Casino", "größter Bonus") bezahlte Platzierung ist, keine unabhängige Bewertung.</p>` },
+        { h: 'Der Kompromiss', body: `<p>Der zentrale Kompromiss ist Freiheit gegen Eigenverantwortung. Du bekommst schnelles, globales, reibungsarmes Spiel; du gibst das Sicherheitsnetz auf. Deshalb sind überprüfbare Signale — <a href="/proof-of-reserves">On-Chain-Reserven</a>, unabhängige Vertrauensbewertungen, echte Auszahlungsaktivität — so wichtig. Nur ab 18. <a href="/responsible-gambling">Spiele verantwortungsbewusst</a>.</p>` },
+      ],
+      faqs: [
+        { q: 'Was ist ein Krypto-Casino?', a: 'Ein Online-Casino, das Einzahlungen annimmt und Gewinne in Kryptowährung (häufig USDT) statt in Fiat auszahlt und auf einer öffentlichen Blockchain abwickelt. Dadurch sind Einzahlungen und Auszahlungen unabhängig überprüfbar.' },
+        { q: 'Sind Krypto-Casinos legal?', a: 'Das variiert je nach Gerichtsbarkeit. Die meisten arbeiten unter Offshore-Lizenzen (Curaçao, Anjouan) und viele sperren bestimmte Länder. Die Legalität hängt davon ab, wo du bist — prüfe die lokalen Regeln.' },
+        { q: 'Wie verdienen Krypto-Casinos Geld?', a: 'Durch den in jedem Spiel eingebauten Hausvorteil — mit der Zeit profitiert der Betreiber und die Guthaben der Spieler sinken, unabhängig davon, ob die Spiele provably fair sind. Viele setzen zudem stark auf Affiliate- und Streamer-Marketing, weshalb viele "bestes Casino"-Inhalte bezahlte Platzierung sind.' },
+      ],
+      related: `Als Nächstes: <a href="/guide/how-to-choose-a-crypto-casino">wie man ein Krypto-Casino wählt</a>, <a href="/guide/crypto-casino-vs-online-casino">Krypto vs. herkömmliches Online-Casino</a>, oder stöbere in den <a href="/best-crypto-casinos">besten Krypto-Casinos</a>.`,
     },
   },
 
