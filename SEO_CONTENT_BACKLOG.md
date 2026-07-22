@@ -34,10 +34,10 @@ and report "backlog empty".
 ## Queue
 
 ### German (de) — finish the 10-guide set (locale + hub + guides 1–2 already live)
-- [ ] Translate `how-to-verify-a-crypto-casino` into German (de)
-- [ ] Translate `crypto-casino-proof-of-reserves` into German (de)
-- [ ] Translate `crypto-casino-red-flags` into German (de)
-- [ ] Translate `how-to-spot-a-crypto-casino-that-wont-pay` into German (de)
+- [x] Translate `how-to-verify-a-crypto-casino` into German (de)
+- [x] Translate `crypto-casino-proof-of-reserves` into German (de)
+- [x] Translate `crypto-casino-red-flags` into German (de)
+- [x] Translate `how-to-spot-a-crypto-casino-that-wont-pay` into German (de)
 - [ ] Translate `how-to-choose-a-crypto-casino` into German (de)
 - [ ] Translate `crypto-casino-withdrawal-times` into German (de)
 - [ ] Translate `are-crypto-casinos-legal` into German (de)
