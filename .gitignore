@@ -10,3 +10,4 @@ server/data
 # scratch: competitor HTML/JS dumps from ad-hoc analysis (not source)
 .circus.html
 .cpage.js
+scratch*
