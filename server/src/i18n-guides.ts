@@ -33,6 +33,7 @@ export const I18N_LOCALES: LocaleCfg[] = [
   { code: 'pt', hreflang: 'pt-BR', label: 'Português (BR)', homeLabel: 'Início', guidesLabel: 'Guias', faqHeading: 'Perguntas frequentes' },
   { code: 'es', hreflang: 'es', label: 'Español', homeLabel: 'Inicio', guidesLabel: 'Guías', faqHeading: 'Preguntas frecuentes' },
   { code: 'de', hreflang: 'de', label: 'Deutsch', homeLabel: 'Start', guidesLabel: 'Ratgeber', faqHeading: 'Häufige Fragen' },
+  { code: 'tr', hreflang: 'tr', label: 'Türkçe', homeLabel: 'Ana Sayfa', guidesLabel: 'Rehberler', faqHeading: 'Sıkça Sorulan Sorular' },
 ]
 
 // Localized chrome for the per-language /{locale}/guide hub. The guide LIST is built
@@ -74,6 +75,13 @@ export const GUIDE_HUB_I18N: Record<string, HubTx> = {
     intro: `Praktische Ratgeber auf Basis überprüfbarer On-Chain-Daten — kein Affiliate-Marketing. Unten die auf Deutsch verfügbaren Ratgeber.`,
     heading: `Ratgeber-Übersicht`,
     moreLabel: `Weitere Ratgeber (auf Englisch) →`,
+  },
+  tr: {
+    title: `Kripto Casino Rehberleri — Zincir Üstü Verilerle Öğrenin | Tekel Data`,
+    description: `Doğrulanabilir zincir üstü verilere dayalı pratik kripto casino rehberleri: rezerv kanıtı, güvenliği değerlendirme, zincir üstü doğrulama.`,
+    intro: `Doğrulanabilir zincir üstü verilere dayalı pratik rehberler — ortaklık pazarlaması değil. Aşağıda Türkçe olarak sunulan rehberler yer alıyor.`,
+    heading: `Rehber listesi`,
+    moreLabel: `Daha fazla rehber (İngilizce) →`,
   },
 }
 
@@ -390,6 +398,26 @@ export const GUIDE_I18N: Record<string, Record<string, GuideTx>> = {
         { q: 'Wie verdienen Krypto-Casinos Geld?', a: 'Durch den in jedem Spiel eingebauten Hausvorteil — mit der Zeit profitiert der Betreiber und die Guthaben der Spieler sinken, unabhängig davon, ob die Spiele provably fair sind. Viele setzen zudem stark auf Affiliate- und Streamer-Marketing, weshalb viele "bestes Casino"-Inhalte bezahlte Platzierung sind.' },
       ],
       related: `Als Nächstes: <a href="/guide/how-to-choose-a-crypto-casino">wie man ein Krypto-Casino wählt</a>, <a href="/guide/crypto-casino-vs-online-casino">Krypto vs. herkömmliches Online-Casino</a>, oder stöbere in den <a href="/best-crypto-casinos">besten Krypto-Casinos</a>.`,
+    },
+    tr: {
+      h1: 'Kripto casino nedir?',
+      title: `Kripto Casino Nedir? Nasıl Çalışırlar (${YEAR}) | Tekel Data`,
+      description: `Kripto casinonun ne olduğu, geleneksel bir çevrimiçi casinodan nasıl ayrıldığı, para yatırma ve provably-fair oyunların nasıl işlediği ve zincir üstü ödünleşimler — sade bir şekilde açıklanıyor.`,
+      intro: `Kripto casino, para yatırmayı kabul eden ve kazançları itibari para yerine kripto parayla ödeyen bir çevrimiçi casinodur. Bu tek değişikliğin büyük sonuçları var — işte gerçekte nasıl çalıştıkları.`,
+      sections: [
+        { h: 'Bir kripto casino nasıl çalışır', body: `<p>Casinonun size verdiği bir adrese kripto (çoğunlukla <a href="/best-usdt-casinos">USDT</a>, bazen Bitcoin veya Ethereum) yatırır, bu bakiyeye işlenen oyunları oynar ve zincir üstünde geri çekersiniz. Uzlaşma halka açık bir blok zincirinde gerçekleştiği için para yatırma ve ödemeler <strong>bağımsız olarak görünürdür</strong> — bu sitenin üzerine kurulduğu zincir üstü şeffaflığın temeli budur.</p>` },
+        { h: 'Geleneksel bir çevrimiçi casinodan nasıl ayrılır', body: `<p>Geleneksel casinolar banka ve kart işlemcileri kullanır, bu yüzden düzenlenmiş ödeme raylarına, KYC'ye ve ters ibrazlara bağlıdırlar. Kripto casinolar doğrudan blok zincirinde uzlaşır: daha hızlı ödemeler, daha az ödeme engeli, çoğu zaman daha hafif KYC — ama aynı zamanda <strong>daha az düzenleyici koruma</strong>. Genellikle mevduat sigortası ve paranızı geri alabileceğiniz bir düzenleyici yoktur, bu da durum tespiti yükünü size kaydırır.</p>` },
+        { h: 'Provably fair', body: `<p>Birçok kripto casino <a href="/guide/provably-fair-explained">provably-fair</a> oyunlar sunar; burada kriptografik bir taahhüt her sonucun kurcalanmadığını doğrulamanıza olanak tanır. Bu, geleneksel çevrimiçi casinolara karşı gerçek bir avantajdır — ancak oyunun adilliğini kanıtlar, işletmecinin size ödeme yapacağını değil.</p>` },
+        { h: 'Ne oynayabilirsiniz', body: `<p>Oyun menüsü, normal bir çevrimiçi casinoyu artı kriptoya özgü bir kategoriyi yansıtır. Büyük stüdyolardan <strong>slotlar</strong>; gerçek zamanlı yayınlanan <strong>canlı krupiye</strong> masaları (blackjack, rulet, bakara); klasik <strong>masa oyunları</strong>; ve kriptoya özgü <strong>orijinaller</strong> — crash, zar, plinko, mayınlar — ki bunlar genellikle <a href="/guide/provably-fair-explained">provably fair</a>'dir, yani her sonucu doğrulayabilirsiniz. Birçoğu ayrıca bir <strong>spor bahisleri</strong> de işletir. İtibari para casinosuna kıyasla belirleyici fark oyunların kendisi değil, para rayının ve (orijinaller için) adilliğin ikisinin de zincir üstünde doğrulanabilir olmasıdır.</p>` },
+        { h: 'Onları kim işletir ve nasıl para kazanırlar', body: `<p>Bir kripto casino da her işletme gibidir: her oyuna yerleştirilmiş <a href="/guide/crypto-casino-rtp-and-house-edge">ev avantajından</a> kâr eder, dolayısıyla zamanla işletmeci kazanır ve oyuncuların bakiyeleri düşme eğilimine girer — oyunların adil olması bunu değiştirmez. Çoğu işletmeci, hafif bir lisansla (yaygın olarak Curaçao) offshore holding şirketlerinin arkasında durur ve büyümeyi ağırlıklı olarak ortaklar ve yayıncı tanıtımı yoluyla finanse eder. Modeli anlamak önemlidir çünkü izlenmesi gereken iki şeyi açıklar: işletmecinin size ödeme yapacak kadar ödeme gücünü koruyup korumadığı ve neden bu kadar çok pazarlamanın ("en iyi casino", "en büyük bonus") bağımsız değerlendirme değil, ücretli yerleştirme olduğu.</p>` },
+        { h: 'Ödünleşim', body: `<p>Temel ödünleşim, öz sorumluluk karşılığında özgürlüktür. Hızlı, küresel, düşük sürtünmeli oyun elde edersiniz; güvenlik ağından vazgeçersiniz. İşte bu yüzden doğrulanabilir sinyaller — <a href="/proof-of-reserves">zincir üstü rezervler</a>, bağımsız güven derecelendirmeleri, gerçek çekim etkinliği — bu kadar önemlidir. Yalnızca 18+; <a href="/responsible-gambling">sorumlu oynayın</a>.</p>` },
+      ],
+      faqs: [
+        { q: 'Kripto casino nedir?', a: 'Para yatırmayı kabul eden ve kazançları itibari para yerine kripto parayla (yaygın olarak USDT) ödeyen, halka açık bir blok zincirinde uzlaşan bir çevrimiçi casinodur. Bu, para yatırma ve ödemeleri bağımsız olarak doğrulanabilir kılar.' },
+        { q: 'Kripto casinolar yasal mı?', a: 'Yargı bölgesine göre değişir. Çoğu offshore lisanslar (Curaçao, Anjouan) altında çalışır ve birçoğu belirli ülkeleri kısıtlar. Yasallık bulunduğunuz yere bağlıdır — yerel kurallarınızı kontrol edin.' },
+        { q: 'Kripto casinolar nasıl para kazanır?', a: 'Her oyuna yerleştirilmiş ev avantajından — oyunların provably fair olup olmadığına bakılmaksızın zamanla işletmeci kâr eder ve oyuncu bakiyeleri düşer. Birçoğu ayrıca ortaklık ve yayıncı pazarlamasına büyük ölçüde dayanır; bu yüzden pek çok "en iyi casino" içeriği ücretli yerleştirmedir.' },
+      ],
+      related: `Sırada: <a href="/guide/how-to-choose-a-crypto-casino">bir kripto casino nasıl seçilir</a>, <a href="/guide/crypto-casino-vs-online-casino">kripto vs geleneksel çevrimiçi casino</a>, ya da <a href="/best-crypto-casinos">en iyi kripto casinolara</a> göz atın.`,
     },
   },
 
