@@ -44,7 +44,7 @@ and report "backlog empty".
 - [x] Translate `what-is-igaming` into German (de)
 
 ### Turkish (tr) — 6th language (huge crypto-gambling grey-market demand)
-- [ ] Add Turkish (tr) locale + GUIDE_HUB_I18N entry, and translate `what-is-a-crypto-casino` into tr (launch non-empty)
+- [x] Add Turkish (tr) locale + GUIDE_HUB_I18N entry, and translate `what-is-a-crypto-casino` into tr (launch non-empty)
 - [ ] Translate `are-crypto-casinos-safe` into Turkish (tr)
 - [ ] Translate `how-to-verify-a-crypto-casino` into Turkish (tr)
 - [ ] Translate `crypto-casino-proof-of-reserves` into Turkish (tr)
