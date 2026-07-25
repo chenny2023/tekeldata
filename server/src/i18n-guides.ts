@@ -576,7 +576,7 @@ export const GUIDE_I18N: Record<string, Record<string, GuideTx>> = {
     },
     tr: {
       h1: 'Kripto casino rezerv kanıtı, açıklandı',
-      title: `Kripto Casino Rezerv Kanıtı Açıklandı (${YEAR}) | Tekel Data`,
+      title: `Kripto Casino Rezerv Kanıtı Açıklandı | Tekel Data`,
       description: `Rezerv kanıtının bir kripto casino için ne anlama geldiği, ödeme gücü açısından neden önemli olduğu, zincir üstü rezervlerin nasıl ölçülüp doğrulandığı ve bu yaklaşımın sınırları.`,
       intro: `"Rezerv kanıtı", bir kripto casinonun kamuya açık bilançoya en yakın sahip olduğu şeydir — herkesin doğrulayabileceği zincir üstü cüzdan bakiyeleri. Bu rehber, aslında neyi kanıtladığını, neyi kanıtlamadığını, rezerv kanıtı ile saklama kanıtı arasındaki kritik farkı ve bir rezerv rakamını kendinizi kandırmadan nasıl okuyacağınızı açıklar.`,
       sections: [
