@@ -47,7 +47,7 @@ and report "backlog empty".
 - [x] Add Turkish (tr) locale + GUIDE_HUB_I18N entry, and translate `what-is-a-crypto-casino` into tr (launch non-empty)
 - [x] Translate `are-crypto-casinos-safe` into Turkish (tr)
 - [x] Translate `how-to-verify-a-crypto-casino` into Turkish (tr)
-- [ ] Translate `crypto-casino-proof-of-reserves` into Turkish (tr)
+- [x] Translate `crypto-casino-proof-of-reserves` into Turkish (tr)
 - [ ] Translate `crypto-casino-red-flags` into Turkish (tr)
 - [ ] Translate `how-to-spot-a-crypto-casino-that-wont-pay` into Turkish (tr)
 - [ ] Translate `how-to-choose-a-crypto-casino` into Turkish (tr)
