@@ -48,7 +48,7 @@ and report "backlog empty".
 - [x] Translate `are-crypto-casinos-safe` into Turkish (tr)
 - [x] Translate `how-to-verify-a-crypto-casino` into Turkish (tr)
 - [x] Translate `crypto-casino-proof-of-reserves` into Turkish (tr)
-- [ ] Translate `crypto-casino-red-flags` into Turkish (tr)
+- [x] Translate `crypto-casino-red-flags` into Turkish (tr)
 - [ ] Translate `how-to-spot-a-crypto-casino-that-wont-pay` into Turkish (tr)
 - [ ] Translate `how-to-choose-a-crypto-casino` into Turkish (tr)
 - [ ] Translate `crypto-casino-withdrawal-times` into Turkish (tr)
