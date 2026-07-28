@@ -964,6 +964,26 @@ export const GUIDE_I18N: Record<string, Record<string, GuideTx>> = {
       ],
       related: `Nutze das Ranking der <a href="/best-crypto-casinos">besten Krypto-Casinos</a>, die <a href="/crypto-casinos-with-proof-of-reserves">Reservenachweis-Liste</a>, die <a href="/guide/crypto-casino-red-flags">Warnsignale-Checkliste</a> und den <a href="/data/crypto-casino-reserves">Reserven-Bericht</a>.`,
     },
+    tr: {
+      h1: 'Kripto casino nasıl seçilir',
+      title: `Kripto Casino Nasıl Seçilir — Veriye Dayalı Bir Kontrol Listesi | Tekel Data`,
+      description: `Kripto casino seçmek için pratik ve veriye dayalı bir kontrol listesi: ödeme gücü ve rezervler, bağımsız güven, çekim geçmişi, para yatırma birimi ve bonusun küçük yazıları.`,
+      intro: `Kripto casino seçimi tek bir soruya iner — gelecek ay da size ödeme yapacak mı? İşte ödeme gücünü ve kanıtı önce koyan bir kontrol listesi.`,
+      sections: [
+        { h: '1. Önce ödeme gücü', body: `<p>Her şeyden önce, operatörün borcunu karşılayabildiğini kontrol edin. Çekim talebini rahatça aşan ve zaman içinde istikrarlı kalan, doğrulanabilir <a href="/crypto-casinos-with-proof-of-reserves">zincir üstü rezervler</a> arayın. İnce ya da şeffaf olmayan rezervlere sahip bir operatör, bonusları ne olursa olsun en büyük tek risktir.</p>` },
+        { h: '2. Affiliate reklamı değil, bağımsız güven', body: `<p>Parayla alınmamış değerlendirmeleri — casino.guru, Trustpilot, AskGamblers — tartın ve birden fazla kaynağın uyuştuğu operatörleri tercih edin. Biz bunları tek bir <a href="/rankings/trust">bağımsız güven skorunda</a> harmanlıyoruz. Aslında affiliate yerleşimi olan "en iyi casino" listelerine şüpheyle yaklaşın.</p>` },
+        { h: '3. Çekim geçmişi', body: `<p>Hızlı ve tutarlı çekimler en gerçek testtir. <a href="/guide/crypto-casino-withdrawal-times">Çekim süresi</a> raporlarını ve zincir üstü çıkış hareketliliğini kontrol edin — çok sayıda karşı tarafa istikrarlı ödemeler iyi bir işarettir; tıkanmış çıkışlar ya da bir şikâyet dalgası değildir.</p>` },
+        { h: '4. Pratik uyum', body: `<p>Sonra pratik kısımlar: tercih ettiğiniz para yatırma birimini ve ağını destekliyor mu (düşük ücretler için <a href="/best-usdt-casinos">USDT-TRC20</a>), oyunlar provably fair mi ve bonusun küçük yazılarını okuyun — yüksek çevrim şartları paranızı kilitleyebilir. Casinoyu gerçekte nasıl oynadığınıza göre eşleştirin. 18+; <a href="/responsible-gambling">sorumlu oynayın</a>.</p>` },
+        { h: '5. Eleyici uyarı işaretleri', body: `<p>Bazı sinyaller, geri kalanı ne kadar iyi görünürse görünsün bir operatörü kısa listenizden çıkarmalıdır: doğrulayamadığınız ya da yalnızca ödeme dönemlerinde fırlayan <a href="/proof-of-reserves">rezervler</a>; itibarla taban tabana zıt zincir üstü hacim (bir wash/hazine sinyali); <em>çözülmemiş</em> çekim şikâyetlerinden oluşan yeni bir küme; yalnızca para çekerken devreye giren ve talepleri büyüyen KYC; ve kazançların asla çekilemeyeceği biçimde kurgulanmış bonus şartları. Güçlü bir bonus ya da şık bir site bunları telafi etmez — tam <a href="/guide/crypto-casino-red-flags">uyarı işaretleri kontrol listesine</a> bakın.</p>` },
+        { h: 'Kontrol listesini bir araya getirmek', body: `<p>Yukarıdan aşağıya ilerleyin, çünkü sıralama önceliği kodluyor: önce ödeme gücü (ödeyebilir mi?), sonra bağımsız güven (tarafsız kaynaklar uyuşuyor mu?), sonra ödeme geçmişi (şu anda ödüyor mu?), sonra pratik uyum (oynayış tarzınıza uyuyor mu?) — uyarı işaretleri ise her aşamada veto hakkıdır. Bir operatör ancak her kapıyı geçtiğinde ilerler — harika bir bonus, ödeme gücü kontrolünde kalan bir casinoyu asla yukarı taşımaz. Ardından uygulamanın riskini azaltın: düşük ücretli bir ağda stablecoin, küçük bir test yatırma ve çekme, ve bakiyeyi bekletmek yerine kazançları çekmek. Tüm süreç, önlenebilir kayıpların büyük çoğunluğunu engelleyen on dakikadır.</p>` },
+      ],
+      faqs: [
+        { q: 'Kripto casino seçerken en önemli şey nedir?', a: 'Ödeme gücü — operatörün çekimleri gerçekten ödeyip ödeyemeyeceği. Doğrulanabilir zincir üstü rezervler ve tutarlı bir ödeme geçmişi, bonus büyüklüğünden ya da oyun çeşitliliğinden daha önemlidir.' },
+        { q: 'Kripto casino dolandırıcılığından nasıl kaçınırım?', a: 'Doğrulanabilir rezervlere, bağımsız değerlendirme kaynakları arasında uyuma ve son dönemde temiz bir çekim geçmişine sahip operatörleri tercih edin. Anormal zincir üstü hacme ya da doğrulanamayan rezervlere sahip olanlardan uzak durun.' },
+        { q: 'Bir kripto casinoyu hangi sırayla değerlendirmeliyim?', a: 'Önceliğe göre yukarıdan aşağıya: önce ödeme gücü ve rezervler, sonra bağımsız güven değerlendirmeleri, sonra çekim geçmişi, sonra pratik uyum (para birimi, oyunlar, bonus şartları) — uyarı işaretleri her aşamada veto olarak. İyi bir bonus, ödeme gücü kontrolünde kalan bir casinoyu asla yukarı taşımamalıdır.' },
+      ],
+      related: `<a href="/best-crypto-casinos">En iyi kripto casinolar</a> sıralamasını, <a href="/crypto-casinos-with-proof-of-reserves">rezerv kanıtı listesini</a>, <a href="/guide/crypto-casino-red-flags">uyarı işaretleri kontrol listesini</a> ve <a href="/data/crypto-casino-reserves">rezerv raporunu</a> kullanın.`,
+    },
   },
 
   'crypto-casino-withdrawal-times': {
