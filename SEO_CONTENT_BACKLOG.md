@@ -52,8 +52,8 @@ and report "backlog empty".
 - [x] Translate `how-to-spot-a-crypto-casino-that-wont-pay` into Turkish (tr)
 - [x] Translate `how-to-choose-a-crypto-casino` into Turkish (tr)
 - [x] Translate `crypto-casino-withdrawal-times` into Turkish (tr)
-- [ ] Translate `are-crypto-casinos-legal` into Turkish (tr)
-- [ ] Translate `what-is-igaming` into Turkish (tr)
+- [x] Translate `are-crypto-casinos-legal` into Turkish (tr)
+- [x] Translate `what-is-igaming` into Turkish (tr)
 
 ### Deepen the English guide set into all languages (translate an existing English guide into every active locale, one guide per run — pick the next English guide not yet in the multilingual set: crypto-casino-bonuses-explained, provably-fair-explained, crypto-casino-kyc-and-anonymity, crypto-casino-vs-online-casino, best-crypto-for-casino-deposits)
 - [ ] Add `crypto-casino-bonuses-explained` to the multilingual set (translate into every active locale: ja/ko/pt/es/de and any added since), and add `alternates: guideHreflang(...)` to its English registration in seo.ts
