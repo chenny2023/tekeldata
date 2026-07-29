@@ -56,7 +56,7 @@ and report "backlog empty".
 - [x] Translate `what-is-igaming` into Turkish (tr)
 
 ### Deepen the English guide set into all languages (translate an existing English guide into every active locale, one guide per run — pick the next English guide not yet in the multilingual set: crypto-casino-bonuses-explained, provably-fair-explained, crypto-casino-kyc-and-anonymity, crypto-casino-vs-online-casino, best-crypto-for-casino-deposits)
-- [ ] Add `crypto-casino-bonuses-explained` to the multilingual set (translate into every active locale: ja/ko/pt/es/de and any added since), and add `alternates: guideHreflang(...)` to its English registration in seo.ts
+- [x] Add `crypto-casino-bonuses-explained` to the multilingual set (translate into every active locale: ja/ko/pt/es/de and any added since), and add `alternates: guideHreflang(...)` to its English registration in seo.ts
 - [ ] Add `provably-fair-explained` to the multilingual set (all active locales) + English alternates
 - [ ] Add `crypto-casino-kyc-and-anonymity` to the multilingual set (all active locales) + English alternates
 - [ ] Add `crypto-casino-vs-online-casino` to the multilingual set (all active locales) + English alternates
