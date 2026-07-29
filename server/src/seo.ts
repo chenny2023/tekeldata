@@ -3250,7 +3250,7 @@ export async function generateSeoPages(): Promise<void> {
     related: `Use the <a href="/best-crypto-casinos">best crypto casinos</a> ranking, <a href="/crypto-casinos-with-proof-of-reserves">proof-of-reserves list</a>, the <a href="/guide/crypto-casino-red-flags">red-flags checklist</a>, and <a href="/data/crypto-casino-reserves">reserves report</a>.`,
   }), 'featured_core')
   add('/guide/crypto-casino-bonuses-explained', 'guide', guidePage({
-    path: '/guide/crypto-casino-bonuses-explained', h1: 'Crypto casino bonuses & wagering requirements explained',
+    path: '/guide/crypto-casino-bonuses-explained', h1: 'Crypto casino bonuses & wagering requirements explained', alternates: guideHreflang('crypto-casino-bonuses-explained'),
     title: `Crypto Casino Bonuses & Wagering Requirements Explained (${YEAR}) | Tekel Data`,
     description: `How crypto casino bonuses really work: deposit matches, rakeback, no-deposit offers — and the wagering requirements, max-bet and game-weighting fine print that decides whether a bonus is worth taking.`,
     intro: `A "200% bonus" can be worth a lot or nothing — the headline number rarely matters; the terms do. Here's how to read a crypto casino bonus before you take it.`,
