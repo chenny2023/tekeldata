@@ -2206,6 +2206,93 @@ function reserveDrawdownPage(brands: BrandAgg[], slugOfBrand: (b: BrandAgg) => s
   }
 }
 
+// Biggest reserve MOVEMENTS this week, ranked by absolute USD — the companion to the
+// percentage drawdown story above. Percent ranks small operators (a $200k wallet
+// moving 40%); absolute USD ranks where the real money went. Same daily reserve
+// snapshots, same eligibility gate. Caveat stated prominently on the page: a USD
+// balance also moves with asset prices, so a large swing is not automatically flow.
+function reserveMovementsPage(brands: BrandAgg[], slugOfBrand: (b: BrandAgg) => string): { title: string; description: string; html: string } {
+  const path = '/data/crypto-casino-reserve-movements'
+  const url = SITE + path
+  const FLOOR = 250_000 // materiality floor in USD — below this the line is noise
+  type Row = { brand: string; slug: string; now: number; prev: number; deltaUsd: number; deltaPct: number }
+  const rows: Row[] = []
+  for (const b of brands) {
+    if (b.category !== 'casino' || !b.attributed || b.volumeSuspect) continue
+    if (b.confidence === 'low') continue
+    if (!(b.reserves > 0)) continue
+    const p = priorReserves(b.brand, 7)
+    if (!p || !(p.reserves > 0)) continue // need ≥7d of history with a real prior balance
+    const deltaUsd = b.reserves - p.reserves
+    if (Math.abs(deltaUsd) < FLOOR) continue
+    rows.push({ brand: b.brand, slug: slugOfBrand(b), now: b.reserves, prev: p.reserves, deltaUsd, deltaPct: (deltaUsd / p.reserves) * 100 })
+  }
+  const losers = rows.filter((r) => r.deltaUsd < 0).sort((a, b) => a.deltaUsd - b.deltaUsd).slice(0, 15)
+  const gainers = rows.filter((r) => r.deltaUsd > 0).sort((a, b) => b.deltaUsd - a.deltaUsd).slice(0, 15)
+  const rowHtml = (r: Row) =>
+    `<tr><td><a href="/casino/${r.slug}">${esc(r.brand)}</a></td><td class="n">${fmtUsd(r.prev)}</td><td class="n">${fmtUsd(r.now)}</td><td class="n ${r.deltaUsd < 0 ? 'rose' : 'mint'}">${r.deltaUsd >= 0 ? '+' : '−'}${fmtUsd(Math.abs(r.deltaUsd))}</td><td class="n">${r.deltaPct >= 0 ? '+' : '−'}${Math.abs(r.deltaPct).toFixed(1)}%</td></tr>`
+  const grossMoved = rows.reduce((s, r) => s + Math.abs(r.deltaUsd), 0)
+  const title = `Biggest Crypto Casino Reserve Movements This Week (USD) ${YEAR} | Tekel Data`
+  const description = `The largest 7-day changes in crypto-casino on-chain reserves by absolute USD — which operators' mapped balances grew and shrank most in dollar terms. Daily wallet snapshots, wash/treasury-excluded, verifiable on-chain. A descriptive signal, not an insolvency verdict.`
+  const faqs: { q: string; a: string }[] = [
+    {
+      q: 'Which crypto casino reserves moved the most this week?',
+      a: `${
+        losers.length || gainers.length
+          ? `Over the last 7 days, the largest dollar decline among mapped operators is ${losers.length ? `${esc(losers[0].brand)} (${fmtUsd(Math.abs(losers[0].deltaUsd))} lower)` : 'none above the reporting floor'}, and the largest increase is ${gainers.length ? `${esc(gainers[0].brand)} (${fmtUsd(gainers[0].deltaUsd)} higher)` : 'none above the reporting floor'}.`
+          : 'No mapped operator moved more than the reporting floor over the last 7 days.'
+      } Figures are wallet-balance changes read from public blockchains and refresh continuously, so the ranking changes day to day.`,
+    },
+    {
+      q: 'Why rank reserve movements in dollars instead of percent?',
+      a: 'Because the two answer different questions. A percentage ranking is dominated by small operators, where a modest transfer is a big share of a small balance; a dollar ranking shows where the industry\'s money actually moved. Read this page alongside the percentage view on our reserve-drawdown report — an operator can be large in dollars and unremarkable in percent, or the reverse.',
+    },
+    {
+      q: 'Does a large reserve drop mean the casino is in trouble?',
+      a: 'No. Reserves show assets, not liabilities. A dollar decline can reflect an operator honouring large withdrawals (healthy), treasury rebalancing, a move to a wallet we have not mapped, or simply a fall in the price of the assets held. Tekel Data reports the movement descriptively and never labels an operator insolvent.',
+    },
+    {
+      q: 'Do asset prices affect these numbers?',
+      a: 'Yes, and it matters here more than on the percentage page. Reserves are valued in USD, so a balance can move without a single transfer if the price of the held assets moves — an operator holding mostly BTC or ETH will show swings on a volatile week. Operators holding mainly stablecoins will not. Treat a large USD change as a prompt to check the net-flow report, not as proof of flow.',
+    },
+  ]
+  const body =
+    `<p class="sub">Our <a href="/data/crypto-casino-reserve-drawdown">drawdown report</a> ranks reserve changes in <em>percent</em>, which surfaces small operators. This page ranks the same daily snapshots by <strong>absolute USD</strong> — where the industry's money actually moved over the last 7 days. Descriptive on-chain signal, <em>not</em> an insolvency verdict.</p>` +
+    `<p class="upd">${rows.length} operators moved more than ${fmtUsd(FLOOR)} in the last 7 days${grossMoved > 0 ? ` · ${fmtUsd(grossMoved)} gross reserve movement across them` : ''} · high/medium-confidence attributed operators only, wash/treasury-suspect excluded · live wallet balances.</p>` +
+    (losers.length
+      ? `<h2>Biggest reserve decreases (last 7 days, USD)</h2><table><thead><tr><th>Operator</th><th style="text-align:right">Reserves 7d ago</th><th style="text-align:right">Reserves now</th><th style="text-align:right">Change (USD)</th><th style="text-align:right">Change (%)</th></tr></thead><tbody>${losers.map(rowHtml).join('')}</tbody></table>`
+      : `<h2>Biggest reserve decreases (last 7 days, USD)</h2><p class="prose">No mapped operator's reserves fell by more than ${fmtUsd(FLOOR)} over the last 7 days.</p>`) +
+    (gainers.length
+      ? `<h2>Biggest reserve increases (last 7 days, USD)</h2><table><thead><tr><th>Operator</th><th style="text-align:right">Reserves 7d ago</th><th style="text-align:right">Reserves now</th><th style="text-align:right">Change (USD)</th><th style="text-align:right">Change (%)</th></tr></thead><tbody>${gainers.map(rowHtml).join('')}</tbody></table>`
+      : `<h2>Biggest reserve increases (last 7 days, USD)</h2><p class="prose">No mapped operator's reserves rose by more than ${fmtUsd(FLOOR)} over the last 7 days.</p>`) +
+    `<h2>How to read this</h2><div class="prose"><p>A dollar move is a starting point, not a conclusion. Two things can produce a large figure without anything being wrong: an operator <strong>paying out</strong> a busy week of withdrawals, and <strong>asset prices</strong> moving under a balance that never changed hands (reserves are valued in USD, so a BTC- or ETH-heavy operator swings with the market while a stablecoin-heavy one does not). Two things are worth watching: funds leaving toward destinations that are not player withdrawals, and a decline that continues while deposits keep arriving. To tell these apart, cross-read the <a href="/data/crypto-casino-net-flow">net-flow report</a> (is money reaching players?), the percentage view in the <a href="/data/crypto-casino-reserve-drawdown">drawdown report</a>, and each operator's <a href="/proof-of-reserves">proof-of-reserves</a> trend. Balances can also move to wallets we have not mapped, which shows here as a decrease even when total holdings are unchanged — see <a href="/guide/how-to-verify-a-crypto-casino">how to verify an operator on-chain</a>.</p></div>` +
+    `<h2>FAQ</h2>${faqs.map((f) => `<div class="prose"><strong>${esc(f.q)}</strong><br>${f.a}</div>`).join('')}` +
+    `<h2>Explore</h2><div class="chips"><a class="pill" href="/data/crypto-casino-reserve-drawdown">Drawdown (%)</a><a class="pill" href="/data/crypto-casino-net-flow">Net flow</a><a class="pill" href="/proof-of-reserves">Proof of reserves</a><a class="pill" href="/most-solvent-crypto-casinos">Most solvent</a><a class="pill" href="/data">All data</a></div>`
+  const upd = Date.now()
+  return {
+    title,
+    description,
+    html: layout({
+      title,
+      description,
+      canonical: url,
+      jsonLd: [
+        datasetLd('Biggest Crypto Casino On-Chain Reserve Movements (7-day, USD)', description, url, upd, [
+          'reserves 7 days ago (USD)',
+          'reserves now (USD)',
+          '7-day reserve change (USD)',
+          '7-day reserve change (%)',
+        ]),
+        { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faqs.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a.replace(/<[^>]+>/g, '') } })) },
+      ],
+      breadcrumb: [{ name: 'Home', url: SITE + '/' }, { name: 'Data', url }],
+      h1: `Biggest crypto casino reserve movements this week`,
+      updated: upd,
+      body,
+    }),
+  }
+}
+
 // Market-size & concentration story — the macro "state of crypto gambling" numbers,
 // aggregated from the verified operator set: how many operators we track, total
 // tracked reserves and verified (wash-excluded) volume, and how concentrated the
@@ -2527,6 +2614,7 @@ function dataHubPage(): { title: string; description: string; html: string } {
     `<p><strong><a href="/data/crypto-casino-reserves">Reserves report</a></strong> — how much operators hold on-chain, aggregated and broken down by chain and by operator. Proof of reserves at an industry level: wallet balances anyone can verify, not self-reported claims.</p>` +
     `<p><strong><a href="/data/crypto-casino-net-flow">Net flow report</a></strong> — external deposits minus withdrawals per operator over 7 days, a neutral liquidity signal that helps spot operators paying out versus taking in.</p>` +
     `<p><strong><a href="/data/crypto-casino-reserve-drawdown">Which casinos are draining their reserves?</a></strong> — daily on-chain reserve-balance snapshots ranked by 7-day change, so you can see whose reserves are shrinking. A solvency-watch signal (not a verdict), and a balance can't be faked the way volume can.</p>` +
+    `<p><strong><a href="/data/crypto-casino-reserve-movements">Biggest reserve movements this week</a></strong> — the same daily snapshots ranked by absolute USD instead of percent: where the industry's money actually moved over 7 days, gainers and losers. Reads as a complement to the percentage view, with the asset-price caveat stated.</p>` +
     `<p><strong><a href="/data/crypto-casino-industry-trends">Industry trends — is crypto gambling growing?</a></strong> — the macro picture: verified on-chain volume, total reserves and active-operator count tracked daily, with the multi-week direction. A floor on real activity, wash-excluded.</p>` +
     `<p><strong><a href="/data/crypto-casino-tokens">Casino tokens report</a></strong> — the native tokens crypto casinos issue, by market cap: live price, change and which run buyback-and-burn.</p>` +
     `<p><strong><a href="/data/crypto-casino-wallet-attribution">Wallet attribution</a></strong> — how many casino wallets we attribute and the public evidence behind each, by class. A "show your work" breakdown, fully auditable on-chain and in our open-data repo.</p>` +
@@ -3026,6 +3114,12 @@ export async function generateSeoPages(): Promise<void> {
   {
     const drawdownEligible = onchainBrands.filter((b) => b.attributed && b.confidence !== 'low' && !b.volumeSuspect && b.reserves > 0 && priorReserves(b.brand, 7)?.reserves).length
     if (drawdownEligible >= 5) add('/data/crypto-casino-reserve-drawdown', 'data', reserveDrawdownPage(onchainBrands, slugOfBrand), 'featured_core')
+    // absolute-USD companion to the drawdown story — same snapshots, same gate, but
+    // only ships once something has actually moved above the reporting floor.
+    if (drawdownEligible >= 5) {
+      const mv = reserveMovementsPage(onchainBrands, slugOfBrand)
+      if (/<tbody>/.test(mv.html)) add('/data/crypto-casino-reserve-movements', 'data', mv, 'featured_core')
+    }
   }
   add('/data', 'data', dataHubPage(), 'featured_core')
   // Programmatic currency pages — one "Best {stablecoin} Casinos" per token with ≥5

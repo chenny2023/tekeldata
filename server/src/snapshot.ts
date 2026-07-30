@@ -117,6 +117,20 @@ export async function generateMarketSnapshot(): Promise<void> {
     .prepare('SELECT chain, SUM(usd) v, COUNT(DISTINCT key) casinos FROM arkham_chain_reserves GROUP BY chain ORDER BY v DESC')
     .all() as { chain: string; v: number; casinos: number }[]
   const totChainReserves = chainReserveRows.reduce((s, c) => s + (c.v ?? 0), 0) || 1
+  // Persist today's split into chain_reserve_history. arkham_chain_reserves itself is
+  // overwritten on every refresh, so without this the cross-chain mix has no time
+  // dimension and "which chains are casinos migrating to" can't be answered honestly.
+  // ~10 rows/day, upserted through the day — far too small to need chunking.
+  if (chainReserveRows.length) {
+    const day = Math.floor(now / DAY)
+    const insChain = db.prepare(
+      `INSERT INTO chain_reserve_history(day, chain, usd, casinos, ts) VALUES(?,?,?,?,?)
+       ON CONFLICT(day, chain) DO UPDATE SET usd=excluded.usd, casinos=excluded.casinos, ts=excluded.ts`,
+    )
+    db.transaction(() => {
+      for (const c of chainReserveRows) insChain.run(day, c.chain, c.v ?? 0, c.casinos ?? 0, now)
+    })()
+  }
 
   // Whale activity MUST use the same credible basis as the headline total, or it
   // dwarfs it nonsensically: unfiltered, a single suspect operator's treasury/market-

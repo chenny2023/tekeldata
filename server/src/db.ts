@@ -286,6 +286,22 @@ CREATE TABLE IF NOT EXISTS reserve_history (
   PRIMARY KEY(brand_key, day)
 );
 
+-- daily per-CHAIN reserve split, so the cross-chain mix has a time dimension.
+-- arkham_chain_reserves is PK(key, chain) and overwritten on every refresh, i.e. a
+-- snapshot with no history — which is why a "where is casino money migrating between
+-- chains" story isn't publishable from it yet. This table accumulates one row per
+-- (day, chain) from that authoritative Arkham split (BTC/Tron/SOL included, and
+-- reserves can't be wash-traded, unlike our ETH-skewed indexed volume). Once enough
+-- days exist, chain-share drift becomes a real, citable series.
+CREATE TABLE IF NOT EXISTS chain_reserve_history (
+  day     INTEGER NOT NULL,               -- floor(ts/86400000)
+  chain   TEXT NOT NULL,
+  usd     REAL NOT NULL,                  -- Σ mapped reserves on this chain
+  casinos INTEGER NOT NULL,               -- entities contributing to that sum
+  ts      INTEGER NOT NULL,
+  PRIMARY KEY(day, chain)
+);
+
 CREATE TABLE IF NOT EXISTS alert_rules (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id     INTEGER NOT NULL,
