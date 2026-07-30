@@ -63,6 +63,20 @@ and report "backlog empty".
 
 ### New English data-story pages (moat content — factual, on-chain, wash-excluded, no verdicts)
 - [ ] Add a "crypto casino chain migration" data story at `/data/crypto-casino-chain-migration` — where casino money is shifting between chains (net flow by chain over time), modelled on the existing data-story pages in seo.ts (visible FAQ + FAQPage + Dataset JSON-LD, linked from the /data hub and llms.txt). Only ship if the underlying data is real and ≥medium-confidence; otherwise leave unchecked and report the data gap.
-- [ ] Add a "biggest crypto casino reserve movements this week" data story (top reserve gainers/losers by absolute USD, complementing the existing % reserve-drawdown page).
+  - **BLOCKED on data accumulation as of 2026-07-30, do not force it.** Checked: the
+    authoritative cross-chain split (`arkham_chain_reserves` / `arkham_chain_volume`) is
+    `PRIMARY KEY(key, chain)` and overwritten on every refresh — a snapshot with no time
+    dimension. `arkham_reserve_history` has time but no chain; `daily_market_snapshot`
+    stores only `active_chains` (a count). The one time-series source, `transfers`, is
+    ETH-skewed by our own labeling coverage (~96% ETH — see the comment at the
+    `chainReserveRows` read in `snapshot.ts`), so a migration curve built on it would
+    largely track our attribution progress, not real movement.
+    Enabling step shipped instead: `chain_reserve_history(day, chain, usd, casinos, ts)`
+    (`db.ts`) is now written daily from the Arkham split inside `snapshotMarket()`.
+    Re-check this item once that table holds **≥21 distinct days** (query:
+    `SELECT COUNT(DISTINCT day) FROM chain_reserve_history`) — then chain-share drift is a
+    real series and the page can be built from it. Frame it as reserve-share drift across
+    chains, and state that the operator set is fixed to mapped entities.
+- [x] Add a "biggest crypto casino reserve movements this week" data story (top reserve gainers/losers by absolute USD, complementing the existing % reserve-drawdown page).
 
 <!-- Append new vetted items above this line. Keep them specific and self-contained. -->
