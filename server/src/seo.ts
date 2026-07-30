@@ -3191,7 +3191,7 @@ export async function generateSeoPages(): Promise<void> {
     related: `Check operators' on-chain health in the <a href="/crypto-casinos-with-proof-of-reserves">proof-of-reserves list</a>, the <a href="/data/crypto-casino-net-flow">net-flow report</a>, the <a href="/rankings/trust">trust ranking</a>, and the <a href="/guide/crypto-casino-red-flags">red-flags checklist</a>.`,
   }), 'featured_core')
   add('/guide/provably-fair-explained', 'guide', guidePage({
-    path: '/guide/provably-fair-explained', h1: 'Provably fair, explained',
+    path: '/guide/provably-fair-explained', h1: 'Provably fair, explained', alternates: guideHreflang('provably-fair-explained'),
     title: `Provably Fair Crypto Casinos Explained (${YEAR}) — How It Works | Tekel Data`,
     description: `What "provably fair" actually means at a crypto casino, how the cryptographic check works in plain terms, what it does and doesn't protect against, and why it's separate from solvency.`,
     intro: `"Provably fair" is one of the few things at a crypto casino you can verify mathematically. Here's how it works — and what it doesn't cover.`,
