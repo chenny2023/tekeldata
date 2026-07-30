@@ -3333,7 +3333,7 @@ export async function generateSeoPages(): Promise<void> {
     related: `Use the <a href="/proof-of-reserves">proof-of-reserves hub</a>, the <a href="/data/crypto-casino-net-flow">net-flow report</a>, the neutral <a href="/risk">risk registry</a>, and <a href="/guide/how-to-verify-a-crypto-casino">how to verify an operator on-chain</a>.`,
   }), 'featured_core')
   add('/guide/crypto-casino-vs-online-casino', 'guide', guidePage({
-    path: '/guide/crypto-casino-vs-online-casino', h1: 'Crypto casino vs traditional online casino',
+    path: '/guide/crypto-casino-vs-online-casino', h1: 'Crypto casino vs traditional online casino', alternates: guideHreflang('crypto-casino-vs-online-casino'),
     title: `Crypto Casino vs Traditional Online Casino — Key Differences (${YEAR}) | Tekel Data`,
     description: `How crypto casinos differ from traditional online casinos: deposits, speed, regulation, privacy, transparency and risk. A balanced comparison, with the on-chain angle that's unique to crypto.`,
     intro: `Crypto casinos and traditional online casinos look similar but differ in ways that matter for safety and convenience. Here's a balanced comparison of the trade-offs.`,
@@ -3415,7 +3415,7 @@ export async function generateSeoPages(): Promise<void> {
     related: `Compare assets in <a href="/guide/best-crypto-for-casino-deposits">best crypto for casino deposits</a>, check operators on the <a href="/proof-of-reserves">proof-of-reserves hub</a>, or see the live <a href="/data/crypto-casino-deposit-currencies">currency breakdown</a>.`,
   }), 'featured_core')
   add('/guide/crypto-casino-kyc-and-anonymity', 'guide', guidePage({
-    path: '/guide/crypto-casino-kyc-and-anonymity', h1: 'KYC and anonymity at crypto casinos',
+    path: '/guide/crypto-casino-kyc-and-anonymity', h1: 'KYC and anonymity at crypto casinos', alternates: guideHreflang('crypto-casino-kyc-and-anonymity'),
     title: `Crypto Casino KYC & Anonymity Explained (${YEAR}) | Tekel Data`,
     description: `What KYC means at a crypto casino, when operators ask for identity verification, the reality of "no-KYC" play, and the privacy and risk trade-offs. Neutral, not advice.`,
     intro: `Crypto casinos often let you start with just a wallet, but "anonymous" has limits. Here's what KYC is, when it kicks in, and the trade-offs. General information, not legal advice.`,
