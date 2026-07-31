@@ -221,6 +221,33 @@ export async function runSolanaOnce() {
   }
 }
 
+// Current reserves held by a Solana address, in USD: native SOL at spot plus the
+// owner's SPL USDC/USDT token accounts (1:1, same basis as every other chain).
+// Returns null on RPC failure so the caller can tell "fetch failed" apart from
+// "wallet is empty" — writing a 0 over a known balance would fake a drawdown.
+export async function solBalanceUsd(address: string): Promise<number | null> {
+  if (!SOL_ADDR.test(address)) return null
+  try {
+    const lamports = await solRpc('getBalance', [address])
+    const native = Number(lamports?.value ?? 0) / 1e9
+    let usd = native * priceForDay('SOL', Date.now())
+    // SPL stables live in separate token accounts owned by the address
+    const accounts = await solRpc('getTokenAccountsByOwner', [
+      address,
+      { programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' },
+      { encoding: 'jsonParsed' },
+    ])
+    for (const a of accounts?.value ?? []) {
+      const info = a?.account?.data?.parsed?.info
+      if (!info || !STABLE_MINTS.has(info.mint)) continue
+      usd += Number(info.tokenAmount?.uiAmount ?? 0)
+    }
+    return Number.isFinite(usd) ? usd : null
+  } catch {
+    return null
+  }
+}
+
 export function startSolana() {
   if (!solEnabled()) {
     console.log('[sol] disabled (SOL_ENABLED=0)')

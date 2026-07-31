@@ -64,6 +64,23 @@ CREATE TABLE IF NOT EXISTS balances (
   updated_at INTEGER NOT NULL
 );
 
+-- Per-CHAIN reserve balance for each watched address, from our OWN wallet set and
+-- our own RPC/Esplora calls — i.e. the Arkham-independent basis for the cross-chain
+-- split. `balances` above collapses an address to a single number (and historically
+-- only ETH/TRON rows were ever queried at all), which cannot answer "which chain is
+-- this operator's money on". Keyed by (chain, address) so an address listed on
+-- several chains contributes once per chain and is never double-counted.
+CREATE TABLE IF NOT EXISTS wallet_chain_balances (
+  chain      TEXT NOT NULL,
+  address    TEXT NOT NULL,
+  label      TEXT NOT NULL,               -- brand, denormalised for aggregation
+  usd        REAL NOT NULL,
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY(chain, address)
+);
+CREATE INDEX IF NOT EXISTS idx_wcb_chain ON wallet_chain_balances(chain);
+CREATE INDEX IF NOT EXISTS idx_wcb_label ON wallet_chain_balances(label);
+
 CREATE TABLE IF NOT EXISTS sync_state (
   key   TEXT PRIMARY KEY,
   value TEXT

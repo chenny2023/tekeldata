@@ -166,6 +166,22 @@ async function indexChain(ch: UtxoChain, watched: WatchRow[]) {
   if (added) console.log(`[${cl}] ${w.label}: +${added} transfers (${pages}p${isBackfill ? ' backfill' + (reached ? ' ✓' : '…') : ''})`)
 }
 
+// Current on-chain balance for a UTXO address, in USD. Esplora's chain_stats
+// carry cumulative funded/spent sums, so balance = funded − spent (mempool
+// deltas included so a just-moved reserve isn't double-counted). Returns null —
+// not 0 — when every host fails, so a transient outage can't be mistaken for a
+// drained wallet by the caller.
+export async function utxoBalanceUsd(chainKey: string, address: string): Promise<number | null> {
+  const chain = CHAINS.find((c) => c.key === chainKey)
+  if (!chain) return null
+  const j = await esplora(chain.apis, `/address/${address}`)
+  if (!j || typeof j !== 'object') return null
+  const stat = (s: any) => (Number(s?.funded_txo_sum ?? 0) - Number(s?.spent_txo_sum ?? 0)) / 1e8
+  const coins = stat(j.chain_stats) + stat(j.mempool_stats)
+  if (!Number.isFinite(coins) || coins < 0) return null
+  return coins * priceForDay(chain.asset, Date.now())
+}
+
 export function startUtxo() {
   for (const ch of CHAINS) {
     if (!enabled(ch.key)) { console.log(`[${ch.key.toLowerCase()}] disabled`); continue }

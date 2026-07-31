@@ -1204,6 +1204,44 @@ export async function registerApi(app: FastifyInstance) {
     return { entities, total: tot, chains: rows.map((r) => ({ chain: r.chain, usd: r.v, casinos: r.casinos, share: +((100 * (r.v ?? 0)) / tot).toFixed(1) })) }
   })
 
+  // Self-hosted cross-chain reserve split — computed from OUR wallet set via our own
+  // RPC/Esplora calls, with no Arkham dependency. This is the replacement basis for the
+  // 402-stalled arkham_chain_reserves; compare the two totals here before switching any
+  // public page over.
+  app.get('/api/diag/wallet-chain-reserves', async () => {
+    // join through watchlist: wallet_chain_balances covers every watched address
+    // (exchange/whale rows included), but this split must count casinos only —
+    // otherwise `covered` is measured against the wrong denominator and exceeds 100%.
+    const rows = db
+      .prepare(
+        `SELECT b.chain, SUM(b.usd) usd, COUNT(*) wallets, COUNT(DISTINCT b.label) brands, MAX(b.updated_at) fresh
+           FROM wallet_chain_balances b
+           JOIN watchlist w ON w.chain=b.chain AND w.address=b.address
+          WHERE w.active=1 AND w.category='casino'
+          GROUP BY b.chain ORDER BY usd DESC`,
+      )
+      .all() as { chain: string; usd: number; wallets: number; brands: number; fresh: number }[]
+    const tot = rows.reduce((s, r) => s + (r.usd ?? 0), 0)
+    const watched = db
+      .prepare("SELECT chain, COUNT(*) n FROM watchlist WHERE active=1 AND category='casino' GROUP BY chain")
+      .all() as { chain: string; n: number }[]
+    const watchedBy = new Map(watched.map((w) => [w.chain, w.n]))
+    return {
+      total: tot,
+      chains: rows.map((r) => ({
+        chain: r.chain,
+        usd: r.usd,
+        share: tot > 0 ? +((100 * (r.usd ?? 0)) / tot).toFixed(1) : 0,
+        wallets: r.wallets,
+        watched: watchedBy.get(r.chain) ?? 0,
+        // how much of the address set this sweep has actually priced yet
+        covered: watchedBy.get(r.chain) ? +((100 * r.wallets) / watchedBy.get(r.chain)!).toFixed(1) : null,
+        brands: r.brands,
+        freshestAgeMin: r.fresh ? Math.round((Date.now() - r.fresh) / 60_000) : null,
+      })),
+    }
+  })
+
   // Accumulation gate for the chain-migration data story: that page needs a real
   // time dimension, which arkham_chain_reserves (overwritten each refresh) can't
   // give. Reports how many distinct days chain_reserve_history holds so the gate

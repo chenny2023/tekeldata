@@ -4,7 +4,9 @@ import { workerGet, workerAll } from './readpool.ts'
 import { evmBalanceUsd } from './collectors/evm.ts'
 import { tronBalanceUsd } from './collectors/tron.ts'
 import { tronRpcBalanceUsd } from './collectors/tronrpc.ts'
-import { evmChainsBalanceUsd } from './collectors/evmchains.ts'
+import { evmChainsBalanceUsd, evmChainByKey } from './collectors/evmchains.ts'
+import { utxoBalanceUsd } from './collectors/utxo.ts'
+import { solBalanceUsd } from './collectors/solana.ts'
 import { matchCasinoMeta, brandKey, brandName, CasinoMeta } from './casinometa.ts'
 import { isVolumeSuspect, volumeSuspectReasons } from './brandaliases.ts'
 import { reviewScores } from './collectors/reviews.ts'
@@ -529,6 +531,37 @@ function trustScore(s: {
 }
 
 // ── Refresh real on-chain reserves for every watched address ──────────────────
+// Balance path per chain. Previously this was a bare `chain === 'ETH' ? evm : tron`
+// branch, which silently sent BTC/SOL/POLYGON/BSC/OP/ARB/AVAX addresses into the
+// TRON path — 3,107 of 3,341 watched wallets returning 0. Each chain now resolves
+// to the client that can actually read it, and a null (fetch failed) is kept
+// distinct from a real 0 so an outage is never written as a drained wallet.
+const upsertChainBalance = db.prepare(
+  `INSERT INTO wallet_chain_balances(chain, address, label, usd, updated_at) VALUES(?,?,?,?,?)
+   ON CONFLICT(chain, address) DO UPDATE SET label=excluded.label, usd=excluded.usd, updated_at=excluded.updated_at`,
+)
+
+async function balanceForChain(chain: string, address: string): Promise<number | null> {
+  if (chain === 'ETH') return evmBalanceUsd(address)
+  if (chain === 'TRON') return config.tronMode === 'jsonrpc' ? tronRpcBalanceUsd(address) : tronBalanceUsd(address)
+  if (chain === 'BTC' || chain === 'LTC') return utxoBalanceUsd(chain, address)
+  if (chain === 'SOL') return solBalanceUsd(address)
+  const evm = evmChainByKey.get(chain)
+  return evm ? evm.balanceUsd(address) : null
+}
+
+// Pacing per chain — public Esplora/RPC hosts throttle at very different rates.
+// BTC dominates the address set (~2.8k of 3.3k), so its pace sets the sweep length:
+// at 900ms a full pass is ~45min. Reserves move slowly, and the `refreshing` guard
+// stops passes from overlapping, so this is fine — but keep it tunable in case
+// mempool.space starts throttling.
+const PACE_MS: Record<string, number> = {
+  TRON: 2000,
+  BTC: Number(process.env.BTC_BALANCE_PACE_MS ?? 900),
+  LTC: 900,
+  SOL: 400,
+}
+
 let refreshing = false
 export async function refreshBalances() {
   if (refreshing) return
@@ -536,19 +569,25 @@ export async function refreshBalances() {
   try {
     const rows = stmt.activeWatch.all() as WatchRow[]
     for (const w of rows) {
+      // per-chain balance on the address's own chain → wallet_chain_balances
+      const own = await balanceForChain(w.chain, w.address)
+      if (own !== null) upsertChainBalance.run(w.chain, w.address, w.label, own, Date.now())
+
+      // `balances` keeps its established meaning (an address's total across every
+      // EVM chain it appears on), so trust scores and existing pages don't shift.
       let usd: number
       if (w.chain === 'ETH') {
-        // EVM address — sum reserves across mainnet + every extra EVM chain
-        const balances = await Promise.all([evmBalanceUsd(w.address), ...evmChainsBalanceUsd(w.address)])
-        usd = balances.reduce((a, b) => a + b, 0)
+        // `own` is already this address's mainnet balance — only the extra chains left
+        const extra = await Promise.all(evmChainsBalanceUsd(w.address))
+        usd = (own ?? 0) + extra.reduce((a, b) => a + b, 0)
       } else {
-        usd = config.tronMode === 'jsonrpc' ? await tronRpcBalanceUsd(w.address) : await tronBalanceUsd(w.address)
+        usd = own ?? 0
       }
       // skip overwriting a known balance with 0 on a transient fetch failure
       if (usd > 0 || !(db.prepare('SELECT usd FROM balances WHERE watch_id=?').get(w.id) as any)?.usd) {
         stmt.upsertBalance.run(w.id, usd, Date.now())
       }
-      await new Promise((r) => setTimeout(r, w.chain === 'TRON' ? 2000 : 120))
+      await new Promise((r) => setTimeout(r, PACE_MS[w.chain] ?? 120))
     }
   } finally {
     refreshing = false
