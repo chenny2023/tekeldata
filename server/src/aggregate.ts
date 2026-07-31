@@ -568,10 +568,28 @@ export async function refreshBalances() {
   refreshing = true
   try {
     const rows = stmt.activeWatch.all() as WatchRow[]
+    // A full pass is now ~45min (BTC dominates), so record progress: without it a
+    // stalled or throwing sweep is indistinguishable from one still working.
+    let done = 0
+    let wrote = 0
+    const started = Date.now()
+    stateSet('balances:sweep', `started ${new Date(started).toISOString()} · ${rows.length} addrs`)
     for (const w of rows) {
       // per-chain balance on the address's own chain → wallet_chain_balances
-      const own = await balanceForChain(w.chain, w.address)
-      if (own !== null) upsertChainBalance.run(w.chain, w.address, w.label, own, Date.now())
+      let own: number | null = null
+      try {
+        own = await balanceForChain(w.chain, w.address)
+      } catch (e) {
+        // one unreadable address must not abort the whole sweep
+        if (done < 3) console.warn(`[balances] ${w.chain} ${w.address}: ${(e as Error).message}`)
+      }
+      if (own !== null) {
+        upsertChainBalance.run(w.chain, w.address, w.label, own, Date.now())
+        wrote++
+      }
+      if (++done % 100 === 0 || done === rows.length) {
+        stateSet('balances:sweep', `${done}/${rows.length} read · ${wrote} written · ${Math.round((Date.now() - started) / 1000)}s`)
+      }
 
       // `balances` keeps its established meaning (an address's total across every
       // EVM chain it appears on), so trust scores and existing pages don't shift.

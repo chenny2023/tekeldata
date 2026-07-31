@@ -1226,7 +1226,12 @@ export async function registerApi(app: FastifyInstance) {
       .prepare("SELECT chain, COUNT(*) n FROM watchlist WHERE active=1 AND category='casino' GROUP BY chain")
       .all() as { chain: string; n: number }[]
     const watchedBy = new Map(watched.map((w) => [w.chain, w.n]))
+    // raw (unjoined) state, so an empty result can be told apart from a join miss
+    const raw = db.prepare('SELECT COUNT(*) n, MAX(updated_at) fresh FROM wallet_chain_balances').get() as { n: number; fresh: number | null }
     return {
+      rawRows: raw.n,
+      rawFreshestAgeMin: raw.fresh ? Math.round((Date.now() - raw.fresh) / 60_000) : null,
+      sweep: stateGet('balances:sweep') ?? null,
       total: tot,
       chains: rows.map((r) => ({
         chain: r.chain,
