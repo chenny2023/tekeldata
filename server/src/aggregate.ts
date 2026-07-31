@@ -541,6 +541,20 @@ const upsertChainBalance = db.prepare(
    ON CONFLICT(chain, address) DO UPDATE SET label=excluded.label, usd=excluded.usd, updated_at=excluded.updated_at`,
 )
 
+// A single slow address must never stall the whole sweep. Each chain client already
+// retries internally (evmchain rpc: rpcs.length*2 attempts × 15s; esplora: 4 hosts),
+// so a worst-case address can occupy the loop for many minutes — and an unbounded
+// hang stopped the first production sweep dead after 49 of 3,479 addresses. The
+// underlying request can't be cancelled, but the loop moves on and the address is
+// simply retried next pass.
+function withDeadline<T>(p: Promise<T>, ms: number): Promise<T | null> {
+  let timer: NodeJS.Timeout
+  return Promise.race([
+    p.catch(() => null),
+    new Promise<null>((res) => { timer = setTimeout(() => res(null), ms) }),
+  ]).finally(() => clearTimeout(timer)) as Promise<T | null>
+}
+
 async function balanceForChain(chain: string, address: string): Promise<number | null> {
   if (chain === 'ETH') return evmBalanceUsd(address)
   if (chain === 'TRON') return config.tronMode === 'jsonrpc' ? tronRpcBalanceUsd(address) : tronBalanceUsd(address)
@@ -562,6 +576,11 @@ const PACE_MS: Record<string, number> = {
   SOL: 400,
 }
 
+// Per-address budgets. Sized so a full 3.5k-address pass stays bounded even if a
+// provider degrades: worst case ≈ rows × (own + extra + pace), not unbounded.
+const OWN_DEADLINE_MS = Number(process.env.BALANCE_ADDR_TIMEOUT_MS ?? 25_000)
+const EXTRA_DEADLINE_MS = Number(process.env.BALANCE_EXTRA_TIMEOUT_MS ?? 30_000)
+
 let refreshing = false
 export async function refreshBalances() {
   if (refreshing) return
@@ -576,18 +595,12 @@ export async function refreshBalances() {
     stateSet('balances:sweep', `started ${new Date(started).toISOString()} · ${rows.length} addrs`)
     for (const w of rows) {
       // per-chain balance on the address's own chain → wallet_chain_balances
-      let own: number | null = null
-      try {
-        own = await balanceForChain(w.chain, w.address)
-      } catch (e) {
-        // one unreadable address must not abort the whole sweep
-        if (done < 3) console.warn(`[balances] ${w.chain} ${w.address}: ${(e as Error).message}`)
-      }
+      const own = await withDeadline(balanceForChain(w.chain, w.address), OWN_DEADLINE_MS)
       if (own !== null) {
         upsertChainBalance.run(w.chain, w.address, w.label, own, Date.now())
         wrote++
       }
-      if (++done % 100 === 0 || done === rows.length) {
+      if (++done % 25 === 0 || done === rows.length) {
         stateSet('balances:sweep', `${done}/${rows.length} read · ${wrote} written · ${Math.round((Date.now() - started) / 1000)}s`)
       }
 
@@ -595,9 +608,12 @@ export async function refreshBalances() {
       // EVM chain it appears on), so trust scores and existing pages don't shift.
       let usd: number
       if (w.chain === 'ETH') {
-        // `own` is already this address's mainnet balance — only the extra chains left
-        const extra = await Promise.all(evmChainsBalanceUsd(w.address))
-        usd = (own ?? 0) + extra.reduce((a, b) => a + b, 0)
+        // `own` is already this address's mainnet balance — only the extra chains left.
+        // This 6-chain fan-out is the most expensive step in the sweep, so it gets its
+        // own budget; a partial sum here only affects `balances`, never the per-chain
+        // split, which is read from each address's own chain row.
+        const extra = await withDeadline(Promise.all(evmChainsBalanceUsd(w.address)), EXTRA_DEADLINE_MS)
+        usd = (own ?? 0) + (extra ?? []).reduce((a, b) => a + b, 0)
       } else {
         usd = own ?? 0
       }
