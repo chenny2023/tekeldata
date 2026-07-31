@@ -581,6 +581,20 @@ const PACE_MS: Record<string, number> = {
 const OWN_DEADLINE_MS = Number(process.env.BALANCE_ADDR_TIMEOUT_MS ?? 25_000)
 const EXTRA_DEADLINE_MS = Number(process.env.BALANCE_EXTRA_TIMEOUT_MS ?? 30_000)
 
+// Re-read cadence per chain. BTC is 2,820 of 3,479 watched addresses but holds ~0.2%
+// of measured reserves (Arkham's independent split agreed: ~0.4%) — UTXO clustering
+// yields mostly one-time-use, long-empty addresses. Re-reading all of them every pass
+// cost ~85% of the sweep for a rounding error, and mempool.space rate-limits under it
+// (reads slowed to ~11s each and mostly returned nothing). So the chains that carry
+// the value refresh every pass, and the UTXO tail refreshes daily.
+const CHAIN_TTL_MS: Record<string, number> = {
+  BTC: Number(process.env.BTC_BALANCE_TTL_MS ?? 86_400_000),
+  LTC: Number(process.env.LTC_BALANCE_TTL_MS ?? 86_400_000),
+}
+const freshEnough = db.prepare('SELECT updated_at FROM wallet_chain_balances WHERE chain=? AND address=?')
+// per-pass read budget for TTL chains (the BTC tail), so one pass can't be consumed by it
+const TTL_CHAIN_ATTEMPTS_PER_PASS = Number(process.env.TTL_CHAIN_ATTEMPTS_PER_PASS ?? 150)
+
 let refreshing = false
 export async function refreshBalances() {
   if (refreshing) return
@@ -591,17 +605,42 @@ export async function refreshBalances() {
     // stalled or throwing sweep is indistinguishable from one still working.
     let done = 0
     let wrote = 0
+    let skipped = 0
+    const attempts = new Map<string, number>()
     const started = Date.now()
     stateSet('balances:sweep', `started ${new Date(started).toISOString()} · ${rows.length} addrs`)
     for (const w of rows) {
       // per-chain balance on the address's own chain → wallet_chain_balances
+      const ttl = CHAIN_TTL_MS[w.chain]
+      if (ttl) {
+        const prev = freshEnough.get(w.chain, w.address) as { updated_at: number } | undefined
+        if (prev && Date.now() - prev.updated_at < ttl) {
+          skipped++
+          done++
+          continue // still fresh — don't spend the pass (or the rate limit) on it
+        }
+        // A rate-limited read writes no row, so TTL alone would retry it every pass
+        // forever and the tail would keep starving the chains that hold the value.
+        // Budget the attempts per pass instead: progress is made every pass, the cost
+        // is bounded whether reads succeed or fail, and the queue drains across passes.
+        const n = (attempts.get(w.chain) ?? 0) + 1
+        attempts.set(w.chain, n)
+        if (n > TTL_CHAIN_ATTEMPTS_PER_PASS) {
+          skipped++
+          done++
+          continue
+        }
+      }
       const own = await withDeadline(balanceForChain(w.chain, w.address), OWN_DEADLINE_MS)
       if (own !== null) {
         upsertChainBalance.run(w.chain, w.address, w.label, own, Date.now())
         wrote++
       }
       if (++done % 25 === 0 || done === rows.length) {
-        stateSet('balances:sweep', `${done}/${rows.length} read · ${wrote} written · ${Math.round((Date.now() - started) / 1000)}s`)
+        stateSet(
+          'balances:sweep',
+          `${done}/${rows.length} read · ${wrote} written · ${skipped} fresh-skipped · ${Math.round((Date.now() - started) / 1000)}s`,
+        )
       }
 
       // `balances` keeps its established meaning (an address's total across every
