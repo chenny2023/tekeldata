@@ -1204,6 +1204,29 @@ export async function registerApi(app: FastifyInstance) {
     return { entities, total: tot, chains: rows.map((r) => ({ chain: r.chain, usd: r.v, casinos: r.casinos, share: +((100 * (r.v ?? 0)) / tot).toFixed(1) })) }
   })
 
+  // Accumulation gate for the chain-migration data story: that page needs a real
+  // time dimension, which arkham_chain_reserves (overwritten each refresh) can't
+  // give. Reports how many distinct days chain_reserve_history holds so the gate
+  // is checkable instead of guessed. Started accumulating 2026-07-30.
+  app.get('/api/diag/chain-reserve-history', async () => {
+    const agg = db
+      .prepare('SELECT COUNT(DISTINCT day) days, COUNT(*) rows, MIN(day) firstDay, MAX(day) lastDay FROM chain_reserve_history')
+      .get() as { days: number; rows: number; firstDay: number | null; lastDay: number | null }
+    const perDay = db
+      .prepare('SELECT day, COUNT(*) chains, SUM(usd) usd FROM chain_reserve_history GROUP BY day ORDER BY day DESC LIMIT 30')
+      .all() as { day: number; chains: number; usd: number }[]
+    const iso = (d: number | null) => (d == null ? null : new Date(d * 86_400_000).toISOString().slice(0, 10))
+    return {
+      days: agg.days,
+      rows: agg.rows,
+      firstDay: iso(agg.firstDay),
+      lastDay: iso(agg.lastDay),
+      daysNeeded: 21,
+      ready: agg.days >= 21,
+      recent: perDay.map((r) => ({ day: iso(r.day), chains: r.chains, usd: r.usd })),
+    }
+  })
+
   // Per-chain casino capital flow — the clear daily/Nd deposit + withdrawal
   // statistic from our own indexed casino wallets (the metric, not reserves).
   // ?chain=TRON|BTC|ETH|… (default TRON), ?days=N.
