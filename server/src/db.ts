@@ -66,10 +66,11 @@ CREATE TABLE IF NOT EXISTS balances (
 
 -- Per-CHAIN reserve balance for each watched address, from our OWN wallet set and
 -- our own RPC/Esplora calls — i.e. the Arkham-independent basis for the cross-chain
--- split. `balances` above collapses an address to a single number (and historically
--- only ETH/TRON rows were ever queried at all), which cannot answer "which chain is
--- this operator's money on". Keyed by (chain, address) so an address listed on
--- several chains contributes once per chain and is never double-counted.
+-- split. The balances table above collapses an address to a single number (and
+-- historically only ETH/TRON rows were ever queried at all), which cannot answer
+-- "which chain is this operator's money on". Keyed by (chain, address) so an address
+-- listed on several chains contributes once per chain and is never double-counted.
+-- NOTE: this whole schema is a JS template literal — never use backticks in comments.
 CREATE TABLE IF NOT EXISTS wallet_chain_balances (
   chain      TEXT NOT NULL,
   address    TEXT NOT NULL,
