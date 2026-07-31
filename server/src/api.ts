@@ -1343,7 +1343,15 @@ export async function registerApi(app: FastifyInstance) {
         .prepare("SELECT COUNT(DISTINCT label) n FROM watchlist WHERE active=1 AND category='casino' AND label NOT LIKE 'Casino-pattern%' AND label NOT LIKE '0x%' AND label NOT LIKE 'Service %'")
         .get() as any
     ).n
-    return { totalCasinoWallets, distinctNamedBrands, duneQueryId: stateGet('dune:casino_qid'), bySource }
+    // per-chain split of the address set — sizes the self-hosted reserve job that
+    // replaces the (402-stalled) Arkham portfolio feed: each chain needs its own
+    // balance path, and BTC/EVM/TRON differ wildly in cost per address.
+    const byChain = db
+      .prepare(
+        "SELECT chain, COUNT(*) wallets, COUNT(DISTINCT label) brands, SUM(CASE WHEN label NOT LIKE 'Casino-pattern%' AND label NOT LIKE '0x%' AND label NOT LIKE 'Service %' THEN 1 ELSE 0 END) namedWallets FROM watchlist WHERE active=1 AND category='casino' GROUP BY chain ORDER BY wallets DESC",
+      )
+      .all() as { chain: string; wallets: number; brands: number; namedWallets: number }[]
+    return { totalCasinoWallets, distinctNamedBrands, duneQueryId: stateGet('dune:casino_qid'), bySource, byChain }
   })
 
   // ── open-data export: per-wallet provenance ──────────────────────────────────
