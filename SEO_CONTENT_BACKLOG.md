@@ -73,10 +73,24 @@ and report "backlog empty".
     largely track our attribution progress, not real movement.
     Enabling step shipped instead: `chain_reserve_history(day, chain, usd, casinos, ts)`
     (`db.ts`) is now written daily from the Arkham split inside `snapshotMarket()`.
-    Re-check this item once that table holds **≥21 distinct days** (query:
-    `SELECT COUNT(DISTINCT day) FROM chain_reserve_history`) — then chain-share drift is a
-    real series and the page can be built from it. Frame it as reserve-share drift across
-    chains, and state that the operator set is fixed to mapped entities.
+    Re-check this item once that table holds **≥21 distinct days** — then chain-share drift
+    is a real series and the page can be built from it. Frame it as reserve-share drift
+    across chains, and state that the operator set is fixed to mapped entities.
+  - **Re-checked 2026-07-31 → still blocked, and a second blocker surfaced.** The gate is
+    now queryable: `GET /api/diag/chain-reserve-history` → `{days, distinctDailyTotals,
+    sourceStalled, ready}`. Today it reads `days: 2` of 21.
+    More important: the two recorded days carry a **byte-identical** total
+    (`$563,913,935.023514`, = the current `arkham_chain_reserves` sum), because the Arkham
+    portfolio endpoint is returning **402** (`/api/diag/arkham-probe` →
+    `{"entity":"Moonroll","status":402}`) and the collector only overwrites reserves on a
+    successful fetch. So the source is **frozen**, and the table is accumulating repeated
+    copies of one snapshot — which would satisfy a naive 21-day count while producing a
+    "migration" chart showing exactly 0% drift on every chain.
+    Therefore the gate now also requires `distinctDailyTotals ≥ ceil(days/2)`, i.e. the
+    series must actually move. **Do not build this page until `ready: true`.**
+    ⚠️ Needs operator action (not a code fix): restore Arkham API access/billing. Until
+    then the day counter keeps ticking on stale data — and note the already-live reserve
+    pages read the same frozen table.
 - [x] Add a "biggest crypto casino reserve movements this week" data story (top reserve gainers/losers by absolute USD, complementing the existing % reserve-drawdown page).
 
 <!-- Append new vetted items above this line. Keep them specific and self-contained. -->

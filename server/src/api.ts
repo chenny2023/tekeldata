@@ -1216,13 +1216,25 @@ export async function registerApi(app: FastifyInstance) {
       .prepare('SELECT day, COUNT(*) chains, SUM(usd) usd FROM chain_reserve_history GROUP BY day ORDER BY day DESC LIMIT 30')
       .all() as { day: number; chains: number; usd: number }[]
     const iso = (d: number | null) => (d == null ? null : new Date(d * 86_400_000).toISOString().slice(0, 10))
+    // A day count alone is NOT a sufficient gate. The upstream Arkham portfolio call
+    // has been returning 402, and the collector only replaces arkham_chain_reserves on
+    // a successful fetch — so a stalled source makes this table accumulate N identical
+    // copies of one frozen snapshot. That would pass a naive days>=21 check and yield a
+    // "migration" chart showing exactly 0% drift on every chain: stale data dressed as a
+    // finding. Require the series to actually move before the story is publishable.
+    const movingDays = (
+      db.prepare('SELECT COUNT(DISTINCT t) n FROM (SELECT day, ROUND(SUM(usd),2) t FROM chain_reserve_history GROUP BY day)').get() as any
+    ).n as number
     return {
       days: agg.days,
       rows: agg.rows,
       firstDay: iso(agg.firstDay),
       lastDay: iso(agg.lastDay),
       daysNeeded: 21,
-      ready: agg.days >= 21,
+      distinctDailyTotals: movingDays,
+      // frozen source → the series is a repeated snapshot, not history
+      sourceStalled: agg.days >= 2 && movingDays <= 1,
+      ready: agg.days >= 21 && movingDays >= Math.ceil(agg.days / 2),
       recent: perDay.map((r) => ({ day: iso(r.day), chains: r.chains, usd: r.usd })),
     }
   })
