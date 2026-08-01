@@ -1575,7 +1575,29 @@ export async function registerApi(app: FastifyInstance) {
     const total = (db.prepare('SELECT COUNT(*) n FROM exchange_addresses').get() as any).n as number
     const byChain = db.prepare('SELECT chain, COUNT(*) n FROM exchange_addresses GROUP BY chain ORDER BY n DESC').all()
     const last = stateGet('exchanges:last')
-    return { total, byChain, last: last ? JSON.parse(last) : null, note: 'Read-only CEX label set used to exclude exchange hot wallets from graph-expand candidates. If total=0, adjust CATEGORIES in exchanges.ts.' }
+    return { total, byChain, last: last ? JSON.parse(last) : null, note: 'Read-only CEX label set used to exclude exchange hot wallets from graph-expand candidates. If total=0, adjust EXCHANGE_NAMES in exchanges.ts.' }
+  })
+
+  // attribution audit (admin): active casino watchlist addresses that are ALSO known CEX
+  // hot wallets — exactly the Gemini-class mis-attribution the Arkham post-mortem fixed by
+  // hand. Read-only: surfaces candidates for MISCATEGORIZED_ENTITIES / denylist review; it
+  // NEVER changes attribution automatically (re-categorising reserves is irreversible and
+  // can fire false drop-alerts — see the handoff). A reviewer decides.
+  app.get('/api/diag/exchange-in-watchlist', async (req, reply) => {
+    if (!requireAdmin(req, reply)) return
+    const rows = db
+      .prepare(
+        `SELECT w.chain, w.address, w.label AS attributed_brand, w.source, x.exchange
+         FROM watchlist w JOIN exchange_addresses x ON x.chain=w.chain AND x.address=LOWER(w.address)
+         WHERE w.active=1 AND w.category='casino'
+         ORDER BY w.label`,
+      )
+      .all()
+    return {
+      count: rows.length,
+      note: 'Active casino wallets that match a known CEX hot wallet — likely mis-attributions to review. Not auto-changed: a human moves confirmed ones to MISCATEGORIZED_ENTITIES (recategorise) or INFRA_DENYLIST (deactivate) in db.ts.',
+      rows,
+    }
   })
 
   // mention-attribution audit — top watch_labels in the mentions table (7d) and
