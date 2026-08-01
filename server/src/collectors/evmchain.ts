@@ -38,6 +38,10 @@ export interface EvmChainCfg {
   // 'AVAX'). Reserve balances must count it — a BNB-denominated treasury read as
   // $0 while only its BEP20 stables counted. Omit to count stables only.
   nativeAsset?: string
+  // Non-1:1 tokens counted for RESERVES only, never indexed (the indexer values
+  // `tokens` 1:1, so a wrapped asset must not go there). Each carries the
+  // `prices.ts` asset key used to value it.
+  reserveTokens?: { symbol: string; address: string; decimals: number; priceAsset: string }[]
 }
 
 const RANGE_FLOOR = 50
@@ -279,6 +283,16 @@ export function makeEvmChain(cfg: EvmChainCfg): EvmChain {
         const data = '0x70a08231' + pad(address).slice(2)
         const res = await rpc('eth_call', [{ to: t.address, data }, 'latest'])
         total += toUnits(res, t.decimals)
+      } catch { /* skip */ }
+    }
+    // non-1:1 reserve assets (wrapped native, bridged BTC/ETH), each at its own price
+    for (const t of cfg.reserveTokens ?? []) {
+      try {
+        const px = spotUsd(t.priceAsset)
+        if (px <= 0) continue
+        const data = '0x70a08231' + pad(address).slice(2)
+        const res = await rpc('eth_call', [{ to: t.address, data }, 'latest'])
+        total += toUnits(res, t.decimals) * px
       } catch { /* skip */ }
     }
     // native coin (BNB/ETH/POL/AVAX) — see EvmChainCfg.nativeAsset. An asset with

@@ -56,6 +56,15 @@ export const config = {
     { symbol: 'DAI', address: '0x6b175474e89094c44da98b954eedeac495271d0f', decimals: 18 },
     { symbol: 'PYUSD', address: '0x6c3ea9036406852006290770bedfcaba0e23a0e8', decimals: 6 },
   ],
+  // Non-1:1 assets counted ONLY when valuing reserves — deliberately NOT in
+  // `evmTokens`. The indexer books every evmToken transfer at face value as USD,
+  // so putting WETH there would record a 2 WETH transfer as $2. Each entry carries
+  // the `prices.ts` asset key used to value it. Every address below was verified
+  // on-chain (symbol() + decimals()) before being added.
+  evmReserveTokens: [
+    { symbol: 'WETH', address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', decimals: 18, priceAsset: 'ETH' },
+    { symbol: 'WBTC', address: '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599', decimals: 8, priceAsset: 'BTC' },
+  ],
   tronUsdt: { symbol: 'USDT', address: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t', decimals: 6 },
 
   // ── BSC (BNB Chain) — EVM-compatible, a dominant crypto-casino rail. Public
@@ -86,6 +95,14 @@ export const config = {
     { symbol: 'USDT', address: '0x55d398326f99059ff775485246999027b3197955', decimals: 18 },
     { symbol: 'USDC', address: '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d', decimals: 18 },
     { symbol: 'FDUSD', address: '0xc5f0f7b66764f6ec8c8dff7ba683102295e16409', decimals: 18 },
+  ],
+  // reserve-only (see evmReserveTokens). BTCB is how Bitcoin exposure is actually
+  // held on BNB Chain, and casinos park treasuries in WBNB rather than native BNB —
+  // both read as $0 while only the three stables above were counted.
+  bscReserveTokens: [
+    { symbol: 'WBNB', address: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', decimals: 18, priceAsset: 'BNB' },
+    { symbol: 'BTCB', address: '0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c', decimals: 18, priceAsset: 'BTC' },
+    { symbol: 'ETH', address: '0x2170Ed0880ac9A755fd29B2688956BD959F933F8', decimals: 18, priceAsset: 'ETH' },
   ],
   bscMaxRange: Number(env.BSC_MAX_RANGE ?? 1800), // ≤ publicnode's ~2000 cap
   bscPollMs: Number(env.BSC_POLL_MS ?? 12_000),

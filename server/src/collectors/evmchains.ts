@@ -26,6 +26,7 @@ if (config.bscEnabled) {
       nominalBlockMs: 3_000,
       useProxy: true,
       nativeAsset: 'BNB',
+      reserveTokens: config.bscReserveTokens,
     }),
   )
 }
@@ -45,6 +46,7 @@ const L2S = [
     explorerHosts: ['basescan.org'],
     nominalBlockMs: 2_000,
     native: 'ETH', // L2 gas token is ETH
+    reserve: [{ symbol: 'WETH', address: '0x4200000000000000000000000000000000000006', decimals: 18, priceAsset: 'ETH' }],
   },
   {
     key: 'ARB',
@@ -58,6 +60,7 @@ const L2S = [
     explorerHosts: ['arbiscan.io'],
     nominalBlockMs: 250,
     native: 'ETH',
+    reserve: [{ symbol: 'WETH', address: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1', decimals: 18, priceAsset: 'ETH' }],
   },
   {
     key: 'OP',
@@ -71,6 +74,7 @@ const L2S = [
     explorerHosts: ['optimistic.etherscan.io'],
     nominalBlockMs: 2_000,
     native: 'ETH',
+    reserve: [{ symbol: 'WETH', address: '0x4200000000000000000000000000000000000006', decimals: 18, priceAsset: 'ETH' }],
   },
   {
     key: 'POLYGON',
@@ -97,6 +101,11 @@ const L2S = [
     explorerHosts: ['polygonscan.com'],
     nominalBlockMs: 2_100,
     native: 'POL', // MATIC rebrand
+    reserve: [
+      // canonical wrapped-native contract; symbol() now reads WPOL after the rebrand
+      { symbol: 'WPOL', address: '0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270', decimals: 18, priceAsset: 'POL' },
+      { symbol: 'WETH', address: '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619', decimals: 18, priceAsset: 'ETH' },
+    ],
   },
   {
     key: 'AVAX',
@@ -110,6 +119,7 @@ const L2S = [
     explorerHosts: ['snowtrace.io', 'snowscan.xyz'],
     nominalBlockMs: 2_000,
     native: 'AVAX',
+    reserve: [{ symbol: 'WAVAX', address: '0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7', decimals: 18, priceAsset: 'AVAX' }],
   },
 ] as const
 
@@ -129,6 +139,7 @@ for (const c of L2S) {
       nominalBlockMs: c.nominalBlockMs,
       useProxy: false,
       nativeAsset: c.native,
+      reserveTokens: [...c.reserve], // copy: the source array is `as const` (readonly)
     }),
   )
 }

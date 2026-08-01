@@ -163,6 +163,18 @@ export async function evmBalanceUsd(address: string): Promise<number> {
       /* skip token on error */
     }
   }
+  // non-1:1 reserve assets (WETH/WBTC), each valued at its own spot price
+  for (const t of config.evmReserveTokens) {
+    try {
+      const px = spotUsd(t.priceAsset)
+      if (px <= 0) continue // unpriced → contribute nothing, never a false 0
+      const data = '0x70a08231' + pad(address).slice(2)
+      const res = await rpc('eth_call', [{ to: t.address, data }, 'latest'])
+      total += toUnits(res, t.decimals) * px
+    } catch {
+      /* skip token on error */
+    }
+  }
   try {
     const px = spotUsd('ETH')
     if (px > 0) {
