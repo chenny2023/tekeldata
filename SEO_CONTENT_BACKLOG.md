@@ -91,6 +91,19 @@ and report "backlog empty".
     ⚠️ Needs operator action (not a code fix): restore Arkham API access/billing. Until
     then the day counter keeps ticking on stale data — and note the already-live reserve
     pages read the same frozen table.
+  - **2026-08-01 — the blocker changed shape: Arkham is retired for good.** The
+    operator is not restoring access, so every note above that waits on "restore
+    Arkham billing" is void: `chain_reserve_history` is fed from
+    `arkham_chain_reserves` inside `snapshotMarket()`, and that table will never move
+    again. The day counter will reach 21 on frozen data (~2026-08-19) while
+    `distinctDailyTotals` stays at 1, so the gate stays `ready: false` forever.
+    **This item is now blocked on re-pointing `chain_reserve_history` at the
+    self-hosted sweep (`wallet_chain_balances`), not on any vendor.** Once it writes
+    from the sweep, the 21-day clock starts fresh from that switch-over date — the
+    frozen Arkham rows (2026-07-30 → switch-over) must be excluded or deleted first,
+    or they will contaminate the series with a flat prefix. See the
+    `arkham-retired-self-hosted-reserves` memory for the replacement work already
+    landed (native + wrapped asset undercounts fixed).
   - **Re-checked 2026-08-01 → still blocked, unchanged.** `/api/diag/chain-reserve-history`
     → `{days: 3, daysNeeded: 21, distinctDailyTotals: 1, sourceStalled: true, ready: false}`;
     all 3 recorded days (07-30 → 08-01) still carry the identical `$563,913,935.023514`
