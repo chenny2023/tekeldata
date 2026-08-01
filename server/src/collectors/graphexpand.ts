@@ -82,6 +82,10 @@ export async function computeGraphCandidates(opts: GraphCandidateOpts = {}): Pro
   )
   const watched = new Set((await workerAll<{ a: string }>('SELECT lower(address) a FROM watchlist WHERE active=1')).map((r) => r.a))
   const contracts = new Set((await workerAll<{ a: string }>('SELECT lower(address) a FROM wallet_code_kind WHERE is_contract=1')).map((r) => r.a))
+  // external CEX label source (exchanges.ts) — a candidate that is a known exchange hot
+  // wallet is never an owned casino wallet, so drop it outright (the clean fix the
+  // dominance guard only approximates). Empty set until the harvester populates it.
+  const exchanges = new Set((await workerAll<{ a: string }>('SELECT lower(address) a FROM exchange_addresses')).map((r) => r.a))
   // per-brand total two-way EVM flow over the window — used for the DOMINANCE guard: a
   // single non-watched counterparty that accounts for a large share of a brand's whole
   // flow is more likely its exchange / payment processor than one of several owned
@@ -95,7 +99,7 @@ export async function computeGraphCandidates(opts: GraphCandidateOpts = {}): Pro
 
   const candidates = rows
     .map((r) => ({ r, low: String(r.addr || '').toLowerCase() }))
-    .filter(({ r, low }) => strong.has(r.brand) && !watched.has(low) && !INFRA_DENYLIST.has(low))
+    .filter(({ r, low }) => strong.has(r.brand) && !watched.has(low) && !INFRA_DENYLIST.has(low) && !exchanges.has(low))
     .map(({ r, low }): GraphCandidate => {
       const total = r.inUsd + r.outUsd
       const bal = Math.min(r.inUsd, r.outUsd) / Math.max(r.inUsd, r.outUsd) // 0..1 two-way balance

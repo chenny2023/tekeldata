@@ -64,6 +64,7 @@ import { startGuruSpider } from './collectors/guruspider.ts'
 import { startTrustpilotCategory } from './collectors/trustpilotcat.ts'
 import { startArkham } from './collectors/arkham.ts'
 import { startDune } from './collectors/dune.ts'
+import { startExchanges } from './collectors/exchanges.ts'
 import { startGraphExpand } from './collectors/graphexpand.ts'
 import { startDefiLlama } from './collectors/defillama.ts'
 import { startPolymarket } from './collectors/polymarket.ts'
@@ -306,6 +307,7 @@ async function main() {
   startTrustpilotCategory() // Trustpilot casino-category sweep — merges consumer ratings onto the directory
   startArkham() // Arkham on-chain attribution — all-chain reserves/volume per casino entity
   startDune() // Dune label harvester — authoritative EVM casino hot wallets (multi-chain)
+  startExchanges() // Dune CEX-label harvester → exchange_addresses (precision aid for graph candidates)
   startGraphExpand() // transaction-graph address-discovery CANDIDATES (review-only; never auto-attributes)
   startDefiLlama() // DefiLlama — on-chain prediction markets / lotteries / betting protocols
   startPolymarket() // Polymarket — top prediction markets (live odds + volume)

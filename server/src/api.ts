@@ -1566,6 +1566,18 @@ export async function registerApi(app: FastifyInstance) {
     }
   })
 
+  // exchange-address label coverage (admin) — the external CEX label set (exchanges.ts)
+  // used to filter graph candidates. Verify Dune's category actually returned rows here;
+  // if total=0 the category name in exchanges.ts needs adjusting. Read-only, never touches
+  // casino attribution.
+  app.get('/api/diag/exchange-addresses', async (req, reply) => {
+    if (!requireAdmin(req, reply)) return
+    const total = (db.prepare('SELECT COUNT(*) n FROM exchange_addresses').get() as any).n as number
+    const byChain = db.prepare('SELECT chain, COUNT(*) n FROM exchange_addresses GROUP BY chain ORDER BY n DESC').all()
+    const last = stateGet('exchanges:last')
+    return { total, byChain, last: last ? JSON.parse(last) : null, note: 'Read-only CEX label set used to exclude exchange hot wallets from graph-expand candidates. If total=0, adjust CATEGORIES in exchanges.ts.' }
+  })
+
   // mention-attribution audit — top watch_labels in the mentions table (7d) and
   // whether each matches a current brand label / member label (the join the
   // sentiment board uses). If matched=false dominates, mention labels drifted

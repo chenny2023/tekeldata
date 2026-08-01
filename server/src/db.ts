@@ -122,6 +122,20 @@ CREATE TABLE IF NOT EXISTS graph_candidates (
 );
 CREATE INDEX IF NOT EXISTS idx_graphcand_score ON graph_candidates(score DESC);
 
+-- Known centralized-exchange hot wallets (external label source). Used to EXCLUDE
+-- exchange addresses from graph-expand candidates — a casino's biggest counterparty is
+-- usually its exchange/processor, not an owned wallet. Read-only precision aid; never
+-- itself written into casino attribution. Sourced from Dune labels (auditable, bulk-
+-- reversible by source). address lowercased for EVM.
+CREATE TABLE IF NOT EXISTS exchange_addresses (
+  chain       TEXT NOT NULL,
+  address     TEXT NOT NULL,
+  exchange    TEXT NOT NULL,
+  source      TEXT NOT NULL DEFAULT 'dune-cex',
+  created_at  INTEGER NOT NULL,
+  PRIMARY KEY(chain, address)
+);
+
 CREATE TABLE IF NOT EXISTS sync_state (
   key   TEXT PRIMARY KEY,
   value TEXT
