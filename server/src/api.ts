@@ -1560,7 +1560,8 @@ export async function registerApi(app: FastifyInstance) {
       candidates: candidates.length,
       byConfidence: { medium: candidates.filter((c) => c.confidence === 'medium').length, low: candidates.filter((c) => c.confidence === 'low').length },
       contractsFlagged: candidates.filter((c) => c.isContract).length,
-      note: 'Review-only. EVM counterparty flow is a heuristic, not proof of ownership — never auto-attribute. Contracts are flagged (likely pools/routers). Promote a candidate to the watchlist only after manual or second-source corroboration.',
+      dominantFlagged: candidates.filter((c) => c.dominant).length,
+      note: 'Review-only. EVM counterparty flow is a heuristic, not proof of ownership — never auto-attribute. Contracts and brand-dominant counterparties (likely a CEX/processor, share≥0.35) are flagged and demoted. To promote a reviewed address, add {chain,address,brand} to server/src/data/graph-promotions.json (applied idempotently at boot).',
       rows: candidates.slice(0, 100),
     }
   })

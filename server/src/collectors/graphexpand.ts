@@ -1,5 +1,7 @@
 import { db, INFRA_DENYLIST, stateGet, stateSet } from '../db.ts'
 import { workerAll } from '../readpool.ts'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Transaction-graph address-discovery CANDIDATES (post-Arkham — see
@@ -34,6 +36,8 @@ export type GraphCandidate = {
   txn: number
   days: number
   isContract: boolean
+  dominant: boolean
+  share: number
   confidence: 'medium' | 'low'
   score: number
 }
@@ -78,6 +82,16 @@ export async function computeGraphCandidates(opts: GraphCandidateOpts = {}): Pro
   )
   const watched = new Set((await workerAll<{ a: string }>('SELECT lower(address) a FROM watchlist WHERE active=1')).map((r) => r.a))
   const contracts = new Set((await workerAll<{ a: string }>('SELECT lower(address) a FROM wallet_code_kind WHERE is_contract=1')).map((r) => r.a))
+  // per-brand total two-way EVM flow over the window — used for the DOMINANCE guard: a
+  // single non-watched counterparty that accounts for a large share of a brand's whole
+  // flow is more likely its exchange / payment processor than one of several owned
+  // treasury wallets (the brand's own main wallet is already watched, so it's not here).
+  const brandTotal = new Map<string, number>()
+  for (const r of await workerAll<{ brand: string; total: number }>(
+    "SELECT label brand, SUM(usd) total FROM transfers WHERE category='casino' AND ts>=? AND chain NOT IN ('BTC','TRON','SOL') GROUP BY label",
+    [since],
+  ))
+    brandTotal.set(r.brand, r.total || 0)
 
   const candidates = rows
     .map((r) => ({ r, low: String(r.addr || '').toLowerCase() }))
@@ -86,11 +100,14 @@ export async function computeGraphCandidates(opts: GraphCandidateOpts = {}): Pro
       const total = r.inUsd + r.outUsd
       const bal = Math.min(r.inUsd, r.outUsd) / Math.max(r.inUsd, r.outUsd) // 0..1 two-way balance
       const isContract = contracts.has(low)
-      const score = Math.round((Math.log10(Math.max(total, 1)) * 10 + bal * 20 + Math.min(r.days, 14)) * (isContract ? 0.3 : 1))
-      // EVM ownership is unprovable from flow alone → never 'high'. Contract → 'low' (likely
-      // a pool/router). Everything here is review-only regardless of tier.
-      const confidence: 'medium' | 'low' = isContract ? 'low' : bal >= 0.4 && r.days >= 7 && total >= 250_000 ? 'medium' : 'low'
-      return { addr: r.addr, chain: r.chain, brand: r.brand, inUsd: Math.round(r.inUsd), outUsd: Math.round(r.outUsd), txn: r.txn, days: r.days, isContract, confidence, score }
+      const bt = brandTotal.get(r.brand) || 0
+      const share = bt > 0 ? total / bt : 0 // this counterparty's share of the brand's whole flow
+      const dominant = share >= 0.35 // dominates the brand → likely its CEX/processor, not an owned wallet
+      const score = Math.round((Math.log10(Math.max(total, 1)) * 10 + bal * 20 + Math.min(r.days, 14)) * (isContract || dominant ? 0.3 : 1))
+      // EVM ownership is unprovable from flow alone → never 'high'. Contract or dominant → 'low'.
+      // Everything here is review-only regardless of tier.
+      const confidence: 'medium' | 'low' = isContract || dominant ? 'low' : bal >= 0.4 && r.days >= 7 && total >= 250_000 ? 'medium' : 'low'
+      return { addr: r.addr, chain: r.chain, brand: r.brand, inUsd: Math.round(r.inUsd), outUsd: Math.round(r.outUsd), txn: r.txn, days: r.days, isContract, dominant, share: Math.round(share * 100) / 100, confidence, score }
     })
     .sort((a, b) => b.score - a.score)
 
@@ -121,11 +138,49 @@ async function runOnce() {
   console.log(`[graphexp] ${candidates.length} candidates from ${strongBrands} strong brands (${med} medium) · review-only, 0 attributed · top: ${preview}`)
 }
 
+// Human-in-the-loop promotion: addresses a reviewer has confirmed (from the candidate
+// list) as genuinely operator-owned go in data/graph-promotions.json and are added to the
+// watchlist here — idempotent (INSERT OR IGNORE), source='graph-promoted' so they are
+// auditable and bulk-reversible. NOTHING is auto-promoted: this file is only ever edited
+// by a human after review. Empty file = no-op.
+export function applyGraphPromotions(): void {
+  let rows: { chain: string; address: string; brand: string }[] = []
+  try {
+    const path = fileURLToPath(new URL('../data/graph-promotions.json', import.meta.url))
+    const j = JSON.parse(readFileSync(path, 'utf8'))
+    rows = Array.isArray(j) ? j : (j.promotions ?? [])
+  } catch {
+    return // file optional / absent
+  }
+  const ins = db.prepare(
+    "INSERT OR IGNORE INTO watchlist(chain, address, label, category, source, active, created_at) VALUES(?, ?, ?, 'casino', 'graph-promoted', 1, ?)",
+  )
+  const now = Date.now()
+  let added = 0
+  try {
+    db.transaction(() => {
+      for (const r of rows) {
+        const chain = String(r?.chain || '').toUpperCase()
+        const address = String(r?.address || '').toLowerCase()
+        const brand = String(r?.brand || '').trim().slice(0, 48)
+        if (!chain || !brand || !/^0x[0-9a-f]{40}$/.test(address)) continue // EVM-only, validated
+        if (INFRA_DENYLIST.has(address)) continue // never promote known infra
+        added += ins.run(chain, address, brand, now).changes
+      }
+    })()
+  } catch (e) {
+    console.warn('[graphexp] promotions apply failed:', (e as Error).message)
+    return
+  }
+  if (added) console.log(`[graphexp] applied ${added} reviewed address promotion(s) → watchlist (source=graph-promoted)`)
+}
+
 export function startGraphExpand() {
   if (process.env.GRAPH_EXPAND === '0') {
     console.log('[graphexp] disabled (GRAPH_EXPAND=0)')
     return
   }
+  applyGraphPromotions() // apply any human-reviewed promotions at boot (idempotent)
   console.log('[graphexp] transaction-graph candidate discovery active (review-only, never auto-attributes)')
   const loop = async () => {
     try {
