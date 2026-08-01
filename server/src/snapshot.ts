@@ -1,6 +1,7 @@
 import { db, externalFlowClause } from './db.ts'
 import { aggregateBrands } from './aggregate.ts'
 import { priorReserves } from './reservehistory.ts'
+import { chainReserveSplit } from './chainreserves.ts'
 import { workerGet, workerAll } from './readpool.ts'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -109,13 +110,12 @@ export async function generateMarketSnapshot(): Promise<void> {
   const chainRows24 = f1.chainRows
   const vol24ByChain = new Map(chainRows24.map((c) => [c.chain, c.v ?? 0]))
 
-  // AUTHORITATIVE cross-chain split: per-chain RESERVES from Arkham's portfolio
+  // AUTHORITATIVE cross-chain split: per-chain RESERVES from our own balance sweep
   // (the indexed per-chain VOLUME above is ETH-skewed by our labeling coverage;
-  // reserves are attributed by Arkham across every chain incl. BTC/Tron/SOL, and
-  // can't be wash-traded). Small table (~33 entities) → direct read.
-  const chainReserveRows = db
-    .prepare('SELECT chain, SUM(usd) v, COUNT(DISTINCT key) casinos FROM arkham_chain_reserves GROUP BY chain ORDER BY v DESC')
-    .all() as { chain: string; v: number; casinos: number }[]
+  // reserves are read directly from each watched address on its own chain incl.
+  // BTC/Tron/SOL, and can't be wash-traded). Was Arkham's portfolio until it was
+  // retired 2026-08-01 — see chainreserves.ts.
+  const chainReserveRows = chainReserveSplit()
   const totChainReserves = chainReserveRows.reduce((s, c) => s + (c.v ?? 0), 0) || 1
   // Persist today's split into chain_reserve_history. arkham_chain_reserves itself is
   // overwritten on every refresh, so without this the cross-chain mix has no time

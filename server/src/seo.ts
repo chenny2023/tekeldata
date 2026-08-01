@@ -6,6 +6,7 @@ import { runDataQualityChecks } from './dataquality.ts'
 import { brandKey, brandName, matchCasinoMeta, type CasinoMeta } from './casinometa.ts'
 import { reviewScores, type ReviewScore } from './collectors/reviews.ts'
 import { reserveSeries, priorReserves } from './reservehistory.ts'
+import { chainReserveSplit } from './chainreserves.ts'
 import { brandRiskEvents, recentRiskEvents, type RiskEvent } from './riskevents.ts'
 import { pingIndexNow } from './indexnow.ts'
 import { GUIDE_I18N, GUIDE_HUB_I18N, I18N_LOCALES } from './i18n-guides.ts'
@@ -3078,9 +3079,7 @@ export async function generateSeoPages(): Promise<void> {
   if (chainFlowTotal > 0)
     add('/data/crypto-casino-deposit-currencies', 'data', currencyReportPage(chainFlowRows, chainFlowTotal), 'featured_core')
   // reserves report (data story) — all-chain reserves total, by chain, top operators
-  const chainResRows = db
-    .prepare('SELECT chain, SUM(usd) v, COUNT(DISTINCT key) casinos FROM arkham_chain_reserves GROUP BY chain ORDER BY v DESC')
-    .all() as { chain: string; v: number; casinos: number }[]
+  const chainResRows = chainReserveSplit()
   const resTotal = chainResRows.reduce((s, c) => s + (c.v ?? 0), 0)
   const resTop = ranked
     .filter((v) => (v.onchain?.reserves ?? 0) > 0)

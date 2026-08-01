@@ -1302,9 +1302,12 @@ export async function registerApi(app: FastifyInstance) {
   })
 
   // Accumulation gate for the chain-migration data story: that page needs a real
-  // time dimension, which arkham_chain_reserves (overwritten each refresh) can't
-  // give. Reports how many distinct days chain_reserve_history holds so the gate
-  // is checkable instead of guessed. Started accumulating 2026-07-30.
+  // time dimension, which a per-refresh snapshot table can't give. Reports how many
+  // distinct days chain_reserve_history holds so the gate is checkable, not guessed.
+  //
+  // The series is now written from our own balance sweep. Its Arkham-fed rows were
+  // purged at the switch-over (see chainreserves.ts) because they were repeated
+  // copies of one frozen snapshot, so the day counter restarts from that date.
   app.get('/api/diag/chain-reserve-history', async () => {
     const agg = db
       .prepare('SELECT COUNT(DISTINCT day) days, COUNT(*) rows, MIN(day) firstDay, MAX(day) lastDay FROM chain_reserve_history')
@@ -1313,16 +1316,17 @@ export async function registerApi(app: FastifyInstance) {
       .prepare('SELECT day, COUNT(*) chains, SUM(usd) usd FROM chain_reserve_history GROUP BY day ORDER BY day DESC LIMIT 30')
       .all() as { day: number; chains: number; usd: number }[]
     const iso = (d: number | null) => (d == null ? null : new Date(d * 86_400_000).toISOString().slice(0, 10))
-    // A day count alone is NOT a sufficient gate. The upstream Arkham portfolio call
-    // has been returning 402, and the collector only replaces arkham_chain_reserves on
-    // a successful fetch — so a stalled source makes this table accumulate N identical
-    // copies of one frozen snapshot. That would pass a naive days>=21 check and yield a
-    // "migration" chart showing exactly 0% drift on every chain: stale data dressed as a
-    // finding. Require the series to actually move before the story is publishable.
+    // A day count alone is NOT a sufficient gate, and this check is kept even though
+    // the frozen vendor is gone — it is source-agnostic. Any upstream that stops
+    // updating (a stalled sweep, a dead RPC pool) makes this table accumulate N
+    // identical copies of one snapshot, which would pass a naive days>=21 check and
+    // yield a "migration" chart showing exactly 0% drift on every chain: stale data
+    // dressed as a finding. Require the series to actually move before publishing.
     const movingDays = (
       db.prepare('SELECT COUNT(DISTINCT t) n FROM (SELECT day, ROUND(SUM(usd),2) t FROM chain_reserve_history GROUP BY day)').get() as any
     ).n as number
     return {
+      source: 'self-hosted wallet sweep (wallet_chain_balances)',
       days: agg.days,
       rows: agg.rows,
       firstDay: iso(agg.firstDay),
