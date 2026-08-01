@@ -7,6 +7,7 @@ import { volumeUsage } from './monitor.ts'
 import { brandHistory } from './brandstore.ts'
 import { renderDailyShareCard } from './content/card.ts'
 import { reserveSeries } from './reservehistory.ts'
+import { isEvmChain } from './collectors/codekind.ts'
 import { twitchEnabled } from './collectors/twitch.ts'
 import { redditEnabled } from './collectors/reddit.ts'
 import { probeTier } from './collectors/unlocker.ts'
@@ -1289,10 +1290,12 @@ export async function registerApi(app: FastifyInstance) {
         // by itself (on-chain dApps custody player funds in their contract), but it
         // is where mis-attribution hides: a DEX pool and exchange custody contracts
         // were 73.7% of the ETH total until they were corrected on 2026-08-01.
-        // `unclassifiedUsd` is value whose address the classifier has not reached yet.
-        contractUsd: r.contractUsd ?? 0,
-        contractShare: r.usd > 0 ? +((100 * (r.contractUsd ?? 0)) / r.usd).toFixed(1) : 0,
-        unclassifiedUsd: r.unclassifiedUsd ?? 0,
+        // Null on non-EVM chains: Tron/Solana/UTXO have different account models, so
+        // their value is not-applicable rather than a pending audit gap — reporting
+        // it as "unclassified" read like a coverage hole that would never close.
+        contractUsd: isEvmChain(r.chain) ? (r.contractUsd ?? 0) : null,
+        contractShare: isEvmChain(r.chain) && r.usd > 0 ? +((100 * (r.contractUsd ?? 0)) / r.usd).toFixed(1) : null,
+        unclassifiedUsd: isEvmChain(r.chain) ? (r.unclassifiedUsd ?? 0) : null,
         freshestAgeMin: r.fresh ? Math.round((Date.now() - r.fresh) / 60_000) : null,
       })),
     }

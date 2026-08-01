@@ -20,15 +20,21 @@ import { evmChainByKey } from './evmchains.ts'
 // ─────────────────────────────────────────────────────────────────────────────
 
 const RECHECK_MS = Number(process.env.CODEKIND_RECHECK_MS ?? 30 * 86_400_000) // bytecode is ~immutable
-const BATCH = Number(process.env.CODEKIND_BATCH ?? 40)
+const BATCH = Number(process.env.CODEKIND_BATCH ?? 60)
 const PACE_MS = Number(process.env.CODEKIND_PACE_MS ?? 250)
+
+// EVM chains only — Tron/Solana/UTXO have different account models, so their value is
+// "not applicable" to this classifier rather than "not yet classified". Callers use
+// this to avoid reporting a permanently-unclassifiable chain as an audit gap.
+export function isEvmChain(chain: string): boolean {
+  return chain === 'ETH' || evmChainByKey.has(chain)
+}
 
 const upsert = db.prepare(
   `INSERT INTO wallet_code_kind(chain, address, is_contract, checked_at) VALUES(?,?,?,?)
    ON CONFLICT(chain, address) DO UPDATE SET is_contract=excluded.is_contract, checked_at=excluded.checked_at`,
 )
 
-// EVM chains only — Tron/Solana/UTXO have different account models entirely.
 function evmChains(): string[] {
   return ['ETH', ...evmChainByKey.keys()]
 }
@@ -51,13 +57,18 @@ export async function refreshCodeKinds(): Promise<void> {
     const chains = evmChains()
     const rows = db
       .prepare(
+        // Biggest balances first. The point of this signal is to show where the money
+        // is, so an audit is only useful once the top holders are classified —
+        // insertion order spent the first passes on dust while $224M of ETH sat
+        // unclassified. Addresses with no balance row sort last (COALESCE 0).
         `SELECT w.chain, w.address
            FROM watchlist w
            LEFT JOIN wallet_code_kind k ON k.chain=w.chain AND k.address=w.address
+           LEFT JOIN wallet_chain_balances b ON b.chain=w.chain AND b.address=w.address
           WHERE w.active=1
             AND w.chain IN (${chains.map(() => '?').join(',')})
             AND (k.checked_at IS NULL OR k.checked_at < ?)
-          ORDER BY k.checked_at IS NOT NULL, w.id
+          ORDER BY k.checked_at IS NOT NULL, COALESCE(b.usd, 0) DESC, w.id
           LIMIT ?`,
       )
       .all(...chains, Date.now() - RECHECK_MS, BATCH) as { chain: string; address: string }[]
@@ -79,5 +90,5 @@ export async function refreshCodeKinds(): Promise<void> {
 
 export function startCodeKinds() {
   setTimeout(() => refreshCodeKinds().catch(() => {}), 45_000) // let boot settle first
-  setInterval(() => refreshCodeKinds().catch(() => {}), 10 * 60_000)
+  setInterval(() => refreshCodeKinds().catch(() => {}), 5 * 60_000)
 }
