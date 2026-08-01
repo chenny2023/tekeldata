@@ -25,6 +25,7 @@ if (config.bscEnabled) {
       backfillBlocks: config.bscBackfillBlocks,
       nominalBlockMs: 3_000,
       useProxy: true,
+      nativeAsset: 'BNB',
     }),
   )
 }
@@ -43,6 +44,7 @@ const L2S = [
     ],
     explorerHosts: ['basescan.org'],
     nominalBlockMs: 2_000,
+    native: 'ETH', // L2 gas token is ETH
   },
   {
     key: 'ARB',
@@ -55,6 +57,7 @@ const L2S = [
     ],
     explorerHosts: ['arbiscan.io'],
     nominalBlockMs: 250,
+    native: 'ETH',
   },
   {
     key: 'OP',
@@ -67,6 +70,7 @@ const L2S = [
     ],
     explorerHosts: ['optimistic.etherscan.io'],
     nominalBlockMs: 2_000,
+    native: 'ETH',
   },
   {
     key: 'POLYGON',
@@ -92,6 +96,7 @@ const L2S = [
     ],
     explorerHosts: ['polygonscan.com'],
     nominalBlockMs: 2_100,
+    native: 'POL', // MATIC rebrand
   },
   {
     key: 'AVAX',
@@ -104,6 +109,7 @@ const L2S = [
     ],
     explorerHosts: ['snowtrace.io', 'snowscan.xyz'],
     nominalBlockMs: 2_000,
+    native: 'AVAX',
   },
 ] as const
 
@@ -122,6 +128,7 @@ for (const c of L2S) {
       backfillBlocks: Number(process.env[`${c.env}_BACKFILL_BLOCKS`] ?? 600),
       nominalBlockMs: c.nominalBlockMs,
       useProxy: false,
+      nativeAsset: c.native,
     }),
   )
 }

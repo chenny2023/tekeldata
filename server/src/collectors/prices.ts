@@ -92,7 +92,18 @@ const ASSETS: { asset: string; binance: string; gecko: string }[] = [
   { asset: 'XRP', binance: 'XRPUSDT', gecko: 'ripple' },
   { asset: 'ETH', binance: 'ETHUSDT', gecko: 'ethereum' }, // native ETH deposits
   { asset: 'BNB', binance: 'BNBUSDT', gecko: 'binancecoin' }, // native BNB deposits
+  // Needed to value native reserve balances on the non-ETH EVM chains. Polygon's
+  // native coin is POL (the MATIC rebrand) — the gecko id follows the new ticker.
+  { asset: 'POL', binance: 'POLUSDT', gecko: 'polygon-ecosystem-token' },
+  { asset: 'AVAX', binance: 'AVAXUSDT', gecko: 'avalanche-2' },
 ]
+
+// Latest known USD price for a native asset, or 0 when we have no series yet.
+// Callers MUST treat 0 as "unpriced" and skip the balance rather than booking it
+// at zero — a missing price must never look like a drained wallet.
+export function spotUsd(asset: string): number {
+  return priceForDay(asset, Date.now())
+}
 
 export function startPrices() {
   for (const a of ASSETS) loadCache(a.asset) // serve cached immediately

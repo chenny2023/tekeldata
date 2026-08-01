@@ -4,6 +4,7 @@ import { emitTransfer } from '../bus.ts'
 import { webFetch } from '../net.ts'
 import { recordOp } from '../opmetrics.ts'
 import { config } from '../config.ts'
+import { spotUsd } from './prices.ts'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Generic EVM-chain collector factory. One instance per EVM chain (BSC, BASE,
@@ -33,6 +34,10 @@ export interface EvmChainCfg {
   backfillBlocks: number // forward boot window
   nominalBlockMs: number // fallback if calibration fails
   useProxy: boolean
+  // Native coin of this chain, as a `prices.ts` asset key ('BNB', 'ETH', 'POL',
+  // 'AVAX'). Reserve balances must count it — a BNB-denominated treasury read as
+  // $0 while only its BEP20 stables counted. Omit to count stables only.
+  nativeAsset?: string
 }
 
 const RANGE_FLOOR = 50
@@ -274,6 +279,17 @@ export function makeEvmChain(cfg: EvmChainCfg): EvmChain {
         const data = '0x70a08231' + pad(address).slice(2)
         const res = await rpc('eth_call', [{ to: t.address, data }, 'latest'])
         total += toUnits(res, t.decimals)
+      } catch { /* skip */ }
+    }
+    // native coin (BNB/ETH/POL/AVAX) — see EvmChainCfg.nativeAsset. An asset with
+    // no price series yet contributes nothing, rather than booking the wallet at 0.
+    if (cfg.nativeAsset) {
+      try {
+        const px = spotUsd(cfg.nativeAsset)
+        if (px > 0) {
+          const wei = await rpc('eth_getBalance', [address, 'latest'])
+          total += toUnits(wei, 18) * px
+        }
       } catch { /* skip */ }
     }
     return total

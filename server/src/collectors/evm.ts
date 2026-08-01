@@ -1,6 +1,7 @@
 import { config, TRANSFER_TOPIC } from '../config.ts'
 import { db, stmt, stateGet, stateSet, WatchRow } from '../db.ts'
 import { emitTransfer } from '../bus.ts'
+import { spotUsd } from './prices.ts'
 
 let rpcIdx = 0
 export async function rpc(
@@ -39,7 +40,9 @@ export const tokenByAddress = (a: string) =>
 const tokenBySymbol = tokenByAddress
 
 export function toUnits(dataHex: string, decimals: number): number {
-  const v = BigInt(dataHex.length ? dataHex : '0x0')
+  // '0x' (empty result from some providers) is length-2 but not a valid BigInt —
+  // guard it explicitly, otherwise eth_getBalance on a fresh address throws.
+  const v = BigInt(dataHex && dataHex !== '0x' ? dataHex : '0x0')
   // keep precision: integer part + fractional
   const base = 10n ** BigInt(decimals)
   const whole = v / base
@@ -143,7 +146,12 @@ export async function runEvmOnce() {
   if (processed) console.log(`[evm] indexed up to block ${last} (+${processed} logs)`)
 }
 
-// Real on-chain stablecoin balance (reserves) via balanceOf eth_call
+// Real on-chain reserve balance: stablecoins via balanceOf eth_call, PLUS native
+// ETH. Native was missing here for as long as this function existed, so every
+// operator holding reserves in ETH rather than USDT/USDC read as $0 on mainnet —
+// a systematic undercount of the self-hosted split against the (now dead) Arkham
+// portfolio numbers. Native is priced at spot; an unavailable price contributes
+// nothing rather than zeroing the wallet.
 export async function evmBalanceUsd(address: string): Promise<number> {
   let total = 0
   for (const t of config.evmTokens) {
@@ -154,6 +162,15 @@ export async function evmBalanceUsd(address: string): Promise<number> {
     } catch {
       /* skip token on error */
     }
+  }
+  try {
+    const px = spotUsd('ETH')
+    if (px > 0) {
+      const wei = await rpc('eth_getBalance', [address, 'latest'])
+      total += toUnits(wei, 18) * px
+    }
+  } catch {
+    /* skip native on error */
   }
   return total
 }
