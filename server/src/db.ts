@@ -99,6 +99,29 @@ CREATE TABLE IF NOT EXISTS wallet_code_kind (
 );
 CREATE INDEX IF NOT EXISTS idx_wck_contract ON wallet_code_kind(is_contract);
 
+-- Address-discovery CANDIDATES from transaction-graph expansion (post-Arkham, see
+-- docs/HANDOFF-2026-08-01). These are NOT watchlist entries and NEVER count toward any
+-- public reserve/volume figure -- they are a review queue. A candidate is a counterparty
+-- of a strong-source casino wallet that shows a captive, bidirectional (internal-treasury)
+-- flow pattern. Promotion into the watchlist is a separate, deliberate step (manual or
+-- second-source), never automatic -- EVM flow does not prove ownership.
+CREATE TABLE IF NOT EXISTS graph_candidates (
+  chain       TEXT NOT NULL,
+  address     TEXT NOT NULL,
+  brand       TEXT NOT NULL,             -- the single strong-source brand it is captive to
+  in_usd      REAL NOT NULL DEFAULT 0,   -- deposits counterparty→brand over the window
+  out_usd     REAL NOT NULL DEFAULT 0,   -- payouts brand→counterparty over the window
+  txn         INTEGER NOT NULL DEFAULT 0,
+  days        INTEGER NOT NULL DEFAULT 0,
+  is_contract INTEGER NOT NULL DEFAULT 0,
+  confidence  TEXT NOT NULL DEFAULT 'low',
+  score       REAL NOT NULL DEFAULT 0,
+  first_seen  INTEGER NOT NULL,
+  last_seen   INTEGER NOT NULL,
+  PRIMARY KEY(chain, address)
+);
+CREATE INDEX IF NOT EXISTS idx_graphcand_score ON graph_candidates(score DESC);
+
 CREATE TABLE IF NOT EXISTS sync_state (
   key   TEXT PRIMARY KEY,
   value TEXT

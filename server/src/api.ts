@@ -19,6 +19,7 @@ import { telegramSubs } from './collectors/telegram.ts'
 import { brandKey } from './casinometa.ts'
 import { userFromRequest, isAdminEmail } from './auth.ts'
 import { readWorkerEnabled, workerGet, workerAll } from './readpool.ts'
+import { computeGraphCandidates } from './collectors/graphexpand.ts'
 import { latestMarketSnapshot } from './snapshot.ts'
 import { config } from './config.ts'
 
@@ -1531,6 +1532,36 @@ export async function registerApi(app: FastifyInstance) {
       internalExcluded: { byFlag: g - ci, byNotExists: g - ne },
       agreement: Number(agreement.toFixed(4)), // ≥0.98 → marker complete, safe to flip default
       ready: agreement >= 0.98,
+    }
+  })
+
+  // diag: transaction-graph expansion CANDIDATES for address discovery (the post-Arkham
+  // gap — see docs/HANDOFF-2026-08-01). READ-ONLY, admin-gated: it mines the transfers we
+  // already index for likely operator-owned wallets and writes NOTHING. EVM counterparty
+  // co-occurrence does NOT prove ownership the way BTC common-input-ownership does, so this
+  // never auto-attributes (auto-attribution is exactly what caused the $1.52B→$860M error).
+  // Heuristic, all computable from indexed transfers:
+  //   • counterparty of a STRONG-source (curated/dune) casino wallet — never expand from
+  //     heuristic sources (btc-cluster), which would cascade errors
+  //   • bidirectional flow (both deposit & payout > 0) → internal-treasury pattern; a player
+  //     is deposit-heavy one-way, so two-way cycling is the own-wallet signature
+  //   • captive to exactly ONE casino brand — a counterparty touching multiple brands is
+  //     shared infra (exchange/bridge/DEX), not one operator's treasury → excluded
+  //   • not infra-denylisted, not already watched; contracts flagged (contracts were THE
+  //     attribution error, so they get 'low' confidence and are never promotion-ready here)
+  app.get('/api/diag/graph-candidates', async (req, reply) => {
+    if (!requireAdmin(req, reply)) return
+    const q = (req.query as any) ?? {}
+    const { window, thresholds, strongBrands, candidates } = await computeGraphCandidates({ days: Number(q.days), minUsd: Number(q.minUsd), minTx: Number(q.minTx), minDays: Number(q.minDays) })
+    return {
+      window,
+      thresholds,
+      strongBrands,
+      candidates: candidates.length,
+      byConfidence: { medium: candidates.filter((c) => c.confidence === 'medium').length, low: candidates.filter((c) => c.confidence === 'low').length },
+      contractsFlagged: candidates.filter((c) => c.isContract).length,
+      note: 'Review-only. EVM counterparty flow is a heuristic, not proof of ownership — never auto-attribute. Contracts are flagged (likely pools/routers). Promote a candidate to the watchlist only after manual or second-source corroboration.',
+      rows: candidates.slice(0, 100),
     }
   })
 
