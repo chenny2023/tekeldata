@@ -29,9 +29,15 @@ const CHAIN_MAP: Record<string, string> = {
   polygon: 'POLYGON',
   avalanche_c: 'AVAX',
 }
-// Dune label categories that denote a centralized exchange. Hedged across the names
-// Dune's spellbook has used; unknown names simply return no rows (harmless).
-const CATEGORIES = ["'cex'", "'centralized_exchange'", "'exchange'"]
+// Dune labels major CEXes under category='institution' (same bucket as casinos — that's
+// why a bare category='cex' returned 0). So we match institution labels by known-exchange
+// NAME: the names are certain, and Dune supplies each one's hot-wallet addresses. Precise
+// (only real exchanges) and reliable. Add exchanges here as needed.
+const EXCHANGE_NAMES = [
+  'binance', 'coinbase', 'okx', 'okex', 'kraken', 'bybit', 'gate', 'huobi', 'htx', 'kucoin',
+  'bitfinex', 'gemini', 'crypto.com', 'mexc', 'bitget', 'upbit', 'bithumb', 'poloniex',
+  'bitstamp', 'bingx', 'whitebit', 'bitmart', 'lbank', 'coinex', 'ascendex',
+]
 const MAX_ROWS = 20_000 // bound the import; top CEX hot wallets are what matter for the filter
 
 const insertExchange = db.prepare(
@@ -41,9 +47,10 @@ const insertExchange = db.prepare(
 
 function buildSql(): string {
   const chains = Object.keys(CHAIN_MAP).map((c) => `'${c}'`).join(',')
-  return `SELECT blockchain, address, name
+  const likes = EXCHANGE_NAMES.map((n) => `lower(name) LIKE '${n}%'`).join(' OR ')
+  return `SELECT blockchain, address, regexp_replace(name, ' [0-9]+$', '') AS name
           FROM labels.addresses
-          WHERE category IN (${CATEGORIES.join(',')}) AND blockchain IN (${chains})
+          WHERE category = 'institution' AND blockchain IN (${chains}) AND (${likes})
           LIMIT ${MAX_ROWS}`
 }
 
