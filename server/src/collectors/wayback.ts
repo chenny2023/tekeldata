@@ -22,6 +22,12 @@ const RUN_EVERY_H = 24 * 7
 const SKIP_DAYS = 30
 const MIN_TX_7D = 40
 const MIN_VOL_7D = 500_000
+// Which chains to sweep, and the block explorer whose archived nametag pages we read.
+// ETH first (biggest), then BSC (2nd-largest reserve chain, previously uncovered).
+const CHAINS: { chain: string; explorer: string }[] = [
+  { chain: 'ETH', explorer: 'etherscan.io' },
+  { chain: 'BSC', explorer: 'bscscan.com' },
+]
 
 const GAMBLE = /casino|gambl|bet(?!a)|betting|stake|dice|slots?|poker|lottery|lotto|jackpot|roobet|rollbit|bitsler|wager|1xbet|bovada|fortunejack|duelbits|shuffle|gamdom|sportsbook|igaming|bc\.game|metawin|primedice|cloudbet|betfury|thunderpick/i
 const EXCHANGE = /binance|okx|okex|huobi|htx|bybit|kraken|coinbase|kucoin|gate\.io|bitfinex|mexc|bitget|crypto\.com|upbit|bithumb|exchange|bitstamp|gemini|bitmart|whitebit|lbank|poloniex/i
@@ -60,6 +66,14 @@ async function snapshotTitle(ts: string, orig: string): Promise<string | null> {
   return null
 }
 
+// source='wayback' so these etherscan-nametag attributions are auditable and bulk-
+// reversible, and — critically — NOT treated as curated strong seeds: graph-expand only
+// expands from source IN (curated/dune), so tagging keeps a heuristic scrape from
+// cascading into heuristic-on-heuristic expansion.
+const addWatch = db.prepare(`
+  INSERT OR IGNORE INTO watchlist(chain, address, label, category, source, active, created_at)
+  VALUES(?, ?, ?, ?, 'wayback', 1, ?)`)
+
 export async function runWaybackAttribution() {
   const last = Number(stateGet('wayback:lastRun') ?? 0)
   if (Date.now() - last < RUN_EVERY_H * 3600_000) return
@@ -67,43 +81,46 @@ export async function runWaybackAttribution() {
 
   const since = Date.now() - 7 * 86_400_000
   const skipBefore = Date.now() - SKIP_DAYS * 86_400_000
-  const candidates = (await workerAll(
-    `SELECT t.counterparty a, COUNT(*) tx, SUM(t.usd) vol
-     FROM transfers t
-     WHERE t.chain='ETH' AND t.ts >= ?
-       AND NOT EXISTS (SELECT 1 FROM watchlist w WHERE w.chain='ETH' AND w.address = t.counterparty)
-     GROUP BY t.counterparty
-     HAVING tx >= ? OR vol >= ?
-     ORDER BY vol DESC LIMIT 200`,
-    [since, MIN_TX_7D, MIN_VOL_7D],
-  )) as { a: string; tx: number; vol: number }[]
-
-  const addWatch = db.prepare(`
-    INSERT OR IGNORE INTO watchlist(chain, address, label, category, active, created_at)
-    VALUES('ETH', ?, ?, ?, 1, ?)`)
-
   let looked = 0
   let named = 0
-  console.log(`[wayback] attribution sweep: ${candidates.length} candidates`)
-  for (const c of candidates) {
-    if (looked >= LOOKUPS_PER_RUN) break
-    const skipKey = `wayback:miss:${c.a}`
-    if (Number(stateGet(skipKey) ?? 0) > skipBefore) continue
-    looked++
-    const snap = await archived('etherscan.io/address/' + c.a)
-    if (!snap) { stateSet(skipKey, Date.now()); await sleep(2000); continue }
-    const title = await snapshotTitle(snap.ts, snap.orig)
-    const name = title?.split('|')[0].trim() ?? ''
-    if (!name || NOISE.test(name) || name.length > 48) { stateSet(skipKey, Date.now()); await sleep(2000); continue }
-    const category = GAMBLE.test(name) ? 'casino' : EXCHANGE.test(name) ? 'exchange' : null
-    if (category) {
-      addWatch.run(c.a, name, category, Date.now())
-      named++
-      console.log(`[wayback] attributed ${c.a.slice(0, 10)}… -> "${name}" (${category})`)
-    } else {
-      stateSet(skipKey, Date.now()) // named but neither casino nor exchange — leave unwatched
+  // split the per-run lookup budget across chains so BSC isn't starved by ETH
+  const perChain = Math.max(1, Math.floor(LOOKUPS_PER_RUN / CHAINS.length))
+
+  for (const { chain, explorer } of CHAINS) {
+    const candidates = (await workerAll(
+      `SELECT t.counterparty a, COUNT(*) tx, SUM(t.usd) vol
+       FROM transfers t
+       WHERE t.chain=? AND t.ts >= ?
+         AND NOT EXISTS (SELECT 1 FROM watchlist w WHERE w.chain=? AND w.address = t.counterparty)
+       GROUP BY t.counterparty
+       HAVING tx >= ? OR vol >= ?
+       ORDER BY vol DESC LIMIT 200`,
+      [chain, since, chain, MIN_TX_7D, MIN_VOL_7D],
+    )) as { a: string; tx: number; vol: number }[]
+
+    let lookedChain = 0
+    console.log(`[wayback] ${chain} attribution sweep: ${candidates.length} candidates`)
+    for (const c of candidates) {
+      if (lookedChain >= perChain || looked >= LOOKUPS_PER_RUN) break
+      const skipKey = `wayback:miss:${chain}:${c.a}`
+      if (Number(stateGet(skipKey) ?? 0) > skipBefore) continue
+      looked++
+      lookedChain++
+      const snap = await archived(`${explorer}/address/${c.a}`)
+      if (!snap) { stateSet(skipKey, Date.now()); await sleep(2000); continue }
+      const title = await snapshotTitle(snap.ts, snap.orig)
+      const name = title?.split('|')[0].trim() ?? ''
+      if (!name || NOISE.test(name) || name.length > 48) { stateSet(skipKey, Date.now()); await sleep(2000); continue }
+      const category = GAMBLE.test(name) ? 'casino' : EXCHANGE.test(name) ? 'exchange' : null
+      if (category) {
+        addWatch.run(chain, c.a, name, category, Date.now())
+        named++
+        console.log(`[wayback] attributed ${chain} ${c.a.slice(0, 10)}… -> "${name}" (${category})`)
+      } else {
+        stateSet(skipKey, Date.now()) // named but neither casino nor exchange — leave unwatched
+      }
+      await sleep(2000)
     }
-    await sleep(2000)
   }
   console.log(`[wayback] sweep done — ${looked} lookups, ${named} new attributions`)
 }
