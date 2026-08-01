@@ -742,6 +742,11 @@ export const stmt = {
 export const INFRA_DENYLIST = new Set<string>([
   '0x000000000004444c5dc75cb358380d2e3de08a90', // Uniswap V4: Pool Manager
   '0x7f54f05635d15cde17a49502fedb9d1803a3be8a', // 0x Protocol: MainnetSettler
+  // Uniswap V3 USDC/USDT pool, mis-attributed to MonkeyTilt. Confirmed 2026-08-01:
+  // 22kB of contract code, ~$35M held entirely in USDC+USDT with zero native ETH —
+  // a liquidity pool's balance sheet, not a casino's. It alone was ~4% of the
+  // casino-category ETH reserve total.
+  '0x3416cf6c708da44db2624d63ea0aaef7113527c6',
 ])
 export const isInfraDenied = (addr: string): boolean => INFRA_DENYLIST.has(String(addr || '').toLowerCase())
 // Deactivate any denylisted infra that slipped into the watchlist — idempotent, cheap,
@@ -754,6 +759,29 @@ try {
   }
 } catch (e) {
   console.warn('[db] infra denylist prune skipped:', (e as Error).message)
+}
+
+// Real entities that are NOT casinos but were harvested into category='casino', so
+// their (very large) balances were booked as casino reserves. Unlike INFRA_DENYLIST
+// these are not deactivated — they stay tracked under their true category, so
+// exchange-flow analysis keeps working and we don't throw away good data.
+export const MISCATEGORIZED_ENTITIES: { label: string; from: string; to: string }[] = [
+  // Gemini is a US exchange. Three of its custody contracts sat in the casino set
+  // holding ~310k ETH between them. Harmless while only stablecoins were priced;
+  // once native coins started counting (2026-08-01) they became 68% of the entire
+  // casino ETH reserve total.
+  { label: 'Gemini', from: 'casino', to: 'exchange' },
+]
+// Idempotent and self-healing: re-running is a no-op once no rows match, and if a
+// collector ever re-files one of these as a casino it is corrected at the next boot.
+try {
+  const fix = db.prepare('UPDATE watchlist SET category=? WHERE category=? AND LOWER(label)=LOWER(?)')
+  for (const m of MISCATEGORIZED_ENTITIES) {
+    const n = fix.run(m.to, m.from, m.label).changes
+    if (n) console.log(`[db] recategorised ${n} ${m.label} wallet(s): ${m.from} → ${m.to}`)
+  }
+} catch (e) {
+  console.warn('[db] entity recategorisation skipped:', (e as Error).message)
 }
 
 export interface WatchRow {
