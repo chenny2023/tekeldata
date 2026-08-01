@@ -63,54 +63,22 @@ and report "backlog empty".
 
 ### New English data-story pages (moat content — factual, on-chain, wash-excluded, no verdicts)
 - [ ] Add a "crypto casino chain migration" data story at `/data/crypto-casino-chain-migration` — where casino money is shifting between chains (net flow by chain over time), modelled on the existing data-story pages in seo.ts (visible FAQ + FAQPage + Dataset JSON-LD, linked from the /data hub and llms.txt). Only ship if the underlying data is real and ≥medium-confidence; otherwise leave unchecked and report the data gap.
-  - **BLOCKED on data accumulation as of 2026-07-30, do not force it.** Checked: the
-    authoritative cross-chain split (`arkham_chain_reserves` / `arkham_chain_volume`) is
-    `PRIMARY KEY(key, chain)` and overwritten on every refresh — a snapshot with no time
-    dimension. `arkham_reserve_history` has time but no chain; `daily_market_snapshot`
-    stores only `active_chains` (a count). The one time-series source, `transfers`, is
-    ETH-skewed by our own labeling coverage (~96% ETH — see the comment at the
-    `chainReserveRows` read in `snapshot.ts`), so a migration curve built on it would
-    largely track our attribution progress, not real movement.
-    Enabling step shipped instead: `chain_reserve_history(day, chain, usd, casinos, ts)`
-    (`db.ts`) is now written daily from the Arkham split inside `snapshotMarket()`.
-    Re-check this item once that table holds **≥21 distinct days** — then chain-share drift
-    is a real series and the page can be built from it. Frame it as reserve-share drift
-    across chains, and state that the operator set is fixed to mapped entities.
-  - **Re-checked 2026-07-31 → still blocked, and a second blocker surfaced.** The gate is
-    now queryable: `GET /api/diag/chain-reserve-history` → `{days, distinctDailyTotals,
-    sourceStalled, ready}`. Today it reads `days: 2` of 21.
-    More important: the two recorded days carry a **byte-identical** total
-    (`$563,913,935.023514`, = the current `arkham_chain_reserves` sum), because the Arkham
-    portfolio endpoint is returning **402** (`/api/diag/arkham-probe` →
-    `{"entity":"Moonroll","status":402}`) and the collector only overwrites reserves on a
-    successful fetch. So the source is **frozen**, and the table is accumulating repeated
-    copies of one snapshot — which would satisfy a naive 21-day count while producing a
-    "migration" chart showing exactly 0% drift on every chain.
-    Therefore the gate now also requires `distinctDailyTotals ≥ ceil(days/2)`, i.e. the
-    series must actually move. **Do not build this page until `ready: true`.**
-    ⚠️ Needs operator action (not a code fix): restore Arkham API access/billing. Until
-    then the day counter keeps ticking on stale data — and note the already-live reserve
-    pages read the same frozen table.
-  - **2026-08-01 — the blocker changed shape: Arkham is retired for good.** The
-    operator is not restoring access, so every note above that waits on "restore
-    Arkham billing" is void: `chain_reserve_history` is fed from
-    `arkham_chain_reserves` inside `snapshotMarket()`, and that table will never move
-    again. The day counter will reach 21 on frozen data (~2026-08-19) while
-    `distinctDailyTotals` stays at 1, so the gate stays `ready: false` forever.
-    **This item is now blocked on re-pointing `chain_reserve_history` at the
-    self-hosted sweep (`wallet_chain_balances`), not on any vendor.** Once it writes
-    from the sweep, the 21-day clock starts fresh from that switch-over date — the
-    frozen Arkham rows (2026-07-30 → switch-over) must be excluded or deleted first,
-    or they will contaminate the series with a flat prefix. See the
-    `arkham-retired-self-hosted-reserves` memory for the replacement work already
-    landed (native + wrapped asset undercounts fixed).
-  - **Re-checked 2026-08-01 → still blocked, unchanged.** `/api/diag/chain-reserve-history`
-    → `{days: 3, daysNeeded: 21, distinctDailyTotals: 1, sourceStalled: true, ready: false}`;
-    all 3 recorded days (07-30 → 08-01) still carry the identical `$563,913,935.023514`
-    total across 12 chains. `/api/diag/arkham-probe` still returns `{"entity":"Moonroll",
-    "status":402}`. Nothing here is fixable in code — the day counter will reach 21 on
-    frozen data around 2026-08-19, but `distinctDailyTotals` will stay at 1 and the gate
-    will (correctly) keep `ready: false` until Arkham access is restored.
+  - **STATUS 2026-08-01 — source switch DONE & verified live; now a pure time gate, no code left.**
+    The earlier "blocked on re-pointing to the self-hosted sweep" note is superseded:
+    `snapshot.ts` already writes `chain_reserve_history` from `chainReserveSplit()`
+    (self-hosted `wallet_chain_balances`, see `chainreserves.ts`), NOT from the frozen
+    `arkham_chain_reserves`. The Arkham-era rows were purged once (latched in `sync_state`
+    key `chainreshist:source`), so the 21-day clock restarted at the switch-over.
+    Verified on prod: `GET /api/diag/chain-reserve-history` →
+    `{source:"self-hosted wallet sweep (wallet_chain_balances)", days:1, daysNeeded:21,
+    distinctDailyTotals:1, sourceStalled:false, ready:false}`, recent = 2026-08-01 · 10 chains
+    · ~$533M (the sweep total, NOT the frozen Arkham $563.9M). **sourceStalled is now false**
+    — the series is live and will move day-to-day.
+    Nothing to do until `ready:true` (needs `days>=21` AND `distinctDailyTotals>=ceil(days/2)`,
+    ~2026-08-22 at the earliest). Then build the page as **reserve-share drift across chains**
+    from `chain_reserve_history`, operator set fixed to mapped entities, visible FAQ + FAQPage
+    + Dataset JSON-LD, linked from the /data hub + llms.txt. Do NOT lower the gate to publish
+    early — a flat/near-flat series would be a misleading "migration" finding.
 - [x] Add a "biggest crypto casino reserve movements this week" data story (top reserve gainers/losers by absolute USD, complementing the existing % reserve-drawdown page).
 
 <!-- Append new vetted items above this line. Keep them specific and self-contained. -->
