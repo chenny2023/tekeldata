@@ -91,6 +91,13 @@ and report "backlog empty".
     ⚠️ Needs operator action (not a code fix): restore Arkham API access/billing. Until
     then the day counter keeps ticking on stale data — and note the already-live reserve
     pages read the same frozen table.
+  - **Re-checked 2026-08-01 → still blocked, unchanged.** `/api/diag/chain-reserve-history`
+    → `{days: 3, daysNeeded: 21, distinctDailyTotals: 1, sourceStalled: true, ready: false}`;
+    all 3 recorded days (07-30 → 08-01) still carry the identical `$563,913,935.023514`
+    total across 12 chains. `/api/diag/arkham-probe` still returns `{"entity":"Moonroll",
+    "status":402}`. Nothing here is fixable in code — the day counter will reach 21 on
+    frozen data around 2026-08-19, but `distinctDailyTotals` will stay at 1 and the gate
+    will (correctly) keep `ready: false` until Arkham access is restored.
 - [x] Add a "biggest crypto casino reserve movements this week" data story (top reserve gainers/losers by absolute USD, complementing the existing % reserve-drawdown page).
 
 <!-- Append new vetted items above this line. Keep them specific and self-contained. -->
