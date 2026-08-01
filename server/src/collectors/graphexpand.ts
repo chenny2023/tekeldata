@@ -53,9 +53,12 @@ export async function computeGraphCandidates(opts: GraphCandidateOpts = {}): Pro
   const minDays = Math.max(Number(opts.minDays ?? 3), 1)
   const limit = Math.min(Math.max(Number(opts.limit ?? 300), 1), 1000)
 
+  // Strong seeds = human/dune-attributed brands only. Exclude auto-detected labels
+  // (Casino-pattern …, raw 0x…, Service …) — those are heuristic, not strong, and would
+  // both inflate the seed set and produce junk candidates.
   const strong = new Set(
     (await workerAll<{ label: string }>(
-      "SELECT DISTINCT label FROM watchlist WHERE active=1 AND category='casino' AND (source IS NULL OR source IN ('curated','dune'))",
+      "SELECT DISTINCT label FROM watchlist WHERE active=1 AND category='casino' AND (source IS NULL OR source IN ('curated','dune')) AND label NOT LIKE 'Casino-pattern%' AND label NOT LIKE '0x%' AND label NOT LIKE 'Service %'",
     )).map((r) => r.label),
   )
   // counterparty aggregates over ALL casino EVM transfers (brands counted across every
