@@ -1216,13 +1216,16 @@ export async function registerApi(app: FastifyInstance) {
     const category = q.category ?? 'casino'
     const rows = db
       .prepare(
-        `SELECT b.address, b.label, b.usd, b.updated_at
+        `SELECT b.address, b.label, b.usd, b.updated_at, k.is_contract
            FROM wallet_chain_balances b
            JOIN watchlist w ON w.chain=b.chain AND w.address=b.address
+           LEFT JOIN wallet_code_kind k ON k.chain=b.chain AND k.address=b.address
           WHERE w.active=1 AND w.category=? AND b.chain=?
           ORDER BY b.usd DESC LIMIT ?`,
       )
-      .all(category, chain, limit) as { address: string; label: string; usd: number; updated_at: number }[]
+      .all(category, chain, limit) as {
+      address: string; label: string; usd: number; updated_at: number; is_contract: number | null
+    }[]
     return {
       chain,
       category,
@@ -1230,6 +1233,9 @@ export async function registerApi(app: FastifyInstance) {
         address: r.address,
         label: r.label,
         usd: r.usd,
+        // null = not classified yet. A contract is not automatically wrong (on-chain
+        // dApps custody player funds), but it is the signal worth eyeballing first.
+        contract: r.is_contract == null ? null : r.is_contract === 1,
         ageMin: Math.round((Date.now() - r.updated_at) / 60_000),
       })),
     }
@@ -1245,13 +1251,19 @@ export async function registerApi(app: FastifyInstance) {
     // otherwise `covered` is measured against the wrong denominator and exceeds 100%.
     const rows = db
       .prepare(
-        `SELECT b.chain, SUM(b.usd) usd, COUNT(*) wallets, COUNT(DISTINCT b.label) brands, MAX(b.updated_at) fresh
+        `SELECT b.chain, SUM(b.usd) usd, COUNT(*) wallets, COUNT(DISTINCT b.label) brands, MAX(b.updated_at) fresh,
+                SUM(CASE WHEN k.is_contract=1 THEN b.usd ELSE 0 END) contractUsd,
+                SUM(CASE WHEN k.is_contract IS NULL THEN b.usd ELSE 0 END) unclassifiedUsd
            FROM wallet_chain_balances b
            JOIN watchlist w ON w.chain=b.chain AND w.address=b.address
+           LEFT JOIN wallet_code_kind k ON k.chain=b.chain AND k.address=b.address
           WHERE w.active=1 AND w.category='casino'
           GROUP BY b.chain ORDER BY usd DESC`,
       )
-      .all() as { chain: string; usd: number; wallets: number; brands: number; fresh: number }[]
+      .all() as {
+      chain: string; usd: number; wallets: number; brands: number; fresh: number
+      contractUsd: number; unclassifiedUsd: number
+    }[]
     const tot = rows.reduce((s, r) => s + (r.usd ?? 0), 0)
     const watched = db
       .prepare("SELECT chain, COUNT(*) n FROM watchlist WHERE active=1 AND category='casino' GROUP BY chain")
@@ -1273,6 +1285,14 @@ export async function registerApi(app: FastifyInstance) {
         // how much of the address set this sweep has actually priced yet
         covered: watchedBy.get(r.chain) ? +((100 * r.wallets) / watchedBy.get(r.chain)!).toFixed(1) : null,
         brands: r.brands,
+        // How much of this chain's total sits at CONTRACT addresses. Not an error
+        // by itself (on-chain dApps custody player funds in their contract), but it
+        // is where mis-attribution hides: a DEX pool and exchange custody contracts
+        // were 73.7% of the ETH total until they were corrected on 2026-08-01.
+        // `unclassifiedUsd` is value whose address the classifier has not reached yet.
+        contractUsd: r.contractUsd ?? 0,
+        contractShare: r.usd > 0 ? +((100 * (r.contractUsd ?? 0)) / r.usd).toFixed(1) : 0,
+        unclassifiedUsd: r.unclassifiedUsd ?? 0,
         freshestAgeMin: r.fresh ? Math.round((Date.now() - r.fresh) / 60_000) : null,
       })),
     }

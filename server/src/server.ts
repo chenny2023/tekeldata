@@ -47,6 +47,7 @@ import { startSolana } from './collectors/solana.ts'
 import { startUtxo } from './collectors/utxo.ts'
 import { startBtcCluster } from './collectors/btccluster.ts'
 import { startXrp } from './collectors/xrp.ts'
+import { startCodeKinds } from './collectors/codekind.ts'
 import { startAggregation } from './aggregate.ts'
 import { startAlerts } from './alerts.ts'
 import { startRetention } from './retention.ts'
@@ -284,6 +285,7 @@ async function main() {
   startReviews() // third-party trust: casino.guru Safety Index per casino
   startCasinoTokens() // casino-token market data (CoinGecko, keyless)
   startRisk() // compliance: OFAC-sanctioned counterparty exposure flags
+  startCodeKinds() // EOA-vs-contract labelling for watched EVM addresses (audit signal)
   startAggregation()
   startAlerts() // user-defined alert rules: whale stream + net-flow / reserve checks
   startRetention() // periodic prune of transfers past the retention window

@@ -82,6 +82,23 @@ CREATE TABLE IF NOT EXISTS wallet_chain_balances (
 CREATE INDEX IF NOT EXISTS idx_wcb_chain ON wallet_chain_balances(chain);
 CREATE INDEX IF NOT EXISTS idx_wcb_label ON wallet_chain_balances(label);
 
+-- Is a watched EVM address an EOA or a contract? A casino hot wallet is normally an
+-- EOA; a contract holding a brand's "reserves" is usually infrastructure that was
+-- mis-attributed (a DEX pool, exchange custody, a bridge). It is NOT proof of an
+-- error on its own -- on-chain dApps such as PowH3D genuinely hold player funds in
+-- their contract -- so this is recorded to LABEL and separate the two, never to
+-- silently drop contract balances. Populated by a low-frequency job that is
+-- deliberately independent of the balance sweep, so a failure here cannot affect
+-- reserve figures. Bytecode effectively never changes, hence the long recheck.
+CREATE TABLE IF NOT EXISTS wallet_code_kind (
+  chain       TEXT NOT NULL,
+  address     TEXT NOT NULL,
+  is_contract INTEGER NOT NULL,             -- 1 = has bytecode
+  checked_at  INTEGER NOT NULL,
+  PRIMARY KEY(chain, address)
+);
+CREATE INDEX IF NOT EXISTS idx_wck_contract ON wallet_code_kind(is_contract);
+
 CREATE TABLE IF NOT EXISTS sync_state (
   key   TEXT PRIMARY KEY,
   value TEXT
