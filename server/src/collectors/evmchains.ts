@@ -155,6 +155,12 @@ export function startEvmChains() {
   for (const c of CHAINS) c.start()
 }
 
-export function evmChainsBalanceUsd(address: string): Promise<number>[] {
-  return CHAINS.map((c) => c.balanceUsd(address))
+// Balance of `address` on every extra EVM chain, TAGGED WITH ITS CHAIN. The tag
+// matters: casinos reuse one 0x hot wallet across these chains, so this fan-out is
+// the only place a mainnet-listed address's Base/Arbitrum/Optimism value is ever
+// read. Returning bare numbers meant the per-chain breakdown was summed into a
+// total and thrown away, which is why Base held $0 in the per-chain reserve split
+// while its value was silently inside the address's total.
+export function evmChainsBalanceUsdByChain(address: string): { chain: string; usd: Promise<number> }[] {
+  return CHAINS.map((c) => ({ chain: c.key, usd: c.balanceUsd(address) }))
 }

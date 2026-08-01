@@ -1219,12 +1219,15 @@ export async function registerApi(app: FastifyInstance) {
       .prepare(
         `SELECT b.address, b.label, b.usd, b.updated_at, k.is_contract
            FROM wallet_chain_balances b
-           JOIN watchlist w ON w.chain=b.chain AND w.address=b.address
            LEFT JOIN wallet_code_kind k ON k.chain=b.chain AND k.address=b.address
-          WHERE w.active=1 AND w.category=? AND b.chain=?
+          WHERE b.chain=?
+            AND EXISTS (
+                  SELECT 1 FROM watchlist w
+                   WHERE w.address=b.address AND w.active=1 AND w.category=?
+                )
           ORDER BY b.usd DESC LIMIT ?`,
       )
-      .all(category, chain, limit) as {
+      .all(chain, category, limit) as {
       address: string; label: string; usd: number; updated_at: number; is_contract: number | null
     }[]
     return {
@@ -1252,13 +1255,19 @@ export async function registerApi(app: FastifyInstance) {
     // otherwise `covered` is measured against the wrong denominator and exceeds 100%.
     const rows = db
       .prepare(
+        // EXISTS, not a (chain, address) join — see chainreserves.ts: the sweep records
+        // a mainnet-listed address's balances on the other EVM chains, which have no
+        // watchlist row of their own, and joining on address alone would double-count
+        // an address that is listed on two chains.
         `SELECT b.chain, SUM(b.usd) usd, COUNT(*) wallets, COUNT(DISTINCT b.label) brands, MAX(b.updated_at) fresh,
                 SUM(CASE WHEN k.is_contract=1 THEN b.usd ELSE 0 END) contractUsd,
                 SUM(CASE WHEN k.is_contract IS NULL THEN b.usd ELSE 0 END) unclassifiedUsd
            FROM wallet_chain_balances b
-           JOIN watchlist w ON w.chain=b.chain AND w.address=b.address
            LEFT JOIN wallet_code_kind k ON k.chain=b.chain AND k.address=b.address
-          WHERE w.active=1 AND w.category='casino'
+          WHERE EXISTS (
+                  SELECT 1 FROM watchlist w
+                   WHERE w.address=b.address AND w.active=1 AND w.category='casino'
+                )
           GROUP BY b.chain ORDER BY usd DESC`,
       )
       .all() as {

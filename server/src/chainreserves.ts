@@ -22,11 +22,20 @@ export interface ChainReserveRow {
 // `casinos` counts DISTINCT BRANDS on the chain. Arkham's column counted distinct
 // entity keys, which is the same idea, so downstream copy ("N casinos on X") stays
 // accurate after the switch.
+// EXISTS on address alone, deliberately NOT a join on (chain, address). Casinos reuse
+// one 0x wallet across EVM chains, so the sweep records a mainnet-listed address's
+// Base/Arbitrum/Optimism balances too, and those chains have no watchlist row of their
+// own — a (chain, address) join dropped them and Base read as $0. EXISTS also avoids
+// the trap in the obvious fix: joining on address alone would match an address listed
+// on two chains twice and double its balance in the SUM. Address formats don't collide
+// across chain families (0x / base58 / bech32), so this stays unambiguous.
 const splitStmt = db.prepare(
   `SELECT b.chain, SUM(b.usd) v, COUNT(DISTINCT b.label) casinos
      FROM wallet_chain_balances b
-     JOIN watchlist w ON w.chain=b.chain AND w.address=b.address
-    WHERE w.active=1 AND w.category='casino'
+    WHERE EXISTS (
+            SELECT 1 FROM watchlist w
+             WHERE w.address=b.address AND w.active=1 AND w.category='casino'
+          )
     GROUP BY b.chain
    HAVING SUM(b.usd) > 0
     ORDER BY v DESC`,

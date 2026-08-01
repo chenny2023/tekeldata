@@ -4,7 +4,7 @@ import { workerGet, workerAll } from './readpool.ts'
 import { evmBalanceUsd } from './collectors/evm.ts'
 import { tronBalanceUsd } from './collectors/tron.ts'
 import { tronRpcBalanceUsd } from './collectors/tronrpc.ts'
-import { evmChainsBalanceUsd, evmChainByKey } from './collectors/evmchains.ts'
+import { evmChainsBalanceUsdByChain, evmChainByKey } from './collectors/evmchains.ts'
 import { utxoBalanceUsd } from './collectors/utxo.ts'
 import { solBalanceUsd } from './collectors/solana.ts'
 import { matchCasinoMeta, brandKey, brandName, CasinoMeta } from './casinometa.ts'
@@ -651,7 +651,19 @@ export async function refreshBalances() {
         // This 6-chain fan-out is the most expensive step in the sweep, so it gets its
         // own budget; a partial sum here only affects `balances`, never the per-chain
         // split, which is read from each address's own chain row.
-        const extra = await withDeadline(Promise.all(evmChainsBalanceUsd(w.address)), EXTRA_DEADLINE_MS)
+        const extraPairs = evmChainsBalanceUsdByChain(w.address)
+        const extra = await withDeadline(Promise.all(extraPairs.map((p) => p.usd)), EXTRA_DEADLINE_MS)
+        // Record each chain's slice, not just the sum. Same address, different chain,
+        // so these are distinct (chain, address) rows and can't double-count against
+        // the address's own-chain row. A real 0 is written as 0 — "checked, empty" has
+        // to stay distinguishable from "never checked", which is a missing row.
+        if (extra) {
+          const at = Date.now()
+          for (let i = 0; i < extraPairs.length; i++) {
+            const v = extra[i]
+            if (typeof v === 'number' && Number.isFinite(v)) upsertChainBalance.run(extraPairs[i].chain, w.address, w.label, v, at)
+          }
+        }
         usd = (own ?? 0) + (extra ?? []).reduce((a, b) => a + b, 0)
       } else {
         usd = own ?? 0

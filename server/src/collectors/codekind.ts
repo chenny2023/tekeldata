@@ -57,18 +57,22 @@ export async function refreshCodeKinds(): Promise<void> {
     const chains = evmChains()
     const rows = db
       .prepare(
-        // Biggest balances first. The point of this signal is to show where the money
-        // is, so an audit is only useful once the top holders are classified —
-        // insertion order spent the first passes on dust while $224M of ETH sat
-        // unclassified. Addresses with no balance row sort last (COALESCE 0).
-        `SELECT w.chain, w.address
-           FROM watchlist w
-           LEFT JOIN wallet_code_kind k ON k.chain=w.chain AND k.address=w.address
-           LEFT JOIN wallet_chain_balances b ON b.chain=w.chain AND b.address=w.address
-          WHERE w.active=1
-            AND w.chain IN (${chains.map(() => '?').join(',')})
+        // Driven off wallet_chain_balances, not watchlist, so it covers exactly the
+        // rows the reserve split reports — including the fan-out chains (Base et al.)
+        // where a mainnet-listed address holds value but has no watchlist row.
+        // Biggest balances first: the point is to show where the money is, so the
+        // audit is only useful once the top holders are classified. Insertion order
+        // spent the first passes on dust while $224M of ETH sat unclassified.
+        `SELECT b.chain, b.address
+           FROM wallet_chain_balances b
+           LEFT JOIN wallet_code_kind k ON k.chain=b.chain AND k.address=b.address
+          WHERE b.chain IN (${chains.map(() => '?').join(',')})
             AND (k.checked_at IS NULL OR k.checked_at < ?)
-          ORDER BY k.checked_at IS NOT NULL, COALESCE(b.usd, 0) DESC, w.id
+            AND EXISTS (
+                  SELECT 1 FROM watchlist w
+                   WHERE w.address=b.address AND w.active=1 AND w.category='casino'
+                )
+          ORDER BY k.checked_at IS NOT NULL, b.usd DESC
           LIMIT ?`,
       )
       .all(...chains, Date.now() - RECHECK_MS, BATCH) as { chain: string; address: string }[]
