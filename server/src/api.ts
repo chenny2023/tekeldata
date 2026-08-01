@@ -1204,6 +1204,37 @@ export async function registerApi(app: FastifyInstance) {
     return { entities, total: tot, chains: rows.map((r) => ({ chain: r.chain, usd: r.v, casinos: r.casinos, share: +((100 * (r.v ?? 0)) / tot).toFixed(1) })) }
   })
 
+  // Per-address audit trail behind the sweep totals. Adding native + wrapped assets
+  // moved the ETH split from $213M to ~$955M, and a jump that size must be checkable
+  // against a block explorer address by address rather than trusted because the code
+  // looks right. Addresses here are already-public on-chain identifiers that we also
+  // publish in the open-data repo.
+  app.get('/api/diag/top-wallet-balances', async (req) => {
+    const q = req.query as { chain?: string; limit?: string; category?: string }
+    const chain = (q.chain ?? 'ETH').toUpperCase()
+    const limit = Math.min(100, Math.max(1, Number(q.limit ?? 20) || 20))
+    const category = q.category ?? 'casino'
+    const rows = db
+      .prepare(
+        `SELECT b.address, b.label, b.usd, b.updated_at
+           FROM wallet_chain_balances b
+           JOIN watchlist w ON w.chain=b.chain AND w.address=b.address
+          WHERE w.active=1 AND w.category=? AND b.chain=?
+          ORDER BY b.usd DESC LIMIT ?`,
+      )
+      .all(category, chain, limit) as { address: string; label: string; usd: number; updated_at: number }[]
+    return {
+      chain,
+      category,
+      wallets: rows.map((r) => ({
+        address: r.address,
+        label: r.label,
+        usd: r.usd,
+        ageMin: Math.round((Date.now() - r.updated_at) / 60_000),
+      })),
+    }
+  })
+
   // Self-hosted cross-chain reserve split — computed from OUR wallet set via our own
   // RPC/Esplora calls, with no Arkham dependency. This is the replacement basis for the
   // 402-stalled arkham_chain_reserves; compare the two totals here before switching any
