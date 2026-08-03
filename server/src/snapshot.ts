@@ -1,7 +1,7 @@
 import { db, externalFlowClause } from './db.ts'
 import { aggregateBrands } from './aggregate.ts'
 import { priorReserves } from './reservehistory.ts'
-import { chainReserveSplit } from './chainreserves.ts'
+import { chainReserveSplit, reserveTotals } from './chainreserves.ts'
 import { workerGet, workerAll } from './readpool.ts'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -192,7 +192,11 @@ export async function generateMarketSnapshot(): Promise<void> {
     const one = (sql: string): number | null => ((db.prepare(sql).get() as any)?.t ?? null)
     sourceHealth = [
       recency('On-chain indexers', one('SELECT MAX(ts) t FROM transfers')),
-      recency('Reserve snapshots', one("SELECT MAX(updated_at) t FROM arkham_casino WHERE updated_at IS NOT NULL")),
+      // Reserve freshness must come from the LIVE self-hosted sweep. This read
+      // `arkham_casino`, which froze when Arkham was retired — so the public daily
+      // report claimed "Reserve snapshots: Stale" while the sweep was current, and
+      // would have kept claiming it forever.
+      recency('Reserve snapshots', reserveTotals().freshest),
       recency('Streamer monitor', one('SELECT MAX(updated_at) t FROM streamers')),
     ]
   } catch (e) {

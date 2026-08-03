@@ -62,7 +62,7 @@ import { startDailyInsight } from './content/dailyinsight.ts'
 import { startDirectory } from './directory.ts'
 import { startGuruSpider } from './collectors/guruspider.ts'
 import { startTrustpilotCategory } from './collectors/trustpilotcat.ts'
-import { startArkham } from './collectors/arkham.ts'
+// import { startArkham } from './collectors/arkham.ts' // retired 2026-08-03 — see boot list below
 import { startDune } from './collectors/dune.ts'
 import { startExchanges } from './collectors/exchanges.ts'
 import { startGraphExpand } from './collectors/graphexpand.ts'
@@ -325,7 +325,14 @@ async function main() {
   boot('directory', startDirectory) // casino directory crawler (site/X/email vetting for outreach)
   boot('guruspider', startGuruSpider) // casino.guru spider — fans the directory out to thousands of casinos
   boot('trustpilotcategory', startTrustpilotCategory) // Trustpilot casino-category sweep — merges consumer ratings onto the directory
-  boot('arkham', startArkham) // Arkham on-chain attribution — all-chain reserves/volume per casino entity
+  // Arkham RETIRED 2026-08-03 — the portfolio endpoint has returned 402 since the
+  // subscription lapsed on 2026-08-01, so every cycle was pure error spam and could
+  // only ever refresh nothing. Its job (all-chain reserves per casino) is done by our
+  // own balance sweep (chainreserves.ts / wallet_chain_balances). The collector module
+  // and its /api/diag/arkham-* probes are left in place so re-subscribing is a one-line
+  // revert; the frozen arkham_* tables are kept read-only as a historical record and are
+  // no longer read by any public surface.
+  // boot('arkham', startArkham)
   boot('dune', startDune) // Dune label harvester — authoritative EVM casino hot wallets (multi-chain)
   boot('exchanges', startExchanges) // Dune CEX-label harvester → exchange_addresses (precision aid for graph candidates)
   boot('graphexpand', startGraphExpand) // transaction-graph address-discovery CANDIDATES (review-only; never auto-attributes)

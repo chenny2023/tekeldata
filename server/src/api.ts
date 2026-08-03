@@ -13,6 +13,7 @@ import { redditEnabled } from './collectors/reddit.ts'
 import { probeTier } from './collectors/unlocker.ts'
 import { arkhamFetch } from './net.ts'
 import { arkhamProbe, arkhamAddressProbe } from './collectors/arkham.ts'
+import { reserveTotals } from './chainreserves.ts'
 import { getProfile } from './streamerprofiles.ts'
 import { newsEnabled } from './collectors/news.ts'
 import { telegramSubs } from './collectors/telegram.ts'
@@ -448,7 +449,16 @@ export async function registerApi(app: FastifyInstance) {
       }
     }
     const dir = one('SELECT COUNT(*) total, COALESCE(SUM(site_ok),0) live, COALESCE(SUM(tp_rating IS NOT NULL),0) rated FROM casino_directory')
-    const ark = one("SELECT COUNT(*) n, COALESCE(SUM(reserves_usd),0) usd FROM arkham_casino WHERE entity_id!='' AND reserves_usd IS NOT NULL")
+    // Reserve coverage from OUR OWN balance sweep. This read `arkham_casino` until
+    // Arkham was retired (2026-08-01, portfolio endpoint 402) — after which the
+    // public coverage figures silently froze on a stale vendor snapshot.
+    let ark: { n: number; usd: number } = { n: 0, usd: 0 }
+    try {
+      const t = reserveTotals()
+      ark = { n: t.casinos ?? 0, usd: t.usd ?? 0 }
+    } catch {
+      /* sweep table not populated yet — report 0 rather than a stale number */
+    }
     const pm = one('SELECT COUNT(*) n, COALESCE(SUM(volume),0) usd FROM prediction_market')
     const pr = one('SELECT COUNT(*) n, COALESCE(SUM(tvl),0) usd FROM onchain_protocol WHERE tvl IS NOT NULL')
     const me = one('SELECT COUNT(*) n FROM mentions')
@@ -638,39 +648,23 @@ export async function registerApi(app: FastifyInstance) {
     }
   })
 
-  // public all-chain proof-of-reserves, sourced from Arkham entity portfolios.
-  // On-chain balances are public data — and a strong "we cover every chain" signal.
-  app.get('/api/arkham/reserves', async () => {
-    const wk = Date.now() - 7 * 86400_000
-    const rows = db
-      .prepare(
-        `SELECT a.key, a.name, a.domain, a.entity_id, a.reserves_usd, a.volume7d_usd,
-           (SELECT h.reserves_usd FROM arkham_reserve_history h WHERE h.key=a.key AND h.ts <= ? ORDER BY h.ts DESC LIMIT 1) AS prev7d
-         FROM arkham_casino a
-         WHERE a.entity_id != '' AND a.reserves_usd IS NOT NULL
-         ORDER BY a.reserves_usd DESC LIMIT 500`,
-      )
-      .all(wk) as { key: string; name: string; domain: string | null; entity_id: string; reserves_usd: number; volume7d_usd: number | null; prev7d: number | null }[]
-    const total = rows.reduce((s, r) => s + (r.reserves_usd || 0), 0)
-    const totalVol = rows.reduce((s, r) => s + (r.volume7d_usd || 0), 0)
-    return {
-      count: rows.length,
-      totalUsd: total,
-      totalVolume7d: totalVol, // Arkham-attributed cross-chain 7d throughput (a floor for the largest)
-      casinos: rows.map((r) => {
-        const change7d = r.prev7d && r.prev7d > 0 ? (r.reserves_usd - r.prev7d) / r.prev7d : null
-        return {
-          name: r.name,
-          domain: r.domain,
-          entityId: r.entity_id,
-          reservesUsd: r.reserves_usd,
-          volume7dUsd: r.volume7d_usd ?? null, // cross-chain on-chain volume (Arkham), trailing 7d
-          change7d, // fraction; fills in once a week of history accrues
-          solvencyAlert: change7d != null && change7d <= -0.3, // ≥30% weekly drawdown
-        }
-      }),
-    }
-  })
+  // RETIRED 2026-08-03. This served all-chain proof-of-reserves from Arkham entity
+  // portfolios. Arkham was retired on 2026-08-01 (portfolio endpoint 402, not renewing),
+  // so `arkham_casino` is frozen — and an endpoint that keeps returning a stale vendor
+  // snapshot under a live-sounding name is the single worst thing a site whose claim is
+  // "live on-chain data" can publish. It is served as 410 Gone rather than silently
+  // repointed: the shape was Arkham-specific (entityId, Arkham-attributed volume), and
+  // callers must knowingly move to the self-hosted equivalent, not be handed different
+  // numbers under the same contract. Live per-brand reserves: /api/brands. Cross-chain
+  // split from our own sweep: /api/diag/wallet-chain-reserves.
+  app.get('/api/arkham/reserves', async (_req, reply) =>
+    reply.code(410).send({
+      error: 'gone',
+      retired: '2026-08-03',
+      reason: 'Arkham portfolio source retired 2026-08-01; this endpoint would only return frozen data.',
+      useInstead: { perBrandReserves: '/api/brands', crossChainSplit: '/api/diag/wallet-chain-reserves' },
+    }),
+  )
 
   // ── casino directory (login-gated — outreach/contact data) ───────────────────
   const dirWhere = (filter?: string) =>

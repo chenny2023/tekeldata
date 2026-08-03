@@ -45,6 +45,26 @@ export function chainReserveSplit(): ChainReserveRow[] {
   return splitStmt.all() as ChainReserveRow[]
 }
 
+// Headline reserve totals from the SAME sweep, for the public coverage figures and
+// the daily report's source-health row. Both used to read `arkham_casino`, which has
+// been frozen since Arkham was retired — so the site was publishing a stale vendor
+// number as its live coverage stat, and reporting "Reserve snapshots: Stale" while
+// the sweep was in fact fresh. Same EXISTS predicate as splitStmt (see the note
+// above on why it is EXISTS on address alone), minus the per-chain grouping.
+const totalsStmt = db.prepare(
+  `SELECT COUNT(DISTINCT b.label) casinos, COALESCE(SUM(b.usd),0) usd, MAX(b.updated_at) freshest
+     FROM wallet_chain_balances b
+    WHERE EXISTS (
+            SELECT 1 FROM watchlist w
+             WHERE w.address=b.address AND w.active=1 AND w.category='casino'
+          )
+      AND b.usd > 0`,
+)
+
+export function reserveTotals(): { casinos: number; usd: number; freshest: number | null } {
+  return totalsStmt.get() as { casinos: number; usd: number; freshest: number | null }
+}
+
 // One-time purge of the Arkham-era rows in chain_reserve_history.
 //
 // That table was fed from `arkham_chain_reserves` while the source was already
