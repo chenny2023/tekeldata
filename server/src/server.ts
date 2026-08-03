@@ -246,6 +246,26 @@ async function main() {
   console.log(`\n  Tekel Data API  ➜  http://localhost:${config.port}/api/health`)
   console.log(`  Indexing chains:  ETH (${primaryRpc}) + TRON (${tronHost}, ${config.tronMode})\n`)
 
+  // Fault-isolate each start-up call. The ~40 `startX()` calls below run in ONE
+  // synchronous block, so a single synchronous throw silently truncates the rest of
+  // the boot sequence — the process stays up and healthy-looking while everything
+  // after the throwing line never starts. That is exactly what happened on
+  // 2026-08-01T14:27Z: `startKick()` hit a transient `SqliteError: database is
+  // locked` while seeding its roster, and the ~40 jobs registered after it (the
+  // daily market snapshot, the SEO page rebuild, the balance sweep, the digest and
+  // system-report emails, the deep backfills, every mention/label collector) stayed
+  // dead for 35h with no error after the first line. The process-level
+  // uncaughtException handler below catches the throw but cannot resume the block —
+  // so isolation has to happen here, per call. A collector that can't start is
+  // logged and skipped; every other collector still starts.
+  const boot = (name: string, start: () => void) => {
+    try {
+      start()
+    } catch (e) {
+      console.error(`[boot] ${name} failed to start (skipped, rest of boot continues):`, (e as Error).stack || (e as Error).message)
+    }
+  }
+
   // Defer the heavy indexers ~45s after the server is listening. better-sqlite3
   // is synchronous, so a hard backfill (10k+ inserts/tick) starves Node's single
   // event loop — which previously timed out Railway's deploy healthcheck before
@@ -260,57 +280,57 @@ async function main() {
   const collectorsPaused = process.env.COLLECTORS_PAUSED === '1'
   if (collectorsPaused) console.warn('[boot] COLLECTORS_PAUSED=1 — heavy on-chain indexers OFF (idle recovery boot)')
   if (!collectorsPaused) {
-    startEvm() // ETH transfer indexer (public RPC)
-    startNative() // native-coin (ETH) deposits — full-block scan, block-time priced
-    startSolana() // Solana indexer (SPL USDC/USDT + native SOL, historically priced)
-    startUtxo() // Bitcoin + Litecoin indexers (Esplora, historically priced)
-    startBtcCluster() // expand BTC casino address sets via common-input-ownership clustering
-    startXrp() // XRP Ledger indexer (account_tx, historically priced)
+    boot('evm', startEvm) // ETH transfer indexer (public RPC)
+    boot('native', startNative) // native-coin (ETH) deposits — full-block scan, block-time priced
+    boot('solana', startSolana) // Solana indexer (SPL USDC/USDT + native SOL, historically priced)
+    boot('utxo', startUtxo) // Bitcoin + Litecoin indexers (Esplora, historically priced)
+    boot('btccluster', startBtcCluster) // expand BTC casino address sets via common-input-ownership clustering
+    boot('xrp', startXrp) // XRP Ledger indexer (account_tx, historically priced)
   }
-  startPrices() // daily historical price series (SOL) for non-1:1 valuation
-  startLabels() // casino-wallet attribution harvester (Etherscan/Tronscan labels)
-  startWayback() // etherscan-nametag attribution via Wayback snapshots (keyless)
-  startCircus() // casino attribution via circus.fyi whale-feed → on-chain tx resolution
-  startKick() // streamer monitoring (Kick public API, keyless)
-  startTwitch() // streamer monitoring (Twitch public GraphQL, keyless)
-  startYouTube() // streamer monitoring (YouTube channel-page scrape, keyless)
-  startReddit() // social mentions (Reddit OAuth, optional creds)
-  startNews() // brand mentions (Google News RSS, keyless)
-  startPress() // brand mentions (iGaming trade-press RSS, keyless)
-  startBluesky() // social mentions (Bluesky public post search, keyless)
-  startTwitter() // X/Twitter official-account activity (syndication widget, keyless)
-  startGdelt() // brand mentions (GDELT global news index, keyless)
-  startBitcointalk() // social mentions (Bitcointalk gambling forum, keyless)
-  startAppStore() // user reviews (Apple App Store, keyless — apps that exist)
-  startLemmy() // user social (Lemmy federated, keyless — unblocked Reddit alt)
-  startTelegram() // brand community signal (public Telegram channels, keyless)
-  startReviews() // third-party trust: casino.guru Safety Index per casino
-  startCasinoTokens() // casino-token market data (CoinGecko, keyless)
-  startRisk() // compliance: OFAC-sanctioned counterparty exposure flags
-  startCodeKinds() // EOA-vs-contract labelling for watched EVM addresses (audit signal)
-  startAggregation()
-  startAlerts() // user-defined alert rules: whale stream + net-flow / reserve checks
-  startRetention() // periodic prune of transfers past the retention window
-  startInternalFlow() // mark casino↔casino internal transfers (cp_internal) for fast credible volume
-  startRoleInference() // behaviour-inferred wallet_role for the open-data export
-  startReserveHistory() // daily solvency snapshots → reserve-adequacy trend
-  startCasinoAlerts() // per-casino reserve-drop alert emails to public subscribers
-  startRiskEvents() // risk-event registry: auto on-chain signals + curated incidents
-  startSnapshots() // 1.0 content layer: daily market snapshot (homepage + email source)
-  startDailyInsight() // LLM "Today's Market Read" + Notable Signals for the daily report (QA-gated)
-  startDigest() // 1.0 daily email digest scheduler (sends at DIGEST_SEND_HOUR_UTC)
-  startSystemReport() // internal daily system-health report → operator email (01:00 UTC)
-  startSeo() // Phase 2: rebuild stored SEO landing pages from the warm aggregate cache
-  startBrandStore() // 1.0: materialise the persistent brand layer (history / audit)
-  startDirectory() // casino directory crawler (site/X/email vetting for outreach)
-  startGuruSpider() // casino.guru spider — fans the directory out to thousands of casinos
-  startTrustpilotCategory() // Trustpilot casino-category sweep — merges consumer ratings onto the directory
-  startArkham() // Arkham on-chain attribution — all-chain reserves/volume per casino entity
-  startDune() // Dune label harvester — authoritative EVM casino hot wallets (multi-chain)
-  startExchanges() // Dune CEX-label harvester → exchange_addresses (precision aid for graph candidates)
-  startGraphExpand() // transaction-graph address-discovery CANDIDATES (review-only; never auto-attributes)
-  startDefiLlama() // DefiLlama — on-chain prediction markets / lotteries / betting protocols
-  startPolymarket() // Polymarket — top prediction markets (live odds + volume)
+  boot('prices', startPrices) // daily historical price series (SOL) for non-1:1 valuation
+  boot('labels', startLabels) // casino-wallet attribution harvester (Etherscan/Tronscan labels)
+  boot('wayback', startWayback) // etherscan-nametag attribution via Wayback snapshots (keyless)
+  boot('circus', startCircus) // casino attribution via circus.fyi whale-feed → on-chain tx resolution
+  boot('kick', startKick) // streamer monitoring (Kick public API, keyless)
+  boot('twitch', startTwitch) // streamer monitoring (Twitch public GraphQL, keyless)
+  boot('youtube', startYouTube) // streamer monitoring (YouTube channel-page scrape, keyless)
+  boot('reddit', startReddit) // social mentions (Reddit OAuth, optional creds)
+  boot('news', startNews) // brand mentions (Google News RSS, keyless)
+  boot('press', startPress) // brand mentions (iGaming trade-press RSS, keyless)
+  boot('bluesky', startBluesky) // social mentions (Bluesky public post search, keyless)
+  boot('twitter', startTwitter) // X/Twitter official-account activity (syndication widget, keyless)
+  boot('gdelt', startGdelt) // brand mentions (GDELT global news index, keyless)
+  boot('bitcointalk', startBitcointalk) // social mentions (Bitcointalk gambling forum, keyless)
+  boot('appstore', startAppStore) // user reviews (Apple App Store, keyless — apps that exist)
+  boot('lemmy', startLemmy) // user social (Lemmy federated, keyless — unblocked Reddit alt)
+  boot('telegram', startTelegram) // brand community signal (public Telegram channels, keyless)
+  boot('reviews', startReviews) // third-party trust: casino.guru Safety Index per casino
+  boot('casinotokens', startCasinoTokens) // casino-token market data (CoinGecko, keyless)
+  boot('risk', startRisk) // compliance: OFAC-sanctioned counterparty exposure flags
+  boot('codekinds', startCodeKinds) // EOA-vs-contract labelling for watched EVM addresses (audit signal)
+  boot('aggregation', startAggregation)
+  boot('alerts', startAlerts) // user-defined alert rules: whale stream + net-flow / reserve checks
+  boot('retention', startRetention) // periodic prune of transfers past the retention window
+  boot('internalflow', startInternalFlow) // mark casino↔casino internal transfers (cp_internal) for fast credible volume
+  boot('roleinference', startRoleInference) // behaviour-inferred wallet_role for the open-data export
+  boot('reservehistory', startReserveHistory) // daily solvency snapshots → reserve-adequacy trend
+  boot('casinoalerts', startCasinoAlerts) // per-casino reserve-drop alert emails to public subscribers
+  boot('riskevents', startRiskEvents) // risk-event registry: auto on-chain signals + curated incidents
+  boot('snapshots', startSnapshots) // 1.0 content layer: daily market snapshot (homepage + email source)
+  boot('dailyinsight', startDailyInsight) // LLM "Today's Market Read" + Notable Signals for the daily report (QA-gated)
+  boot('digest', startDigest) // 1.0 daily email digest scheduler (sends at DIGEST_SEND_HOUR_UTC)
+  boot('systemreport', startSystemReport) // internal daily system-health report → operator email (01:00 UTC)
+  boot('seo', startSeo) // Phase 2: rebuild stored SEO landing pages from the warm aggregate cache
+  boot('brandstore', startBrandStore) // 1.0: materialise the persistent brand layer (history / audit)
+  boot('directory', startDirectory) // casino directory crawler (site/X/email vetting for outreach)
+  boot('guruspider', startGuruSpider) // casino.guru spider — fans the directory out to thousands of casinos
+  boot('trustpilotcategory', startTrustpilotCategory) // Trustpilot casino-category sweep — merges consumer ratings onto the directory
+  boot('arkham', startArkham) // Arkham on-chain attribution — all-chain reserves/volume per casino entity
+  boot('dune', startDune) // Dune label harvester — authoritative EVM casino hot wallets (multi-chain)
+  boot('exchanges', startExchanges) // Dune CEX-label harvester → exchange_addresses (precision aid for graph candidates)
+  boot('graphexpand', startGraphExpand) // transaction-graph address-discovery CANDIDATES (review-only; never auto-attributes)
+  boot('defillama', startDefiLlama) // DefiLlama — on-chain prediction markets / lotteries / betting protocols
+  boot('polymarket', startPolymarket) // Polymarket — top prediction markets (live odds + volume)
   // ⚠️ 内部「Whale Growth」社媒情报的 10 个后台 job（采集/分类/KOL/翻译/观察室）已迁到独立服务
   //    wcoin-whale，主站不再运行 —— 这正是本次拆分的目的：消除采集重写入与主站抢 SQLite 写锁。
 
@@ -323,18 +343,18 @@ async function main() {
   // after /api/health has gone green and the deploy is confirmed healthy. They
   // self-throttle once caught up.
   if (!collectorsPaused) setTimeout(() => {
-    startBackfill() // ETH deep historical backfill (walks back N days)
+    boot('backfill', startBackfill) // ETH deep historical backfill (walks back N days)
     if (config.tronMode === 'jsonrpc') {
-      startTronRpc() // TRON via EVM-compat eth_getLogs (wide-scan + backfill) — heaviest
+      boot('tronrpc', startTronRpc) // TRON via EVM-compat eth_getLogs (wide-scan + backfill) — heaviest
     } else {
-      startTron() // TRON via TronGrid REST polling (fallback, TRON_MODE=v1)
+      boot('tron', startTron) // TRON via TronGrid REST polling (fallback, TRON_MODE=v1)
     }
-    startEvmChains() // extra EVM chains (BSC, Base, Arbitrum, Optimism) — backfill each
+    boot('evmchains', startEvmChains) // extra EVM chains (BSC, Base, Arbitrum, Optimism) — backfill each
   }, 300_000)
   // Third wave (+180s): background player/first-seen maintenance. Starts LAST,
   // long after /api/health has gone green, so its first heavy pass never blocks
   // the deploy healthcheck (running it pre-listen crashed the deploy).
-  setTimeout(() => void startStatsMaintenance(), 180_000)
+  setTimeout(() => boot('statsmaintenance', () => void startStatsMaintenance()), 180_000)
   }, 45_000)
 }
 

@@ -70,13 +70,24 @@ function socialsJson(obj: Record<string, unknown>): string | null {
 export function seedRoster() {
   // top-up: new seeds reach existing installs too; INSERT OR IGNORE keeps
   // operator entries and prior deactivations (404'd slugs) untouched
-  const now = Date.now()
-  const ins = db.prepare(
-    'INSERT OR IGNORE INTO streamer_roster(platform, slug, active, created_at) VALUES(?, ?, 1, ?)',
-  )
-  let added = 0
-  for (const slug of ROSTER_SEED) added += ins.run('Kick', slug, now).changes
-  if (added) console.log(`[kick] roster topped up with ${added} known casino streamers`)
+  //
+  // Best-effort: this runs during the boot rush, when the indexers' bulk inserts and
+  // litestream's checkpoint contend for the write lock, so `database is locked` here
+  // is transient and expected. It must NOT propagate — on 2026-08-01 it escaped
+  // startKick() and truncated the whole boot sequence (see the `boot()` helper in
+  // server.ts). The roster is a top-up of a persisted table: skipping one pass costs
+  // nothing, and the next boot (or a manual seed) fills it in.
+  try {
+    const now = Date.now()
+    const ins = db.prepare(
+      'INSERT OR IGNORE INTO streamer_roster(platform, slug, active, created_at) VALUES(?, ?, 1, ?)',
+    )
+    let added = 0
+    for (const slug of ROSTER_SEED) added += ins.run('Kick', slug, now).changes
+    if (added) console.log(`[kick] roster topped up with ${added} known casino streamers`)
+  } catch (e) {
+    console.warn('[kick] roster seed skipped:', (e as Error).message)
+  }
 }
 
 function detectAffiliation(...texts: (string | null | undefined)[]): string | null {
