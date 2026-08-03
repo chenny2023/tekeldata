@@ -63,22 +63,30 @@ and report "backlog empty".
 
 ### New English data-story pages (moat content — factual, on-chain, wash-excluded, no verdicts)
 - [ ] Add a "crypto casino chain migration" data story at `/data/crypto-casino-chain-migration` — where casino money is shifting between chains (net flow by chain over time), modelled on the existing data-story pages in seo.ts (visible FAQ + FAQPage + Dataset JSON-LD, linked from the /data hub and llms.txt). Only ship if the underlying data is real and ≥medium-confidence; otherwise leave unchecked and report the data gap.
-  - **STATUS 2026-08-01 — source switch DONE & verified live; now a pure time gate, no code left.**
-    The earlier "blocked on re-pointing to the self-hosted sweep" note is superseded:
-    `snapshot.ts` already writes `chain_reserve_history` from `chainReserveSplit()`
-    (self-hosted `wallet_chain_balances`, see `chainreserves.ts`), NOT from the frozen
-    `arkham_chain_reserves`. The Arkham-era rows were purged once (latched in `sync_state`
-    key `chainreshist:source`), so the 21-day clock restarted at the switch-over.
-    Verified on prod: `GET /api/diag/chain-reserve-history` →
-    `{source:"self-hosted wallet sweep (wallet_chain_balances)", days:1, daysNeeded:21,
-    distinctDailyTotals:1, sourceStalled:false, ready:false}`, recent = 2026-08-01 · 10 chains
-    · ~$533M (the sweep total, NOT the frozen Arkham $563.9M). **sourceStalled is now false**
-    — the series is live and will move day-to-day.
+  - **STATUS 2026-08-03 — still a pure time gate, but the clock had SILENTLY STOPPED and is now running again.**
+    The source switch is done and correct: `snapshot.ts` writes `chain_reserve_history`
+    from `chainReserveSplit()` (self-hosted `wallet_chain_balances`, see `chainreserves.ts`),
+    NOT from the frozen `arkham_chain_reserves`. The Arkham-era rows were purged once
+    (latched in `sync_state` key `chainreshist:source`).
+    **What the 2026-08-01 note missed:** the series was not accumulating at all. At
+    2026-08-01T14:27Z `startKick()` threw `SqliteError: database is locked` inside the one
+    synchronous boot block in `server.ts`, which truncated the rest of the sequence — the
+    daily snapshot generator (the only writer of `chain_reserve_history`), the SEO page
+    rebuild and the wallet balance sweep never started, and stayed dead for ~35h while the
+    process looked healthy. Fixed by fault-isolating every `startX()` (`boot()` helper in
+    `server.ts`) plus a best-effort guard in `kick.ts seedRoster()`; deployed and verified
+    2026-08-03. Lesson: **check `days` is actually advancing, not just `ready:false`** — a
+    frozen writer and a legitimately-young series look identical from the `ready` flag alone.
+    Verified on prod 2026-08-03: `GET /api/diag/chain-reserve-history` →
+    `{days:2, lastDay:"2026-08-03", distinctDailyTotals:2, sourceStalled:false, ready:false}`;
+    sweep freshness `rawFreshestAgeMin:0`. 2026-08-02 is a permanent one-day hole in the
+    series (nothing ran); harmless for the gate.
     Nothing to do until `ready:true` (needs `days>=21` AND `distinctDailyTotals>=ceil(days/2)`,
-    ~2026-08-22 at the earliest). Then build the page as **reserve-share drift across chains**
-    from `chain_reserve_history`, operator set fixed to mapped entities, visible FAQ + FAQPage
-    + Dataset JSON-LD, linked from the /data hub + llms.txt. Do NOT lower the gate to publish
-    early — a flat/near-flat series would be a misleading "migration" finding.
+    ~2026-08-22 at the earliest, assuming a row lands every day from here). Then build the page
+    as **reserve-share drift across chains** from `chain_reserve_history`, operator set fixed to
+    mapped entities, visible FAQ + FAQPage + Dataset JSON-LD, linked from the /data hub +
+    llms.txt. Do NOT lower the gate to publish early — a flat/near-flat series would be a
+    misleading "migration" finding.
 - [x] Add a "biggest crypto casino reserve movements this week" data story (top reserve gainers/losers by absolute USD, complementing the existing % reserve-drawdown page).
 
 <!-- Append new vetted items above this line. Keep them specific and self-contained. -->
